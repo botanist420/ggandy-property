@@ -1,0 +1,3 @@
+# 本機資料庫憑證；範例檔仍納入版本控制。
+config/ggandy.env
+!config/ggandy.env.example

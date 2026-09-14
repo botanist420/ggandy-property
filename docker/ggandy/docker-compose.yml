@@ -1,0 +1,58 @@
+name: ggandy_erp19
+
+services:
+  ggandy_web:
+    image: odoo:19.0
+    container_name: ggandy_odoo19_web
+    depends_on:
+      ggandy_db:
+        condition: service_healthy
+    env_file:
+      - ./config/ggandy.env
+    ports:
+      - "1025:8069" # Odoo Web
+      - "1026:8072" # Odoo WebSocket / gevent
+    volumes:
+      - ggandy_odoo19_data:/var/lib/odoo
+      - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
+      - ./addons:/mnt/extra-addons
+    networks:
+      - ggandy_backend
+    restart: unless-stopped
+    stop_grace_period: 1m
+
+  ggandy_db:
+    image: pgvector/pgvector:pg17-trixie
+    container_name: ggandy_postgres17_db
+    env_file:
+      - ./config/ggandy.env
+    shm_size: 1gb
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - work_mem=32MB
+    volumes:
+      - ggandy_postgres17_data:/var/lib/postgresql/data
+    networks:
+      - ggandy_backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 1m
+
+networks:
+  ggandy_backend:
+    name: ggandy_erp19_network
+    driver: bridge
+
+volumes:
+  ggandy_odoo19_data:
+    name: ggandy_odoo19_data
+  ggandy_postgres17_data:
+    name: ggandy_postgres17_data
