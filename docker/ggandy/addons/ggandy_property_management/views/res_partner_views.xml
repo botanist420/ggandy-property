@@ -9,6 +9,9 @@
                 <button name="action_view_ggandy_properties" type="object" class="oe_stat_button" icon="fa-building" invisible="ggandy_property_count == 0">
                     <field name="ggandy_property_count" widget="statinfo" string="持有物件"/>
                 </button>
+                <button name="action_view_ggandy_owner_contracts" type="object" class="oe_stat_button" icon="fa-handshake-o" invisible="ggandy_owner_contract_count == 0">
+                    <field name="ggandy_owner_contract_count" widget="statinfo" string="房東合約"/>
+                </button>
                 <button name="action_view_ggandy_leases" type="object" class="oe_stat_button" icon="fa-file-text-o" invisible="ggandy_lease_count == 0">
                     <field name="ggandy_lease_count" widget="statinfo" string="租約"/>
                 </button>
@@ -53,4 +56,3 @@
         <field name="context">{'default_is_ggandy_vendor': True}</field>
     </record>
 </odoo>
-

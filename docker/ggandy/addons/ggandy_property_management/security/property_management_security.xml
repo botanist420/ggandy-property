@@ -34,6 +34,11 @@
             <field name="model_id" ref="model_ggandy_property_unit"/>
             <field name="domain_force">[('company_id', 'in', company_ids)]</field>
         </record>
+        <record id="rule_owner_contract_company" model="ir.rule">
+            <field name="name">房東合約：多公司</field>
+            <field name="model_id" ref="model_ggandy_owner_contract"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
         <record id="rule_lease_company" model="ir.rule">
             <field name="name">租約：多公司</field>
             <field name="model_id" ref="model_ggandy_lease"/>
@@ -51,4 +56,3 @@
         </record>
     </data>
 </odoo>
-

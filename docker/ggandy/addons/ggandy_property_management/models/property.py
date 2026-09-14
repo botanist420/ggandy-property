@@ -97,11 +97,15 @@ class GgandyProperty(models.Model):
     )
 
     unit_ids = fields.One2many("ggandy.property.unit", "property_id", string="出租單位")
+    owner_contract_ids = fields.One2many(
+        "ggandy.owner.contract", "property_id", string="房東合約"
+    )
     lease_ids = fields.One2many("ggandy.lease", "property_id", string="租約")
     maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request", "property_id", string="報修單"
     )
     unit_count = fields.Integer(compute="_compute_counts")
+    owner_contract_count = fields.Integer(compute="_compute_counts")
     lease_count = fields.Integer(compute="_compute_counts")
     maintenance_count = fields.Integer(compute="_compute_counts")
 
@@ -137,10 +141,11 @@ class GgandyProperty(models.Model):
             ]
             record.address_display = " ".join(part for part in parts if part)
 
-    @api.depends("unit_ids", "lease_ids", "maintenance_request_ids")
+    @api.depends("unit_ids", "owner_contract_ids", "lease_ids", "maintenance_request_ids")
     def _compute_counts(self):
         for record in self:
             record.unit_count = len(record.unit_ids)
+            record.owner_contract_count = len(record.owner_contract_ids)
             record.lease_count = len(record.lease_ids)
             record.maintenance_count = len(record.maintenance_request_ids)
 
@@ -153,6 +158,24 @@ class GgandyProperty(models.Model):
             "view_mode": "list,form",
             "domain": [("property_id", "=", self.id)],
             "context": {"default_property_id": self.id},
+        }
+
+    def action_view_owner_contracts(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "房東合約",
+            "res_model": "ggandy.owner.contract",
+            "view_mode": "list,form",
+            "domain": [("property_id", "=", self.id)],
+            "context": {
+                "default_property_id": self.id,
+                "default_owner_id": self.owner_id.id,
+                "default_company_id": self.company_id.id,
+                "default_contract_type": self.management_mode
+                if self.management_mode in ("master_lease", "agency")
+                else "agency",
+            },
         }
 
     def action_view_leases(self):

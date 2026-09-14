@@ -14,6 +14,13 @@
         <field name="padding">5</field>
         <field name="company_id" eval="False"/>
     </record>
+    <record id="sequence_owner_contract" model="ir.sequence">
+        <field name="name">GGAndy 房東合約編號</field>
+        <field name="code">ggandy.owner.contract</field>
+        <field name="prefix">OWNER/%(year)s/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
     <record id="sequence_maintenance_request" model="ir.sequence">
         <field name="name">GGAndy 報修單號</field>
         <field name="code">ggandy.maintenance.request</field>
@@ -22,4 +29,3 @@
         <field name="company_id" eval="False"/>
     </record>
 </odoo>
-

@@ -19,6 +19,11 @@
               parent="menu_ggandy_operations"
               action="action_ggandy_property_unit"
               sequence="20"/>
+    <menuitem id="menu_ggandy_owner_contract"
+              name="房東合約"
+              parent="menu_ggandy_operations"
+              action="action_ggandy_owner_contract"
+              sequence="25"/>
     <menuitem id="menu_ggandy_lease"
               name="租約"
               parent="menu_ggandy_operations"
@@ -55,4 +60,3 @@
               action="action_ggandy_vendor"
               sequence="30"/>
 </odoo>
-

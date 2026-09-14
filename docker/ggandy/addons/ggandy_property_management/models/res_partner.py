@@ -18,6 +18,11 @@ class ResPartner(models.Model):
         "tenant_id",
         string="主承租租約",
     )
+    ggandy_owner_contract_ids = fields.One2many(
+        "ggandy.owner.contract",
+        "owner_id",
+        string="房東合約",
+    )
     ggandy_maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request",
         "vendor_id",
@@ -26,16 +31,19 @@ class ResPartner(models.Model):
 
     ggandy_property_count = fields.Integer(compute="_compute_ggandy_counts")
     ggandy_lease_count = fields.Integer(compute="_compute_ggandy_counts")
+    ggandy_owner_contract_count = fields.Integer(compute="_compute_ggandy_counts")
     ggandy_maintenance_count = fields.Integer(compute="_compute_ggandy_counts")
 
     @api.depends(
         "ggandy_owned_property_ids",
         "ggandy_lease_ids",
+        "ggandy_owner_contract_ids",
         "ggandy_maintenance_request_ids",
     )
     def _compute_ggandy_counts(self):
         Property = self.env["ggandy.property"]
         Lease = self.env["ggandy.lease"]
+        OwnerContract = self.env["ggandy.owner.contract"]
         Maintenance = self.env["ggandy.maintenance.request"]
         for partner in self:
             partner.ggandy_property_count = Property.search_count(
@@ -43,6 +51,9 @@ class ResPartner(models.Model):
             )
             partner.ggandy_lease_count = Lease.search_count(
                 ["|", ("tenant_id", "=", partner.id), ("co_tenant_ids", "in", partner.id)]
+            )
+            partner.ggandy_owner_contract_count = OwnerContract.search_count(
+                [("owner_id", "=", partner.id)]
             )
             partner.ggandy_maintenance_count = Maintenance.search_count(
                 [("vendor_id", "=", partner.id)]
@@ -70,6 +81,17 @@ class ResPartner(models.Model):
             "context": {"default_tenant_id": self.id},
         }
 
+    def action_view_ggandy_owner_contracts(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "房東合約",
+            "res_model": "ggandy.owner.contract",
+            "view_mode": "list,form",
+            "domain": [("owner_id", "=", self.id)],
+            "context": {"default_owner_id": self.id},
+        }
+
     def action_view_ggandy_maintenance(self):
         self.ensure_one()
         return {
@@ -80,4 +102,3 @@ class ResPartner(models.Model):
             "domain": [("vendor_id", "=", self.id)],
             "context": {"default_vendor_id": self.id},
         }
-

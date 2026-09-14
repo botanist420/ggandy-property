@@ -54,6 +54,9 @@
                         <button name="action_view_units" type="object" class="oe_stat_button" icon="fa-building">
                             <field name="unit_count" widget="statinfo" string="出租單位"/>
                         </button>
+                        <button name="action_view_owner_contracts" type="object" class="oe_stat_button" icon="fa-handshake-o">
+                            <field name="owner_contract_count" widget="statinfo" string="房東合約"/>
+                        </button>
                         <button name="action_view_leases" type="object" class="oe_stat_button" icon="fa-file-text-o">
                             <field name="lease_count" widget="statinfo" string="租約"/>
                         </button>

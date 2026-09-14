@@ -18,6 +18,7 @@
         "data/product_data.xml",
         "views/property_views.xml",
         "views/property_unit_views.xml",
+        "views/owner_contract_views.xml",
         "views/lease_views.xml",
         "views/rent_schedule_views.xml",
         "views/maintenance_request_views.xml",

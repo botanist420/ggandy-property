@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_owner_contract_search" model="ir.ui.view">
+        <field name="name">ggandy.owner.contract.search</field>
+        <field name="model">ggandy.owner.contract</field>
+        <field name="arch" type="xml">
+            <search string="搜尋房東合約">
+                <field name="name"/>
+                <field name="property_id"/>
+                <field name="owner_id"/>
+                <field name="manager_id"/>
+                <filter name="active_contract" string="生效中" domain="[('state', '=', 'active')]"/>
+                <filter name="draft" string="草稿" domain="[('state', '=', 'draft')]"/>
+                <filter name="master_lease" string="包租" domain="[('contract_type', '=', 'master_lease')]"/>
+                <filter name="agency" string="代管" domain="[('contract_type', '=', 'agency')]"/>
+                <filter name="ending_soon" string="90 天內到期"
+                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today()), ('end_date', '&lt;=', (context_today() + relativedelta(days=90)).strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
+                    <filter name="group_owner" string="房東" context="{'group_by': 'owner_id'}"/>
+                    <filter name="group_type" string="合約類型" context="{'group_by': 'contract_type'}"/>
+                    <filter name="group_state" string="狀態" context="{'group_by': 'state'}"/>
+                    <filter name="group_end_month" string="到期月份" context="{'group_by': 'end_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_ggandy_owner_contract_list" model="ir.ui.view">
+        <field name="name">ggandy.owner.contract.list</field>
+        <field name="model">ggandy.owner.contract</field>
+        <field name="arch" type="xml">
+            <list string="房東合約"
+                  decoration-success="state == 'active'"
+                  decoration-muted="state in ('expired', 'terminated', 'cancelled')">
+                <field name="name"/>
+                <field name="contract_type" widget="badge"
+                       decoration-success="contract_type == 'master_lease'"
+                       decoration-info="contract_type == 'agency'"/>
+                <field name="property_id"/>
+                <field name="owner_id"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+                <field name="guaranteed_rent" widget="monetary" optional="show"/>
+                <field name="fixed_fee" widget="monetary" optional="hide"/>
+                <field name="fee_rate" optional="hide"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="manager_id" widget="many2one_avatar_user" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'active'"
+                       decoration-warning="state == 'draft'"
+                       decoration-danger="state == 'cancelled'"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ggandy_owner_contract_form" model="ir.ui.view">
+        <field name="name">ggandy.owner.contract.form</field>
+        <field name="model">ggandy.owner.contract</field>
+        <field name="arch" type="xml">
+            <form string="房東合約">
+                <header>
+                    <button name="action_activate" type="object" string="合約生效" class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_mark_expired" type="object" string="標記到期" invisible="state != 'active'"/>
+                    <button name="action_terminate" type="object" string="提前終止" confirm="確定要提前終止這份房東合約？" invisible="state != 'active'"/>
+                    <button name="action_cancel" type="object" string="取消合約" confirm="確定要取消這份房東合約？" invisible="state != 'draft'"/>
+                    <button name="action_set_draft" type="object" string="退回草稿" invisible="state not in ('terminated', 'cancelled')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,expired,terminated,cancelled"/>
+                </header>
+                <sheet>
+                    <field name="active" invisible="1"/>
+                    <widget name="web_ribbon" title="已封存" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group string="簽約資訊">
+                            <field name="contract_type" widget="radio" readonly="state != 'draft'"/>
+                            <field name="property_id" readonly="state != 'draft'"/>
+                            <field name="owner_id" context="{'default_is_ggandy_owner': True}" readonly="state != 'draft'"/>
+                            <field name="co_owner_ids" widget="many2many_tags" invisible="not co_owner_ids"/>
+                            <field name="manager_id" widget="many2one_avatar_user"/>
+                        </group>
+                        <group string="合約期間">
+                            <field name="start_date" readonly="state != 'draft'"/>
+                            <field name="end_date" readonly="state != 'draft'"/>
+                            <field name="owner_payment_day"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="state != 'draft'"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group string="包租條件" invisible="contract_type != 'master_lease'">
+                        <group>
+                            <field name="guaranteed_rent" readonly="state != 'draft'"/>
+                            <field name="owner_deposit" readonly="state != 'draft'"/>
+                        </group>
+                        <group>
+                            <p class="text-muted">每月保底租金是管理公司固定支付給房東的租金；房客端租金仍由房客租約管理。</p>
+                        </group>
+                    </group>
+                    <group string="代管條件" invisible="contract_type != 'agency'">
+                        <group>
+                            <field name="fee_type" readonly="state != 'draft'"/>
+                            <field name="fee_rate" invisible="fee_type != 'percentage'" readonly="state != 'draft'"/>
+                            <field name="fixed_fee" invisible="fee_type != 'fixed'" readonly="state != 'draft'"/>
+                        </group>
+                        <group>
+                            <p class="text-muted">第一版只記錄代管費約定；房東月結單與實際撥款會在確認金流規則後另行實作。</p>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="合約條款與備註" name="notes">
+                            <field name="note" placeholder="續約條件、修繕責任、提前終止、空置期約定等……"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ggandy_owner_contract" model="ir.actions.act_window">
+        <field name="name">房東合約</field>
+        <field name="res_model">ggandy.owner.contract</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_ggandy_owner_contract_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">建立第一份房東包租或代管合約</p>
+            <p>這裡管理「管理公司 ↔ 房東」關係；房客租約請使用另一個租約選單。</p>
+        </field>
+    </record>
+</odoo>
