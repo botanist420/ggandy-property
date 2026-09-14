@@ -1,3 +1,10 @@
 # 本機資料庫憑證；範例檔仍納入版本控制。
 config/ggandy.env
 !config/ggandy.env.example
+
+# Python 執行時快取不可同步或提交，避免干擾遠端 Odoo 載入模組。
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
