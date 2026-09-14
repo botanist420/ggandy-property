@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_move_form_ggandy_property" model="ir.ui.view">
+        <field name="name">account.move.form.ggandy.property</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='sale_info_group']" position="inside">
+                <field name="ggandy_lease_id" invisible="move_type not in ('out_invoice', 'out_refund')" readonly="state != 'draft'"/>
+                <field name="ggandy_property_id" invisible="not ggandy_lease_id"/>
+                <field name="ggandy_unit_id" invisible="not ggandy_lease_id"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
+

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_lease_search" model="ir.ui.view">
+        <field name="name">ggandy.lease.search</field>
+        <field name="model">ggandy.lease</field>
+        <field name="arch" type="xml">
+            <search string="搜尋租約">
+                <field name="name"/>
+                <field name="property_id"/>
+                <field name="unit_id"/>
+                <field name="tenant_id"/>
+                <filter name="active_lease" string="生效中" domain="[('state', '=', 'active')]"/>
+                <filter name="draft" string="草稿" domain="[('state', '=', 'draft')]"/>
+                <filter name="ending_soon" string="90 天內到期"
+                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today()), ('end_date', '&lt;=', (context_today() + relativedelta(days=90)).strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
+                    <filter name="group_tenant" string="主承租人" context="{'group_by': 'tenant_id'}"/>
+                    <filter name="group_state" string="狀態" context="{'group_by': 'state'}"/>
+                    <filter name="group_end_month" string="到期月份" context="{'group_by': 'end_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_ggandy_lease_list" model="ir.ui.view">
+        <field name="name">ggandy.lease.list</field>
+        <field name="model">ggandy.lease</field>
+        <field name="arch" type="xml">
+            <list string="租約"
+                  decoration-success="state == 'active'"
+                  decoration-muted="state in ('expired', 'terminated', 'cancelled')">
+                <field name="name"/>
+                <field name="property_id"/>
+                <field name="unit_id"/>
+                <field name="tenant_id"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+                <field name="rent_amount" widget="monetary"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'active'"
+                       decoration-warning="state == 'draft'"
+                       decoration-danger="state == 'cancelled'"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ggandy_lease_form" model="ir.ui.view">
+        <field name="name">ggandy.lease.form</field>
+        <field name="model">ggandy.lease</field>
+        <field name="arch" type="xml">
+            <form string="租約">
+                <header>
+                    <button name="action_activate" type="object" string="租約生效" class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_generate_schedule" type="object" string="建立租金期次" invisible="state not in ('draft', 'active')"/>
+                    <button name="action_terminate" type="object" string="提前終止" confirm="確定要提前終止這份租約？" invisible="state != 'active'"/>
+                    <button name="action_cancel" type="object" string="取消租約" confirm="確定要取消這份租約？" invisible="state != 'draft'"/>
+                    <button name="action_set_draft" type="object" string="退回草稿" invisible="state not in ('terminated', 'cancelled')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,expired,terminated,cancelled"/>
+                </header>
+                <sheet>
+                    <field name="active" invisible="1"/>
+                    <widget name="web_ribbon" title="已封存" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_schedules" type="object" class="oe_stat_button" icon="fa-calendar-check-o">
+                            <field name="schedule_count" widget="statinfo" string="租金期次"/>
+                        </button>
+                        <button name="action_view_invoices" type="object" class="oe_stat_button" icon="fa-money">
+                            <field name="invoice_count" widget="statinfo" string="租金帳單"/>
+                        </button>
+                        <button name="action_view_maintenance" type="object" class="oe_stat_button" icon="fa-wrench">
+                            <field name="maintenance_count" widget="statinfo" string="報修單"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group string="租賃標的">
+                            <field name="property_id"/>
+                            <field name="unit_id" options="{'no_create': True}"/>
+                            <field name="tenant_id" context="{'default_is_ggandy_tenant': True}"/>
+                            <field name="co_tenant_ids" widget="many2many_tags" context="{'default_is_ggandy_tenant': True}"/>
+                        </group>
+                        <group string="租期與費用">
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                            <field name="rent_amount"/>
+                            <field name="management_fee"/>
+                            <field name="deposit_amount"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="收租設定">
+                            <field name="rent_due_day"/>
+                            <field name="auto_generate_schedule"/>
+                        </group>
+                        <group string="公司">
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="租金期次" name="rent_schedule">
+                            <div class="alert alert-info" role="alert" invisible="not auto_generate_schedule">
+                                第一版每月建立一筆完整租金，不會自動計算首尾月按日比例；生效前可修改設定，生效後也可調整尚未開單的期次。
+                            </div>
+                            <field name="schedule_ids" context="{'default_lease_id': id}">
+                                <list editable="bottom" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
+                                    <field name="period_start"/>
+                                    <field name="period_end"/>
+                                    <field name="due_date"/>
+                                    <field name="rent_amount"/>
+                                    <field name="management_fee" optional="show"/>
+                                    <field name="total_amount" sum="合計"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                    <field name="collection_state" widget="badge"/>
+                                    <field name="invoice_id" optional="show"/>
+                                    <button name="action_create_invoice" type="object" string="建立帳單" icon="fa-file-text-o" invisible="invoice_id"/>
+                                    <button name="action_open_invoice" type="object" string="開啟帳單" icon="fa-external-link" invisible="not invoice_id"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="報修紀錄" name="maintenance">
+                            <field name="maintenance_request_ids" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="title"/>
+                                    <field name="request_date"/>
+                                    <field name="priority" widget="priority"/>
+                                    <field name="vendor_id"/>
+                                    <field name="state" widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="合約備註" name="notes">
+                            <field name="note" placeholder="特殊約定、繳款方式、點交資訊等……"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ggandy_lease" model="ir.actions.act_window">
+        <field name="name">租約</field>
+        <field name="res_model">ggandy.lease</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_ggandy_lease_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">建立第一份房客租約</p>
+            <p>租約生效時可自動建立每月租金期次。</p>
+        </field>
+    </record>
+</odoo>

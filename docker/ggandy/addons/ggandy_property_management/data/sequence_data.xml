@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="sequence_property" model="ir.sequence">
+        <field name="name">GGAndy 物件編號</field>
+        <field name="code">ggandy.property</field>
+        <field name="prefix">PROP/%(year)s/</field>
+        <field name="padding">4</field>
+        <field name="company_id" eval="False"/>
+    </record>
+    <record id="sequence_lease" model="ir.sequence">
+        <field name="name">GGAndy 租約編號</field>
+        <field name="code">ggandy.lease</field>
+        <field name="prefix">LEASE/%(year)s/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
+    <record id="sequence_maintenance_request" model="ir.sequence">
+        <field name="name">GGAndy 報修單號</field>
+        <field name="code">ggandy.maintenance.request</field>
+        <field name="prefix">REPAIR/%(year)s/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
+</odoo>
+

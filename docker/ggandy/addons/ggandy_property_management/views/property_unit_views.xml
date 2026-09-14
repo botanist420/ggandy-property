@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_property_unit_search" model="ir.ui.view">
+        <field name="name">ggandy.property.unit.search</field>
+        <field name="model">ggandy.property.unit</field>
+        <field name="arch" type="xml">
+            <search string="搜尋出租單位">
+                <field name="name"/>
+                <field name="property_id"/>
+                <filter name="vacant" string="空房" domain="[('state', '=', 'vacant')]"/>
+                <filter name="occupied" string="已出租" domain="[('state', '=', 'occupied')]"/>
+                <filter name="maintenance" string="維修中" domain="[('state', '=', 'maintenance')]"/>
+                <separator/>
+                <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
+                    <filter name="group_state" string="出租狀態" context="{'group_by': 'state'}"/>
+                    <filter name="group_type" string="單位類型" context="{'group_by': 'unit_type'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_ggandy_property_unit_list" model="ir.ui.view">
+        <field name="name">ggandy.property.unit.list</field>
+        <field name="model">ggandy.property.unit</field>
+        <field name="arch" type="xml">
+            <list string="出租單位" multi_edit="1" decoration-muted="not active">
+                <field name="property_id"/>
+                <field name="name"/>
+                <field name="unit_type"/>
+                <field name="floor" optional="show"/>
+                <field name="area" optional="show"/>
+                <field name="monthly_rent" widget="monetary"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'occupied'"
+                       decoration-warning="state == 'maintenance'"
+                       decoration-info="state == 'reserved'"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="active" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ggandy_property_unit_form" model="ir.ui.view">
+        <field name="name">ggandy.property.unit.form</field>
+        <field name="model">ggandy.property.unit</field>
+        <field name="arch" type="xml">
+            <form string="出租單位">
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="vacant,reserved,occupied,maintenance,inactive" options="{'clickable': '1'}"/>
+                </header>
+                <sheet>
+                    <field name="active" invisible="1"/>
+                    <widget name="web_ribbon" title="已封存" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_leases" type="object" class="oe_stat_button" icon="fa-file-text-o">
+                            <field name="lease_count" widget="statinfo" string="租約"/>
+                        </button>
+                        <button name="action_view_maintenance" type="object" class="oe_stat_button" icon="fa-wrench">
+                            <field name="maintenance_count" widget="statinfo" string="報修單"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="例如：3F-A 或 101 房"/></h1>
+                    </div>
+                    <group>
+                        <group string="基本資料">
+                            <field name="property_id"/>
+                            <field name="unit_type"/>
+                            <field name="floor"/>
+                            <field name="area"/>
+                        </group>
+                        <group string="格局與租金">
+                            <field name="bedroom_count"/>
+                            <field name="bathroom_count"/>
+                            <field name="monthly_rent"/>
+                            <field name="deposit_months"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="租約紀錄">
+                            <field name="lease_ids" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="tenant_id"/>
+                                    <field name="start_date"/>
+                                    <field name="end_date"/>
+                                    <field name="rent_amount"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                    <field name="state" widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="備註">
+                            <field name="note"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ggandy_property_unit" model="ir.actions.act_window">
+        <field name="name">出租單位</field>
+        <field name="res_model">ggandy.property.unit</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_ggandy_property_unit_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">建立第一個出租單位</p>
+            <p>出租單位可以是一間房、一戶、一個店面或車位。</p>
+        </field>
+    </record>
+</odoo>

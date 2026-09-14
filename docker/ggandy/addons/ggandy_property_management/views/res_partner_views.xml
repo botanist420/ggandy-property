@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_ggandy_property" model="ir.ui.view">
+        <field name="name">res.partner.form.ggandy.property</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button name="action_view_ggandy_properties" type="object" class="oe_stat_button" icon="fa-building" invisible="ggandy_property_count == 0">
+                    <field name="ggandy_property_count" widget="statinfo" string="持有物件"/>
+                </button>
+                <button name="action_view_ggandy_leases" type="object" class="oe_stat_button" icon="fa-file-text-o" invisible="ggandy_lease_count == 0">
+                    <field name="ggandy_lease_count" widget="statinfo" string="租約"/>
+                </button>
+                <button name="action_view_ggandy_maintenance" type="object" class="oe_stat_button" icon="fa-wrench" invisible="ggandy_maintenance_count == 0">
+                    <field name="ggandy_maintenance_count" widget="statinfo" string="報修單"/>
+                </button>
+            </div>
+            <notebook position="inside">
+                <page string="包租代管" name="ggandy_property_management">
+                    <group string="身分類型">
+                        <field name="is_ggandy_owner"/>
+                        <field name="is_ggandy_tenant"/>
+                        <field name="is_ggandy_vendor"/>
+                    </group>
+                    <group string="說明">
+                        <p class="text-muted">同一位聯絡人可以同時具有房東、房客與維修廠商身分。</p>
+                    </group>
+                </page>
+            </notebook>
+        </field>
+    </record>
+
+    <record id="action_ggandy_owner" model="ir.actions.act_window">
+        <field name="name">房東</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('is_ggandy_owner', '=', True)]</field>
+        <field name="context">{'default_is_ggandy_owner': True}</field>
+    </record>
+    <record id="action_ggandy_tenant" model="ir.actions.act_window">
+        <field name="name">房客</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('is_ggandy_tenant', '=', True)]</field>
+        <field name="context">{'default_is_ggandy_tenant': True, 'default_company_type': 'person'}</field>
+    </record>
+    <record id="action_ggandy_vendor" model="ir.actions.act_window">
+        <field name="name">維修廠商</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('is_ggandy_vendor', '=', True)]</field>
+        <field name="context">{'default_is_ggandy_vendor': True}</field>
+    </record>
+</odoo>
+

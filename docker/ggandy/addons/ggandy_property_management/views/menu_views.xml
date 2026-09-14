@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ggandy_root"
+              name="包租代管"
+              sequence="30"
+              groups="ggandy_property_management.group_property_user"/>
+
+    <menuitem id="menu_ggandy_operations"
+              name="營運管理"
+              parent="menu_ggandy_root"
+              sequence="10"/>
+    <menuitem id="menu_ggandy_property"
+              name="物件"
+              parent="menu_ggandy_operations"
+              action="action_ggandy_property"
+              sequence="10"/>
+    <menuitem id="menu_ggandy_property_unit"
+              name="出租單位"
+              parent="menu_ggandy_operations"
+              action="action_ggandy_property_unit"
+              sequence="20"/>
+    <menuitem id="menu_ggandy_lease"
+              name="租約"
+              parent="menu_ggandy_operations"
+              action="action_ggandy_lease"
+              sequence="30"/>
+    <menuitem id="menu_ggandy_rent_schedule"
+              name="租金期次"
+              parent="menu_ggandy_operations"
+              action="action_ggandy_rent_schedule"
+              sequence="40"/>
+    <menuitem id="menu_ggandy_maintenance_request"
+              name="報修單"
+              parent="menu_ggandy_operations"
+              action="action_ggandy_maintenance_request"
+              sequence="50"/>
+
+    <menuitem id="menu_ggandy_contacts"
+              name="關係人"
+              parent="menu_ggandy_root"
+              sequence="20"/>
+    <menuitem id="menu_ggandy_owner"
+              name="房東"
+              parent="menu_ggandy_contacts"
+              action="action_ggandy_owner"
+              sequence="10"/>
+    <menuitem id="menu_ggandy_tenant"
+              name="房客"
+              parent="menu_ggandy_contacts"
+              action="action_ggandy_tenant"
+              sequence="20"/>
+    <menuitem id="menu_ggandy_vendor"
+              name="維修廠商"
+              parent="menu_ggandy_contacts"
+              action="action_ggandy_vendor"
+              sequence="30"/>
+</odoo>
+

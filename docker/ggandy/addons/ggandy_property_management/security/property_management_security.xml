@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="privilege_property_management" model="res.groups.privilege">
+        <field name="name">包租代管</field>
+        <field name="sequence">20</field>
+        <field name="category_id" ref="base.module_category_services"/>
+    </record>
+
+    <record id="group_property_user" model="res.groups">
+        <field name="name">使用者</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="privilege_property_management"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">可以管理物件、租約、租金期次與報修單，但不能刪除資料。</field>
+    </record>
+
+    <record id="group_property_manager" model="res.groups">
+        <field name="name">管理員</field>
+        <field name="sequence">20</field>
+        <field name="privilege_id" ref="privilege_property_management"/>
+        <field name="implied_ids" eval="[(4, ref('ggandy_property_management.group_property_user'))]"/>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+        <field name="comment">具有包租代管完整權限，包括刪除草稿或測試資料。</field>
+    </record>
+
+    <data noupdate="1">
+        <record id="rule_property_company" model="ir.rule">
+            <field name="name">包租代管物件：多公司</field>
+            <field name="model_id" ref="model_ggandy_property"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+        <record id="rule_property_unit_company" model="ir.rule">
+            <field name="name">出租單位：多公司</field>
+            <field name="model_id" ref="model_ggandy_property_unit"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+        <record id="rule_lease_company" model="ir.rule">
+            <field name="name">租約：多公司</field>
+            <field name="model_id" ref="model_ggandy_lease"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+        <record id="rule_rent_schedule_company" model="ir.rule">
+            <field name="name">租金期次：多公司</field>
+            <field name="model_id" ref="model_ggandy_rent_schedule"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+        <record id="rule_maintenance_request_company" model="ir.rule">
+            <field name="name">房屋報修：多公司</field>
+            <field name="model_id" ref="model_ggandy_maintenance_request"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+    </data>
+</odoo>
+

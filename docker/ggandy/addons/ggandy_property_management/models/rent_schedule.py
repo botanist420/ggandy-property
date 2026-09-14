@@ -1,0 +1,205 @@
+from odoo import api, fields, models
+from odoo.exceptions import UserError, ValidationError
+
+
+class GgandyRentSchedule(models.Model):
+    _name = "ggandy.rent.schedule"
+    _description = "租金期次"
+    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "due_date desc, id desc"
+
+    name = fields.Char(string="期次名稱", compute="_compute_name", store=True)
+    lease_id = fields.Many2one(
+        "ggandy.lease",
+        string="租約",
+        required=True,
+        ondelete="cascade",
+        index=True,
+    )
+    property_id = fields.Many2one(
+        "ggandy.property",
+        related="lease_id.property_id",
+        store=True,
+        readonly=True,
+    )
+    unit_id = fields.Many2one(
+        "ggandy.property.unit",
+        related="lease_id.unit_id",
+        store=True,
+        readonly=True,
+    )
+    tenant_id = fields.Many2one(
+        "res.partner",
+        related="lease_id.tenant_id",
+        store=True,
+        readonly=True,
+    )
+    company_id = fields.Many2one(
+        "res.company",
+        related="lease_id.company_id",
+        store=True,
+        readonly=True,
+        index=True,
+    )
+    currency_id = fields.Many2one(
+        "res.currency",
+        related="lease_id.currency_id",
+        store=True,
+        readonly=True,
+    )
+    period_start = fields.Date(string="計費開始", required=True, tracking=True)
+    period_end = fields.Date(string="計費結束", required=True, tracking=True)
+    due_date = fields.Date(string="繳款期限", required=True, tracking=True)
+    rent_amount = fields.Monetary(string="租金", required=True, tracking=True)
+    management_fee = fields.Monetary(string="管理費", tracking=True)
+    total_amount = fields.Monetary(
+        string="應收合計",
+        compute="_compute_total_amount",
+        store=True,
+    )
+    invoice_id = fields.Many2one(
+        "account.move",
+        string="客戶發票",
+        copy=False,
+        readonly=True,
+        ondelete="set null",
+    )
+    invoice_state = fields.Selection(related="invoice_id.state", string="發票狀態")
+    payment_state = fields.Selection(related="invoice_id.payment_state", string="付款狀態")
+    collection_state = fields.Selection(
+        [
+            ("uninvoiced", "尚未開單"),
+            ("draft", "草稿帳單"),
+            ("unpaid", "待收款"),
+            ("partial", "部分收款"),
+            ("paid", "已收款"),
+            ("overdue", "已逾期"),
+            ("cancelled", "已取消"),
+        ],
+        string="收租狀態",
+        compute="_compute_collection_state",
+    )
+    note = fields.Text(string="備註")
+
+    @api.depends("lease_id.name", "period_start")
+    def _compute_name(self):
+        for record in self:
+            period = record.period_start.strftime("%Y-%m") if record.period_start else ""
+            record.name = f"{record.lease_id.name or ''} / {period}".strip(" / ")
+
+    @api.depends("rent_amount", "management_fee")
+    def _compute_total_amount(self):
+        for record in self:
+            record.total_amount = record.rent_amount + record.management_fee
+
+    @api.depends("invoice_id", "invoice_id.state", "invoice_id.payment_state", "due_date")
+    def _compute_collection_state(self):
+        today = fields.Date.context_today(self)
+        for record in self:
+            if not record.invoice_id:
+                record.collection_state = "uninvoiced"
+            elif record.invoice_id.state == "cancel":
+                record.collection_state = "cancelled"
+            elif record.invoice_id.state == "draft":
+                record.collection_state = "draft"
+            elif record.invoice_id.payment_state == "paid":
+                record.collection_state = "paid"
+            elif record.invoice_id.payment_state == "partial":
+                record.collection_state = "partial"
+            elif record.due_date and record.due_date < today:
+                record.collection_state = "overdue"
+            else:
+                record.collection_state = "unpaid"
+
+    @api.constrains("period_start", "period_end", "due_date")
+    def _check_dates(self):
+        for record in self:
+            if record.period_start and record.period_end and record.period_end < record.period_start:
+                raise ValidationError("計費結束日不可早於開始日。")
+
+    @api.constrains("rent_amount", "management_fee")
+    def _check_amounts(self):
+        for record in self:
+            if record.rent_amount < 0 or record.management_fee < 0:
+                raise ValidationError("租金與管理費不可小於零。")
+
+    def action_create_invoice(self):
+        self.ensure_one()
+        if self.invoice_id:
+            return self.action_open_invoice()
+        if self.total_amount <= 0:
+            raise UserError("應收合計必須大於零。")
+        if not self.tenant_id:
+            raise UserError("租約必須設定主承租人。")
+
+        sale_journal = self.env["account.journal"].search(
+            [
+                ("type", "=", "sale"),
+                ("company_id", "=", self.company_id.id),
+            ],
+            limit=1,
+        )
+        if not sale_journal:
+            raise UserError(
+                "目前公司尚未設定銷售日記帳。請先到會計設定完成台灣會計本地化，"
+                "確認公司國家、會計科目與銷售日記帳後再建立租金帳單。"
+            )
+
+        rent_product = self.env.ref(
+            "ggandy_property_management.product_product_rent", raise_if_not_found=False
+        )
+        fee_product = self.env.ref(
+            "ggandy_property_management.product_product_management_fee", raise_if_not_found=False
+        )
+        invoice_lines = []
+        if self.rent_amount:
+            invoice_lines.append(
+                fields.Command.create(
+                    {
+                        "product_id": rent_product.id if rent_product else False,
+                        "name": f"{self.name} 租金",
+                        "quantity": 1,
+                        "price_unit": self.rent_amount,
+                    }
+                )
+            )
+        if self.management_fee:
+            invoice_lines.append(
+                fields.Command.create(
+                    {
+                        "product_id": fee_product.id if fee_product else False,
+                        "name": f"{self.name} 管理費",
+                        "quantity": 1,
+                        "price_unit": self.management_fee,
+                    }
+                )
+            )
+
+        invoice = self.env["account.move"].create(
+            {
+                "move_type": "out_invoice",
+                "journal_id": sale_journal.id,
+                "partner_id": self.tenant_id.id,
+                "invoice_date": fields.Date.context_today(self),
+                "invoice_date_due": self.due_date,
+                "invoice_origin": self.lease_id.name,
+                "ref": self.name,
+                "ggandy_lease_id": self.lease_id.id,
+                "invoice_line_ids": invoice_lines,
+            }
+        )
+        self.invoice_id = invoice
+        self.message_post(body=f"已建立租金帳單 {invoice.display_name}。")
+        return self.action_open_invoice()
+
+    def action_open_invoice(self):
+        self.ensure_one()
+        if not self.invoice_id:
+            raise UserError("尚未建立客戶發票。")
+        return {
+            "type": "ir.actions.act_window",
+            "name": "租金帳單",
+            "res_model": "account.move",
+            "res_id": self.invoice_id.id,
+            "view_mode": "form",
+        }

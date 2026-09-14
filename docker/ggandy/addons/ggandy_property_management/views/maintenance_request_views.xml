@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_maintenance_request_search" model="ir.ui.view">
+        <field name="name">ggandy.maintenance.request.search</field>
+        <field name="model">ggandy.maintenance.request</field>
+        <field name="arch" type="xml">
+            <search string="搜尋報修單">
+                <field name="name"/>
+                <field name="title"/>
+                <field name="property_id"/>
+                <field name="unit_id"/>
+                <field name="tenant_id"/>
+                <field name="vendor_id"/>
+                <field name="user_id"/>
+                <filter name="open" string="未完成" domain="[('state', 'not in', ('done', 'cancelled'))]"/>
+                <filter name="urgent" string="緊急" domain="[('priority', 'in', ('2', '3'))]"/>
+                <filter name="my_requests" string="我負責的" domain="[('user_id', '=', uid)]"/>
+                <separator/>
+                <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
+                    <filter name="group_state" string="狀態" context="{'group_by': 'state'}"/>
+                    <filter name="group_category" string="維修類型" context="{'group_by': 'category'}"/>
+                    <filter name="group_user" string="負責人" context="{'group_by': 'user_id'}"/>
+                    <filter name="group_vendor" string="廠商" context="{'group_by': 'vendor_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_ggandy_maintenance_request_list" model="ir.ui.view">
+        <field name="name">ggandy.maintenance.request.list</field>
+        <field name="model">ggandy.maintenance.request</field>
+        <field name="arch" type="xml">
+            <list string="報修單"
+                  decoration-danger="priority == '3' and state not in ('done', 'cancelled')"
+                  decoration-muted="state in ('done', 'cancelled')">
+                <field name="priority" widget="priority"/>
+                <field name="name"/>
+                <field name="title"/>
+                <field name="property_id"/>
+                <field name="unit_id"/>
+                <field name="category"/>
+                <field name="request_date"/>
+                <field name="user_id" widget="many2one_avatar_user" optional="show"/>
+                <field name="vendor_id" optional="show"/>
+                <field name="actual_cost" optional="hide"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'done'"
+                       decoration-warning="state in ('assigned', 'waiting')"
+                       decoration-info="state == 'in_progress'"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ggandy_maintenance_request_form" model="ir.ui.view">
+        <field name="name">ggandy.maintenance.request.form</field>
+        <field name="model">ggandy.maintenance.request</field>
+        <field name="arch" type="xml">
+            <form string="報修單">
+                <header>
+                    <button name="action_assign" type="object" string="確認指派" class="btn-primary" invisible="state != 'new'"/>
+                    <button name="action_start" type="object" string="開始處理" class="btn-primary" invisible="state not in ('new', 'assigned', 'waiting')"/>
+                    <button name="action_wait" type="object" string="等待中" invisible="state != 'in_progress'"/>
+                    <button name="action_done" type="object" string="完成" class="btn-primary" invisible="state not in ('assigned', 'in_progress', 'waiting')"/>
+                    <button name="action_cancel" type="object" string="取消" confirm="確定要取消這張報修單？" invisible="state in ('done', 'cancelled')"/>
+                    <button name="action_reopen" type="object" string="重新開啟" invisible="state not in ('done', 'cancelled')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="new,assigned,in_progress,waiting,done,cancelled"/>
+                </header>
+                <sheet>
+                    <field name="active" invisible="1"/>
+                    <widget name="web_ribbon" title="已封存" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="title"/>
+                        <h1><field name="title" placeholder="例如：浴室熱水器無法點火"/></h1>
+                        <div><field name="name" class="oe_inline"/></div>
+                    </div>
+                    <group>
+                        <group string="報修位置">
+                            <field name="property_id"/>
+                            <field name="unit_id" options="{'no_create': True}"/>
+                            <field name="lease_id" options="{'no_create': True}"/>
+                            <field name="tenant_id" context="{'default_is_ggandy_tenant': True}"/>
+                            <field name="reported_by_id"/>
+                        </group>
+                        <group string="處理資訊">
+                            <field name="priority" widget="priority"/>
+                            <field name="category"/>
+                            <field name="request_date"/>
+                            <field name="scheduled_date"/>
+                            <field name="completed_date" invisible="not completed_date"/>
+                            <field name="user_id" widget="many2one_avatar_user"/>
+                            <field name="vendor_id" context="{'default_is_ggandy_vendor': True}"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="問題說明" name="description">
+                            <field name="description" placeholder="故障情況、發生時間、是否影響居住等……"/>
+                        </page>
+                        <page string="處理結果" name="resolution">
+                            <field name="resolution" placeholder="處理方式、更換零件、保固資訊等……"/>
+                        </page>
+                        <page string="費用" name="cost">
+                            <group>
+                                <group>
+                                    <field name="estimated_cost"/>
+                                    <field name="actual_cost"/>
+                                    <field name="currency_id" invisible="1"/>
+                                </group>
+                                <group>
+                                    <field name="charged_to"/>
+                                    <field name="company_id" groups="base.group_multi_company"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ggandy_maintenance_request" model="ir.actions.act_window">
+        <field name="name">報修單</field>
+        <field name="res_model">ggandy.maintenance.request</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_ggandy_maintenance_request_search"/>
+        <field name="context">{'search_default_open': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">建立第一張房屋報修單</p>
+            <p>追蹤通報、指派、處理、費用歸屬與完成結果。</p>
+        </field>
+    </record>
+</odoo>

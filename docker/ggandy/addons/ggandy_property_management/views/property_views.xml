@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_property_search" model="ir.ui.view">
+        <field name="name">ggandy.property.search</field>
+        <field name="model">ggandy.property</field>
+        <field name="arch" type="xml">
+            <search string="搜尋物件">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="owner_id"/>
+                <field name="manager_id"/>
+                <field name="address_display"/>
+                <filter name="master_lease" string="包租" domain="[('management_mode', '=', 'master_lease')]"/>
+                <filter name="agency" string="代管" domain="[('management_mode', '=', 'agency')]"/>
+                <separator/>
+                <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_owner" string="主要房東" context="{'group_by': 'owner_id'}"/>
+                    <filter name="group_manager" string="管理人員" context="{'group_by': 'manager_id'}"/>
+                    <filter name="group_mode" string="經營模式" context="{'group_by': 'management_mode'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_ggandy_property_list" model="ir.ui.view">
+        <field name="name">ggandy.property.list</field>
+        <field name="model">ggandy.property</field>
+        <field name="arch" type="xml">
+            <list string="物件" multi_edit="1">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="management_mode" widget="badge"
+                       decoration-info="management_mode == 'agency'"
+                       decoration-success="management_mode == 'master_lease'"/>
+                <field name="owner_id"/>
+                <field name="address_display" optional="show"/>
+                <field name="manager_id" widget="many2one_avatar_user" optional="show"/>
+                <field name="unit_count" string="單位數" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ggandy_property_form" model="ir.ui.view">
+        <field name="name">ggandy.property.form</field>
+        <field name="model">ggandy.property</field>
+        <field name="arch" type="xml">
+            <form string="物件">
+                <sheet>
+                    <field name="active" invisible="1"/>
+                    <widget name="web_ribbon" title="已封存" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_units" type="object" class="oe_stat_button" icon="fa-building">
+                            <field name="unit_count" widget="statinfo" string="出租單位"/>
+                        </button>
+                        <button name="action_view_leases" type="object" class="oe_stat_button" icon="fa-file-text-o">
+                            <field name="lease_count" widget="statinfo" string="租約"/>
+                        </button>
+                        <button name="action_view_maintenance" type="object" class="oe_stat_button" icon="fa-wrench">
+                            <field name="maintenance_count" widget="statinfo" string="報修單"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="例如：大安信義館"/></h1>
+                        <div><field name="code" class="oe_inline"/></div>
+                    </div>
+                    <group>
+                        <group string="管理資訊">
+                            <field name="management_mode" widget="radio"/>
+                            <field name="property_type"/>
+                            <field name="owner_id" context="{'default_is_ggandy_owner': True}"/>
+                            <field name="co_owner_ids" widget="many2many_tags" context="{'default_is_ggandy_owner': True}"/>
+                            <field name="manager_id" widget="many2one_avatar_user"/>
+                        </group>
+                        <group string="地址">
+                            <field name="zip"/>
+                            <field name="state_id" domain="[('country_id', '=', country_id)]"/>
+                            <field name="city"/>
+                            <field name="street" placeholder="路、街、段、巷、弄、號"/>
+                            <field name="street2"/>
+                            <field name="country_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="管理期間">
+                            <field name="acquisition_date"/>
+                            <field name="management_end_date"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="出租單位" name="units">
+                            <field name="unit_ids" context="{'default_property_id': id}">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="unit_type"/>
+                                    <field name="floor"/>
+                                    <field name="area"/>
+                                    <field name="monthly_rent" widget="monetary"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'occupied'"
+                                           decoration-warning="state == 'maintenance'"
+                                           decoration-info="state == 'reserved'"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="備註" name="notes">
+                            <field name="note" placeholder="物件設備、管理注意事項、門禁資訊等……"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ggandy_property" model="ir.actions.act_window">
+        <field name="name">物件</field>
+        <field name="res_model">ggandy.property</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_ggandy_property_search"/>
+        <field name="context">{'search_default_group_manager': 0}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">建立第一個包租或代管物件</p>
+            <p>先登記房東與地址，再加入房間或其他出租單位。</p>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_rent_schedule_search" model="ir.ui.view">
+        <field name="name">ggandy.rent.schedule.search</field>
+        <field name="model">ggandy.rent.schedule</field>
+        <field name="arch" type="xml">
+            <search string="搜尋租金期次">
+                <field name="name"/>
+                <field name="lease_id"/>
+                <field name="property_id"/>
+                <field name="unit_id"/>
+                <field name="tenant_id"/>
+                <filter name="uninvoiced" string="尚未開單" domain="[('invoice_id', '=', False)]"/>
+                <filter name="invoiced" string="已建立帳單" domain="[('invoice_id', '!=', False)]"/>
+                <filter name="due_this_month" string="本月到期"
+                        domain="[('due_date', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')), ('due_date', '&lt;', (context_today() + relativedelta(day=1, months=1)).strftime('%Y-%m-%d'))]"/>
+                <group>
+                    <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
+                    <filter name="group_tenant" string="房客" context="{'group_by': 'tenant_id'}"/>
+                    <filter name="group_due_month" string="繳款月份" context="{'group_by': 'due_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_ggandy_rent_schedule_list" model="ir.ui.view">
+        <field name="name">ggandy.rent.schedule.list</field>
+        <field name="model">ggandy.rent.schedule</field>
+        <field name="arch" type="xml">
+            <list string="租金期次" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
+                <field name="name"/>
+                <field name="property_id"/>
+                <field name="unit_id"/>
+                <field name="tenant_id"/>
+                <field name="due_date"/>
+                <field name="rent_amount"/>
+                <field name="management_fee" optional="show"/>
+                <field name="total_amount" sum="應收合計"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="collection_state" widget="badge"
+                       decoration-danger="collection_state == 'overdue'"
+                       decoration-success="collection_state == 'paid'"
+                       decoration-warning="collection_state == 'partial'"/>
+                <field name="invoice_id" optional="show"/>
+                <button name="action_create_invoice" type="object" string="建立帳單" icon="fa-file-text-o" invisible="invoice_id"/>
+                <button name="action_open_invoice" type="object" string="開啟" icon="fa-external-link" invisible="not invoice_id"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ggandy_rent_schedule_form" model="ir.ui.view">
+        <field name="name">ggandy.rent.schedule.form</field>
+        <field name="model">ggandy.rent.schedule</field>
+        <field name="arch" type="xml">
+            <form string="租金期次">
+                <header>
+                    <button name="action_create_invoice" type="object" string="建立租金帳單" class="btn-primary" invisible="invoice_id"/>
+                    <button name="action_open_invoice" type="object" string="開啟帳單" invisible="not invoice_id"/>
+                    <field name="collection_state" widget="statusbar" statusbar_visible="uninvoiced,draft,unpaid,partial,paid,overdue,cancelled"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="租約資料">
+                            <field name="lease_id"/>
+                            <field name="property_id"/>
+                            <field name="unit_id"/>
+                            <field name="tenant_id"/>
+                        </group>
+                        <group string="計費期間">
+                            <field name="period_start"/>
+                            <field name="period_end"/>
+                            <field name="due_date"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="應收金額">
+                            <field name="rent_amount" readonly="invoice_id"/>
+                            <field name="management_fee" readonly="invoice_id"/>
+                            <field name="total_amount"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="帳單">
+                            <field name="invoice_id" readonly="1"/>
+                            <field name="invoice_state" invisible="not invoice_id"/>
+                            <field name="payment_state" invisible="not invoice_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <group string="備註">
+                        <field name="note" nolabel="1"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ggandy_rent_schedule" model="ir.actions.act_window">
+        <field name="name">租金期次</field>
+        <field name="res_model">ggandy.rent.schedule</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_ggandy_rent_schedule_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">尚未建立租金期次</p>
+            <p>開啟租約並按「建立租金期次」，或讓租約在生效時自動產生。</p>
+        </field>
+    </record>
+</odoo>

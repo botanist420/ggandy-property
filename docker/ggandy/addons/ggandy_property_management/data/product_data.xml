@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="product_product_rent" model="product.product">
+        <field name="name">房屋租金</field>
+        <field name="default_code">GGANDY-RENT</field>
+        <field name="type">service</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+    </record>
+    <record id="product_product_management_fee" model="product.product">
+        <field name="name">租屋管理費</field>
+        <field name="default_code">GGANDY-MGMT-FEE</field>
+        <field name="type">service</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+    </record>
+</odoo>
+
