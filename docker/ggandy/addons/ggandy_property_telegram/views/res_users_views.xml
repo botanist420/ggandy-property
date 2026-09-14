@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_users_form_ggandy_telegram" model="ir.ui.view">
+        <field name="name">res.users.form.ggandy.telegram</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page string="GGAndy Telegram" name="ggandy_telegram"
+                      groups="ggandy_property_management.group_property_manager">
+                    <group>
+                        <group string="授權">
+                            <field name="telegram_enabled"/>
+                            <field name="telegram_user_id"
+                                   placeholder="例如：123456789"
+                                   readonly="not telegram_enabled"/>
+                        </group>
+                        <group string="連線狀態">
+                            <field name="telegram_username"/>
+                            <field name="telegram_chat_id"/>
+                            <field name="telegram_last_seen"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        只有啟用此選項、填入 Telegram User ID，且具有「包租代管／管理員」權限的 Odoo 使用者可以操作 Bot。
+                    </div>
+                </page>
+            </notebook>
+        </field>
+    </record>
+</odoo>
+

@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ggandy_telegram_log_manager,ggandy.telegram.log manager,model_ggandy_telegram_log,ggandy_property_management.group_property_manager,1,0,0,0
+

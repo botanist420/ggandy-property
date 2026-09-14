@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_telegram_log_search" model="ir.ui.view">
+        <field name="name">ggandy.telegram.log.search</field>
+        <field name="model">ggandy.telegram.log</field>
+        <field name="arch" type="xml">
+            <search string="搜尋 Telegram 紀錄">
+                <field name="telegram_user_id"/>
+                <field name="telegram_username"/>
+                <field name="user_id"/>
+                <field name="command"/>
+                <filter name="denied" string="未授權" domain="[('status', '=', 'denied')]"/>
+                <filter name="errors" string="錯誤" domain="[('status', '=', 'error')]"/>
+                <group>
+                    <filter name="group_status" string="處理結果" context="{'group_by': 'status'}"/>
+                    <filter name="group_user" string="Odoo 使用者" context="{'group_by': 'user_id'}"/>
+                    <filter name="group_day" string="日期" context="{'group_by': 'create_date:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_ggandy_telegram_log_list" model="ir.ui.view">
+        <field name="name">ggandy.telegram.log.list</field>
+        <field name="model">ggandy.telegram.log</field>
+        <field name="arch" type="xml">
+            <list string="Telegram Bot 紀錄" create="0" edit="0" delete="0"
+                  decoration-danger="status == 'error'"
+                  decoration-warning="status == 'denied'">
+                <field name="create_date" string="時間"/>
+                <field name="status" widget="badge"
+                       decoration-success="status == 'authorized'"
+                       decoration-warning="status == 'denied'"
+                       decoration-danger="status == 'error'"/>
+                <field name="command"/>
+                <field name="telegram_username"/>
+                <field name="telegram_user_id"/>
+                <field name="user_id"/>
+                <field name="message_text" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ggandy_telegram_log_form" model="ir.ui.view">
+        <field name="name">ggandy.telegram.log.form</field>
+        <field name="model">ggandy.telegram.log</field>
+        <field name="arch" type="xml">
+            <form string="Telegram Bot 紀錄" create="0" edit="0" delete="0">
+                <sheet>
+                    <group>
+                        <group string="Telegram">
+                            <field name="create_date"/>
+                            <field name="update_id"/>
+                            <field name="telegram_user_id"/>
+                            <field name="telegram_chat_id"/>
+                            <field name="telegram_username"/>
+                        </group>
+                        <group string="Odoo">
+                            <field name="direction"/>
+                            <field name="status"/>
+                            <field name="command"/>
+                            <field name="user_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <group string="收到的訊息">
+                        <field name="message_text" nolabel="1"/>
+                    </group>
+                    <group string="Bot 回覆">
+                        <field name="response_text" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ggandy_telegram_log" model="ir.actions.act_window">
+        <field name="name">Telegram 紀錄</field>
+        <field name="res_model">ggandy.telegram.log</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_ggandy_telegram_log_search"/>
+    </record>
+
+    <menuitem id="menu_ggandy_telegram_configuration"
+              name="Telegram"
+              parent="ggandy_property_management.menu_ggandy_root"
+              sequence="90"
+              groups="ggandy_property_management.group_property_manager"/>
+    <menuitem id="menu_ggandy_telegram_settings"
+              name="Telegram 設定"
+              parent="menu_ggandy_telegram_configuration"
+              action="action_ggandy_telegram_settings"
+              sequence="10"
+              groups="base.group_system"/>
+    <menuitem id="menu_ggandy_telegram_log"
+              name="訊息紀錄"
+              parent="menu_ggandy_telegram_configuration"
+              action="action_ggandy_telegram_log"
+              sequence="20"/>
+</odoo>
+

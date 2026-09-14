@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ggandy_telegram" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.ggandy.telegram</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="GGAndy Telegram" data-string="GGAndy Telegram"
+                     name="ggandy_property_telegram" groups="base.group_system">
+                    <block title="Telegram Bot" name="ggandy_telegram_bot_settings">
+                        <setting id="ggandy_telegram_token"
+                                 string="Bot 連線"
+                                 help="Token 只儲存在 Odoo 系統參數，不會寫入模組或 Git。">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="ggandy_telegram_bot_token" class="col-lg-3 o_light_label"/>
+                                    <field name="ggandy_telegram_bot_token" password="True" class="oe_inline"/>
+                                </div>
+                                <div class="row mt8" invisible="not ggandy_telegram_bot_username">
+                                    <label for="ggandy_telegram_bot_username" class="col-lg-3 o_light_label"/>
+                                    <field name="ggandy_telegram_bot_username" class="oe_inline"/>
+                                </div>
+                                <div class="row mt8">
+                                    <button name="action_test_ggandy_telegram_connection"
+                                            type="object"
+                                            string="測試 Telegram 連線"
+                                            class="btn-secondary"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting id="ggandy_telegram_polling"
+                                 string="本機輪詢模式"
+                                 help="每分鐘從 Telegram 取得一次新訊息，適合 localhost 開發環境。">
+                            <field name="ggandy_telegram_polling_enabled"/>
+                            <div class="content-group" invisible="not ggandy_telegram_polling_enabled">
+                                <div class="text-muted mt8">
+                                    若 Bot 目前設有 webhook，請先在 Telegram 移除 webhook，否則 getUpdates 不會收到訊息。
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_ggandy_telegram_settings" model="ir.actions.act_window">
+        <field name="name">Telegram 設定</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'ggandy_property_telegram'}</field>
+    </record>
+</odoo>
