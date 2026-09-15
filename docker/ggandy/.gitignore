@@ -2,7 +2,7 @@
 config/ggandy.env
 !config/ggandy.env.example
 
-# Python 執行時快取不可同步或提交，避免干擾遠端 Odoo 載入模組。
+# Python 執行時快取可在本機產生，但不提交到 Git。
 __pycache__/
 *.py[cod]
 *$py.class

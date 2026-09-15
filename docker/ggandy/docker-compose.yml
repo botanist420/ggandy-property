@@ -2,7 +2,10 @@ name: ggandy_erp19
 
 services:
   ggandy_web:
-    image: odoo:19.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ggandy_odoo19_ipykernel:19.0
     container_name: ggandy_odoo19_web
     depends_on:
       ggandy_db:
@@ -16,6 +19,7 @@ services:
       - ggandy_odoo19_data:/var/lib/odoo
       - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
       - ./addons:/mnt/extra-addons
+      - ../../notebook:/mnt/notebook
     networks:
       - ggandy_backend
     restart: unless-stopped
