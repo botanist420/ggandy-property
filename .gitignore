@@ -1,1 +1,17 @@
+# macOS / editor local state
 .DS_Store
+.vscode/
+
+# Local secrets and environment files
+docker/ggandy/config/ggandy.env
+!docker/ggandy/config/ggandy.env.example
+
+# Python runtime and tool caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Scratch scripts / local notebook helpers
+notebook/scripts/test.py
