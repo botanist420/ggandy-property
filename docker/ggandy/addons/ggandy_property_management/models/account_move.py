@@ -47,6 +47,15 @@ class AccountMove(models.Model):
         ondelete="restrict",
         help="用於 GGAndy 帳務總表歸集一般採購費用或員工代墊費用。",
     )
+    ggandy_expense_unit_id = fields.Many2one(
+        "ggandy.property.unit",
+        string="GGAndy 費用歸屬單位",
+        copy=False,
+        index=True,
+        ondelete="restrict",
+        domain="[('property_id', '=', ggandy_expense_property_id)]",
+        help="若費用可歸屬到特定出租單位，請填此欄位以便營運總表精準呈現。",
+    )
     ggandy_expense_kind = fields.Selection(
         [
             ("purchase", "採購費用"),

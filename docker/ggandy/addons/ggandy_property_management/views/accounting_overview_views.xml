@@ -7,12 +7,14 @@
             <search string="搜尋 GGAndy 帳務">
                 <field name="name"/>
                 <field name="property_id"/>
+                <field name="unit_id"/>
                 <field name="owner_id"/>
                 <filter name="current_month" string="本月"
                         domain="[('period_start', '=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
                 <group>
                     <filter name="group_period" string="月份" context="{'group_by': 'period_start:month'}"/>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
+                    <filter name="group_unit" string="租金單位" context="{'group_by': 'unit_id'}"/>
                     <filter name="group_owner" string="房東" context="{'group_by': 'owner_id'}"/>
                 </group>
             </search>
@@ -26,6 +28,7 @@
             <list string="GGAndy 帳務總表" decoration-success="net_cash_flow &gt;= 0" decoration-danger="net_cash_flow &lt; 0">
                 <field name="period_start" string="月份"/>
                 <field name="property_id"/>
+                <field name="unit_id"/>
                 <field name="owner_id"/>
                 <field name="rent_receivable" sum="租金應收"/>
                 <field name="rent_collected" sum="租金實收"/>
@@ -56,6 +59,7 @@
                             <field name="period_start"/>
                             <field name="period_end"/>
                             <field name="property_id"/>
+                            <field name="unit_id"/>
                             <field name="owner_id"/>
                             <field name="active_owner_contract_id"/>
                         </group>
@@ -94,7 +98,7 @@
         <field name="context">{'search_default_current_month': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">建立本月帳務總表</p>
-            <p>每日排程會自動替每個啟用中的物件建立本月資料，也可以使用「更新本月總表」。</p>
+            <p>每日排程會自動替每個啟用中的出租單位建立本月資料，也可以使用「更新本月總表」。</p>
         </field>
     </record>
 
