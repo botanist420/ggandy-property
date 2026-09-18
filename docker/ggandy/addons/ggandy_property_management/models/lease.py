@@ -190,6 +190,7 @@ class GgandyLease(models.Model):
             record.unit_id.state = "occupied"
             if record.auto_generate_schedule:
                 record._generate_rent_schedule()
+        self.env["ggandy.rent.schedule"]._cron_create_due_invoices()
         return True
 
     def action_set_draft(self):

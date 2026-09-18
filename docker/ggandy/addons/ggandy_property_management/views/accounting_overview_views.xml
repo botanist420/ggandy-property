@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_accounting_overview_search" model="ir.ui.view">
+        <field name="name">ggandy.accounting.overview.search</field>
+        <field name="model">ggandy.accounting.overview</field>
+        <field name="arch" type="xml">
+            <search string="搜尋 GGAndy 帳務">
+                <field name="name"/>
+                <field name="property_id"/>
+                <field name="owner_id"/>
+                <filter name="current_month" string="本月"
+                        domain="[('period_start', '=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+                <group>
+                    <filter name="group_period" string="月份" context="{'group_by': 'period_start:month'}"/>
+                    <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
+                    <filter name="group_owner" string="房東" context="{'group_by': 'owner_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_ggandy_accounting_overview_list" model="ir.ui.view">
+        <field name="name">ggandy.accounting.overview.list</field>
+        <field name="model">ggandy.accounting.overview</field>
+        <field name="arch" type="xml">
+            <list string="GGAndy 帳務總表" decoration-success="net_cash_flow &gt;= 0" decoration-danger="net_cash_flow &lt; 0">
+                <field name="period_start" string="月份"/>
+                <field name="property_id"/>
+                <field name="owner_id"/>
+                <field name="rent_receivable" sum="租金應收"/>
+                <field name="rent_collected" sum="租金實收"/>
+                <field name="tenant_deposit" sum="租金押金"/>
+                <field name="owner_payable" sum="房東應付"/>
+                <field name="owner_paid" sum="房東已付"/>
+                <field name="purchase_cost" sum="採購費用"/>
+                <field name="employee_advance" sum="員工代墊"/>
+                <field name="net_cash_flow" sum="現金流小計"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ggandy_accounting_overview_form" model="ir.ui.view">
+        <field name="name">ggandy.accounting.overview.form</field>
+        <field name="model">ggandy.accounting.overview</field>
+        <field name="arch" type="xml">
+            <form string="GGAndy 帳務">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group string="期間與物件">
+                            <field name="period_start"/>
+                            <field name="period_end"/>
+                            <field name="property_id"/>
+                            <field name="owner_id"/>
+                            <field name="active_owner_contract_id"/>
+                        </group>
+                        <group string="公司">
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group string="老闆總覽">
+                        <group>
+                            <field name="rent_receivable"/>
+                            <field name="rent_collected"/>
+                            <field name="tenant_deposit"/>
+                        </group>
+                        <group>
+                            <field name="owner_payable"/>
+                            <field name="owner_paid"/>
+                            <field name="purchase_cost"/>
+                            <field name="employee_advance"/>
+                            <field name="net_cash_flow"/>
+                        </group>
+                    </group>
+                    <group string="備註">
+                        <field name="note" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ggandy_accounting_overview" model="ir.actions.act_window">
+        <field name="name">營運總表</field>
+        <field name="res_model">ggandy.accounting.overview</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_ggandy_accounting_overview_search"/>
+        <field name="context">{'search_default_current_month': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">建立本月帳務總表</p>
+            <p>每日排程會自動替每個啟用中的物件建立本月資料，也可以使用「更新本月總表」。</p>
+        </field>
+    </record>
+
+    <record id="action_ggandy_accounting_overview_refresh" model="ir.actions.server">
+        <field name="name">更新本月總表</field>
+        <field name="model_id" ref="model_ggandy_accounting_overview"/>
+        <field name="state">code</field>
+        <field name="code">
+model.ensure_period_records()
+action = env.ref("ggandy_property_management.action_ggandy_accounting_overview").read()[0]
+        </field>
+    </record>
+
+    <menuitem id="menu_ggandy_accounting"
+              name="GGandy帳務"
+              parent="menu_ggandy_root"
+              sequence="80"
+              groups="ggandy_property_management.group_property_user"/>
+    <menuitem id="menu_ggandy_accounting_overview"
+              name="營運總表"
+              parent="menu_ggandy_accounting"
+              action="action_ggandy_accounting_overview"
+              sequence="10"/>
+    <menuitem id="menu_ggandy_accounting_refresh"
+              name="更新本月總表"
+              parent="menu_ggandy_accounting"
+              action="action_ggandy_accounting_overview_refresh"
+              sequence="90"/>
+</odoo>

@@ -54,5 +54,10 @@
             <field name="model_id" ref="model_ggandy_maintenance_request"/>
             <field name="domain_force">[('company_id', 'in', company_ids)]</field>
         </record>
+        <record id="rule_accounting_overview_company" model="ir.rule">
+            <field name="name">GGAndy 帳務總表：多公司</field>
+            <field name="model_id" ref="model_ggandy_accounting_overview"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
     </data>
 </odoo>

@@ -1,5 +1,10 @@
+import logging
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
+
+
+_logger = logging.getLogger(__name__)
 
 
 class GgandyRentSchedule(models.Model):
@@ -191,6 +196,22 @@ class GgandyRentSchedule(models.Model):
         self.invoice_id = invoice
         self.message_post(body=f"已建立租金帳單 {invoice.display_name}。")
         return self.action_open_invoice()
+
+    @api.model
+    def _cron_create_due_invoices(self):
+        today = fields.Date.context_today(self)
+        schedules = self.search(
+            [
+                ("invoice_id", "=", False),
+                ("period_start", "<=", today),
+                ("lease_id.state", "=", "active"),
+            ]
+        )
+        for schedule in schedules:
+            try:
+                schedule.action_create_invoice()
+            except Exception:
+                _logger.exception("Unable to create rent invoice for %s.", schedule.display_name)
 
     def action_open_invoice(self):
         self.ensure_one()

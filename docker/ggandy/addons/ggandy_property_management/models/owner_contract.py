@@ -1,5 +1,13 @@
+import calendar
+import logging
+
+from dateutil.relativedelta import relativedelta
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
+
+
+_logger = logging.getLogger(__name__)
 
 
 class GgandyOwnerContract(models.Model):
@@ -115,6 +123,12 @@ class GgandyOwnerContract(models.Model):
         ondelete="set null",
     )
     note = fields.Html(string="合約條款與備註")
+    vendor_bill_ids = fields.One2many(
+        "account.move",
+        "ggandy_owner_contract_id",
+        string="房東 Vendor Bills",
+    )
+    vendor_bill_count = fields.Integer(compute="_compute_vendor_bill_count")
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -199,6 +213,13 @@ class GgandyOwnerContract(models.Model):
             )
         return True
 
+    @api.depends("vendor_bill_ids")
+    def _compute_vendor_bill_count(self):
+        for record in self:
+            record.vendor_bill_count = len(
+                record.vendor_bill_ids.filtered(lambda move: move.move_type == "in_invoice")
+            )
+
     def action_set_draft(self):
         self.filtered(lambda record: record.state in ("terminated", "cancelled")).write(
             {"state": "draft"}
@@ -219,3 +240,142 @@ class GgandyOwnerContract(models.Model):
         self.filtered(lambda record: record.state == "draft").write({"state": "cancelled"})
         return True
 
+    def action_view_vendor_bills(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "房東 Vendor Bills",
+            "res_model": "account.move",
+            "view_mode": "list,form",
+            "domain": [
+                ("ggandy_owner_contract_id", "=", self.id),
+                ("move_type", "=", "in_invoice"),
+            ],
+            "context": {
+                "default_move_type": "in_invoice",
+                "default_ggandy_owner_contract_id": self.id,
+                "default_partner_id": self.owner_id.id,
+            },
+        }
+
+    @api.model
+    def _cron_create_owner_vendor_bills(self):
+        today = fields.Date.context_today(self)
+        contracts = self.search(
+            [
+                ("state", "=", "active"),
+                ("start_date", "<=", today),
+                ("end_date", ">=", today.replace(day=1)),
+            ]
+        )
+        for contract in contracts:
+            try:
+                contract._create_owner_vendor_bill_if_due(today)
+            except Exception:
+                _logger.exception("Unable to create owner vendor bill for %s.", contract.display_name)
+
+    def _create_owner_vendor_bill_if_due(self, today):
+        self.ensure_one()
+        period_start = today.replace(day=1)
+        period_end = period_start + relativedelta(months=1, days=-1)
+        settlement_day = min(
+            self.owner_payment_day,
+            calendar.monthrange(today.year, today.month)[1],
+        )
+        if today < today.replace(day=settlement_day):
+            return False
+        if self.end_date < period_start or self.start_date > period_end:
+            return False
+        return self._create_owner_vendor_bill(period_start, period_end)
+
+    def _create_owner_vendor_bill(self, period_start, period_end):
+        self.ensure_one()
+        existing = self.env["account.move"].search(
+            [
+                ("ggandy_owner_contract_id", "=", self.id),
+                ("ggandy_settlement_period_start", "=", period_start),
+                ("move_type", "=", "in_invoice"),
+                ("state", "!=", "cancel"),
+            ],
+            limit=1,
+        )
+        if existing:
+            return existing
+
+        amount, label = self._get_owner_settlement_amount(period_start, period_end)
+        if amount <= 0:
+            return self.env["account.move"]
+
+        purchase_journal = self.env["account.journal"].search(
+            [
+                ("type", "=", "purchase"),
+                ("company_id", "=", self.company_id.id),
+            ],
+            limit=1,
+        )
+        if not purchase_journal:
+            raise UserError("目前公司尚未設定採購日記帳，無法建立房東 vendor bill。")
+
+        product = self.env.ref(
+            "ggandy_property_management.product_product_owner_settlement",
+            raise_if_not_found=False,
+        )
+        bill = self.env["account.move"].create(
+            {
+                "move_type": "in_invoice",
+                "journal_id": purchase_journal.id,
+                "partner_id": self.owner_id.id,
+                "invoice_date": fields.Date.context_today(self),
+                "invoice_date_due": fields.Date.context_today(self),
+                "invoice_origin": self.name,
+                "ref": f"{self.name} / {period_start.strftime('%Y-%m')}",
+                "ggandy_owner_contract_id": self.id,
+                "ggandy_settlement_period_start": period_start,
+                "ggandy_settlement_period_end": period_end,
+                "invoice_line_ids": [
+                    fields.Command.create(
+                        {
+                            "product_id": product.id if product else False,
+                            "name": label,
+                            "quantity": 1,
+                            "price_unit": amount,
+                        }
+                    )
+                ],
+            }
+        )
+        self.message_post(body=f"已建立房東 Vendor Bill {bill.display_name}。")
+        return bill
+
+    def _get_owner_settlement_amount(self, period_start, period_end):
+        self.ensure_one()
+        period_label = period_start.strftime("%Y-%m")
+        if self.contract_type == "master_lease":
+            return self.guaranteed_rent, f"{self.name} {period_label} 包租保底租金"
+
+        rent_collected = self._get_agency_collected_rent(period_start, period_end)
+        if self.fee_type == "percentage":
+            management_fee = rent_collected * self.fee_rate / 100.0
+        else:
+            management_fee = self.fixed_fee if rent_collected else 0.0
+        amount = max(rent_collected - management_fee, 0.0)
+        return amount, f"{self.name} {period_label} 代管房東結算"
+
+    def _get_agency_collected_rent(self, period_start, period_end):
+        self.ensure_one()
+        schedules = self.env["ggandy.rent.schedule"].search(
+            [
+                ("property_id", "=", self.property_id.id),
+                ("period_start", ">=", period_start),
+                ("period_start", "<=", period_end),
+                ("invoice_id.state", "=", "posted"),
+            ]
+        )
+        collected = 0.0
+        for schedule in schedules:
+            invoice = schedule.invoice_id
+            if not invoice.amount_total:
+                continue
+            paid_ratio = max(invoice.amount_total - invoice.amount_residual, 0.0) / invoice.amount_total
+            collected += schedule.rent_amount * paid_ratio
+        return collected

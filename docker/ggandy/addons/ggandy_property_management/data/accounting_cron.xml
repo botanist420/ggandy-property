@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="ir_cron_create_due_rent_invoices" model="ir.cron">
+        <field name="name">GGAndy：自動建立租金帳單</field>
+        <field name="model_id" ref="model_ggandy_rent_schedule"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_create_due_invoices()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+
+    <record id="ir_cron_create_owner_vendor_bills" model="ir.cron">
+        <field name="name">GGAndy：自動建立房東 Vendor Bill</field>
+        <field name="model_id" ref="model_ggandy_owner_contract"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_create_owner_vendor_bills()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+
+    <record id="ir_cron_ensure_accounting_overview" model="ir.cron">
+        <field name="name">GGAndy：更新帳務總表月份</field>
+        <field name="model_id" ref="model_ggandy_accounting_overview"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_ensure_current_period_records()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

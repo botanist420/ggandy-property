@@ -9,8 +9,13 @@
                 <field name="ggandy_lease_id" invisible="move_type not in ('out_invoice', 'out_refund')" readonly="state != 'draft'"/>
                 <field name="ggandy_property_id" invisible="not ggandy_lease_id"/>
                 <field name="ggandy_unit_id" invisible="not ggandy_lease_id"/>
+                <field name="ggandy_owner_contract_id" invisible="move_type not in ('in_invoice', 'in_refund')" readonly="state != 'draft'"/>
+                <field name="ggandy_owner_property_id" invisible="not ggandy_owner_contract_id"/>
+                <field name="ggandy_expense_property_id" invisible="move_type not in ('in_invoice', 'in_refund')" readonly="state != 'draft'"/>
+                <field name="ggandy_expense_kind" invisible="not ggandy_expense_property_id" readonly="state != 'draft'"/>
+                <field name="ggandy_settlement_period_start" invisible="not ggandy_owner_contract_id" readonly="state != 'draft'"/>
+                <field name="ggandy_settlement_period_end" invisible="not ggandy_owner_contract_id" readonly="state != 'draft'"/>
             </xpath>
         </field>
     </record>
 </odoo>
-

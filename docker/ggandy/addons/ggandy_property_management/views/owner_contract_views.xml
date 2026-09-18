@@ -73,6 +73,11 @@
                 <sheet>
                     <field name="active" invisible="1"/>
                     <widget name="web_ribbon" title="已封存" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_vendor_bills" type="object" class="oe_stat_button" icon="fa-file-text-o">
+                            <field name="vendor_bill_count" widget="statinfo" string="Vendor Bills"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <label for="name"/>
                         <h1><field name="name"/></h1>
