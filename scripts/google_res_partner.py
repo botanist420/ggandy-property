@@ -148,10 +148,31 @@ def print_preview(df: pd.DataFrame) -> None:
         print(f"- {column}: {count}")
 
 
-def build_partner_values(row: pd.Series) -> dict:
+def execute_kw(models, db: str, uid: int, password: str, model: str, method: str, args, kwargs=None):
+    try:
+        return models.execute_kw(db, uid, password, model, method, args, kwargs or {})
+    except xmlrpc.client.Fault as error:
+        print("\n=== Odoo XML-RPC 錯誤 ===")
+        print(f"model: {model}")
+        print(f"method: {method}")
+        print(f"args: {args}")
+        print(f"kwargs: {kwargs or {}}")
+        print(f"faultCode: {error.faultCode}")
+        print(f"faultString:\n{error.faultString}")
+        raise
+
+
+def get_model_fields(models, db: str, uid: int, password: str, model: str) -> set[str]:
+    fields_info = execute_kw(models, db, uid, password, model, "fields_get", [[]])
+    return set(fields_info)
+
+
+def build_partner_values(row: pd.Series, available_fields: set[str]) -> dict:
     values = {}
     for csv_column, odoo_field in COLUMN_MAP.items():
         if csv_column not in row.index:
+            continue
+        if odoo_field not in available_fields:
             continue
         if csv_column in BOOLEAN_COLUMNS:
             values[odoo_field] = to_bool(row[csv_column])
@@ -162,7 +183,14 @@ def build_partner_values(row: pd.Series) -> dict:
     return values
 
 
-def find_existing_partner(models, db: str, uid: int, password: str, row: pd.Series):
+def find_existing_partner(
+    models,
+    db: str,
+    uid: int,
+    password: str,
+    row: pd.Series,
+    available_fields: set[str],
+):
     partner_key = clean_value(row.get("partner_key", ""))
     email = clean_value(row.get("email", ""))
     name = clean_value(row.get("name", ""))
@@ -170,19 +198,20 @@ def find_existing_partner(models, db: str, uid: int, password: str, row: pd.Seri
     mobile = clean_value(row.get("mobile", ""))
 
     search_domains = []
-    if partner_key:
+    if partner_key and "ref" in available_fields:
         search_domains.append([("ref", "=", partner_key)])
-    if email:
+    if email and "email" in available_fields:
         search_domains.append([("email", "=", email)])
-    if mobile:
+    if mobile and "mobile" in available_fields:
         search_domains.append([("mobile", "=", mobile)])
-    if phone:
+    if phone and "phone" in available_fields:
         search_domains.append([("phone", "=", phone)])
-    if name:
+    if name and "name" in available_fields:
         search_domains.append([("name", "=", name)])
 
     for domain in search_domains:
-        ids = models.execute_kw(
+        ids = execute_kw(
+            models,
             db,
             uid,
             password,
@@ -224,30 +253,55 @@ def main() -> int:
         return 1
 
     models = xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/object")
+    partner_fields = get_model_fields(models, db, uid, password, "res.partner")
+    skipped_fields = sorted(set(COLUMN_MAP.values()) - partner_fields)
+    if skipped_fields:
+        print("\n以下 Odoo res.partner 欄位不存在，會自動略過：")
+        for field_name in skipped_fields:
+            print(f"- {field_name}")
+
     created = 0
     updated = 0
     skipped = 0
 
     for index, row in df.iterrows():
-        values = build_partner_values(row)
+        values = build_partner_values(row, partner_fields)
         if not values.get("name"):
             print(f"[SKIP] 第 {index + 2} 列缺少 name")
             skipped += 1
             continue
 
-        partner_id = find_existing_partner(models, db, uid, password, row)
-        if partner_id:
-            models.execute_kw(
-                db, uid, password, "res.partner", "write", [[partner_id], values]
-            )
-            updated += 1
-            print(f"[UPDATE] res.partner({partner_id}) {values['name']}")
-        else:
-            partner_id = models.execute_kw(
-                db, uid, password, "res.partner", "create", [values]
-            )
-            created += 1
-            print(f"[CREATE] res.partner({partner_id}) {values['name']}")
+        try:
+            partner_id = find_existing_partner(models, db, uid, password, row, partner_fields)
+            if partner_id:
+                execute_kw(
+                    models,
+                    db,
+                    uid,
+                    password,
+                    "res.partner",
+                    "write",
+                    [[partner_id], values],
+                )
+                updated += 1
+                print(f"[UPDATE] res.partner({partner_id}) {values['name']}")
+            else:
+                partner_id = execute_kw(
+                    models,
+                    db,
+                    uid,
+                    password,
+                    "res.partner",
+                    "create",
+                    [values],
+                )
+                created += 1
+                print(f"[CREATE] res.partner({partner_id}) {values['name']}")
+        except xmlrpc.client.Fault:
+            print("\n=== 發生錯誤的 CSV 列 ===")
+            print(f"列號：{index + 2}")
+            print(row.to_dict())
+            return 1
 
     print("\n=== 匯入完成 ===")
     print(f"新增：{created}")
