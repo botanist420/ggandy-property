@@ -9,5 +9,14 @@
         <field name="interval_type">minutes</field>
         <field name="active" eval="True"/>
     </record>
-</odoo>
 
+    <record id="ir_cron_send_overdue_rent_digest" model="ir.cron">
+        <field name="name">GGAndy Telegram：逾期租金摘要</field>
+        <field name="model_id" ref="model_ggandy_telegram_log"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_send_overdue_rent_digest()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

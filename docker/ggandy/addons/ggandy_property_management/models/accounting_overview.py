@@ -53,12 +53,39 @@ class GgandyAccountingOverview(models.Model):
 
     rent_receivable = fields.Monetary(string="租金應收", compute="_compute_amounts")
     rent_collected = fields.Monetary(string="租金實收", compute="_compute_amounts")
+    rent_uncollected = fields.Monetary(string="租金未收", compute="_compute_amounts")
     tenant_deposit = fields.Monetary(string="租金押金", compute="_compute_amounts")
     owner_payable = fields.Monetary(string="房東應付", compute="_compute_amounts")
     owner_paid = fields.Monetary(string="房東已付", compute="_compute_amounts")
+    owner_unpaid = fields.Monetary(string="房東待付", compute="_compute_amounts")
     purchase_cost = fields.Monetary(string="採購費用", compute="_compute_amounts")
     employee_advance = fields.Monetary(string="員工代墊", compute="_compute_amounts")
     net_cash_flow = fields.Monetary(string="現金流小計", compute="_compute_amounts")
+    has_uncollected_rent = fields.Boolean(
+        string="有租金未收",
+        compute="_compute_amounts",
+        search="_search_has_uncollected_rent",
+    )
+    has_owner_unpaid = fields.Boolean(
+        string="有房東待付",
+        compute="_compute_amounts",
+        search="_search_has_owner_unpaid",
+    )
+    has_costs = fields.Boolean(
+        string="有成本",
+        compute="_compute_amounts",
+        search="_search_has_costs",
+    )
+    has_deposit_income = fields.Boolean(
+        string="有押金收入",
+        compute="_compute_amounts",
+        search="_search_has_deposit_income",
+    )
+    has_negative_cash_flow = fields.Boolean(
+        string="現金流為負",
+        compute="_compute_amounts",
+        search="_search_has_negative_cash_flow",
+    )
     note = fields.Text(string="備註")
 
     _unique_unit_period = models.Constraint(
@@ -92,12 +119,19 @@ class GgandyAccountingOverview(models.Model):
             record.active_owner_contract_id = False
             record.rent_receivable = 0.0
             record.rent_collected = 0.0
+            record.rent_uncollected = 0.0
             record.tenant_deposit = 0.0
             record.owner_payable = 0.0
             record.owner_paid = 0.0
+            record.owner_unpaid = 0.0
             record.purchase_cost = 0.0
             record.employee_advance = 0.0
             record.net_cash_flow = 0.0
+            record.has_uncollected_rent = False
+            record.has_owner_unpaid = False
+            record.has_costs = False
+            record.has_deposit_income = False
+            record.has_negative_cash_flow = False
 
             if (
                 not record.property_id
@@ -118,6 +152,7 @@ class GgandyAccountingOverview(models.Model):
             record.rent_collected = sum(
                 self._paid_amount(schedule.invoice_id) for schedule in schedules.filtered("invoice_id")
             )
+            record.rent_uncollected = max(record.rent_receivable - record.rent_collected, 0.0)
 
             leases = Lease.search(
                 [
@@ -154,6 +189,7 @@ class GgandyAccountingOverview(models.Model):
                 )
             record.owner_payable = sum(self._signed_total(move) for move in owner_bills) * owner_bill_ratio
             record.owner_paid = sum(self._paid_amount(move) for move in owner_bills) * owner_bill_ratio
+            record.owner_unpaid = max(record.owner_payable - record.owner_paid, 0.0)
 
             expense_domain = [
                 ("ggandy_expense_property_id", "=", record.property_id.id),
@@ -176,6 +212,50 @@ class GgandyAccountingOverview(models.Model):
                 - record.purchase_cost
                 - record.employee_advance
             )
+            record.has_uncollected_rent = record.rent_uncollected > 0
+            record.has_owner_unpaid = record.owner_unpaid > 0
+            record.has_costs = record.purchase_cost > 0 or record.employee_advance > 0
+            record.has_deposit_income = record.tenant_deposit > 0
+            record.has_negative_cash_flow = record.net_cash_flow < 0
+
+    @api.model
+    def _search_computed_flag(self, operator, value, predicate):
+        positive = (operator, value) not in (("=", False), ("!=", True))
+        records = self.search([]).filtered(predicate)
+        domain = [("id", "in", records.ids)]
+        return domain if positive else ["!", *domain]
+
+    @api.model
+    def _search_has_uncollected_rent(self, operator, value):
+        return self._search_computed_flag(
+            operator, value, lambda record: record.rent_uncollected > 0
+        )
+
+    @api.model
+    def _search_has_owner_unpaid(self, operator, value):
+        return self._search_computed_flag(
+            operator, value, lambda record: record.owner_unpaid > 0
+        )
+
+    @api.model
+    def _search_has_costs(self, operator, value):
+        return self._search_computed_flag(
+            operator,
+            value,
+            lambda record: record.purchase_cost > 0 or record.employee_advance > 0,
+        )
+
+    @api.model
+    def _search_has_deposit_income(self, operator, value):
+        return self._search_computed_flag(
+            operator, value, lambda record: record.tenant_deposit > 0
+        )
+
+    @api.model
+    def _search_has_negative_cash_flow(self, operator, value):
+        return self._search_computed_flag(
+            operator, value, lambda record: record.net_cash_flow < 0
+        )
 
     def _get_owner_bill_ratio(self):
         self.ensure_one()

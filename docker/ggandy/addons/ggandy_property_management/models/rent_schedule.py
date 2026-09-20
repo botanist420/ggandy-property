@@ -86,6 +86,35 @@ class GgandyRentSchedule(models.Model):
     )
     note = fields.Text(string="備註")
 
+    @api.model
+    def _get_unpaid_domain(self):
+        return [
+            ("invoice_id", "!=", False),
+            ("invoice_id.state", "!=", "cancel"),
+            "|",
+            ("invoice_id.state", "=", "draft"),
+            "&",
+            ("invoice_id.state", "=", "posted"),
+            ("invoice_id.payment_state", "not in", ("paid", "reversed")),
+        ]
+
+    @api.model
+    def _get_overdue_domain(self):
+        today = fields.Date.context_today(self)
+        return [
+            ("due_date", "<", today),
+            ("lease_id.state", "=", "active"),
+            "|",
+            ("invoice_id", "=", False),
+            "&",
+            ("invoice_id.state", "!=", "cancel"),
+            "|",
+            ("invoice_id.state", "=", "draft"),
+            "&",
+            ("invoice_id.state", "=", "posted"),
+            ("invoice_id.payment_state", "not in", ("paid", "reversed")),
+        ]
+
     @api.depends("lease_id.name", "period_start")
     def _compute_name(self):
         for record in self:
@@ -212,6 +241,45 @@ class GgandyRentSchedule(models.Model):
                 schedule.action_create_invoice()
             except Exception:
                 _logger.exception("Unable to create rent invoice for %s.", schedule.display_name)
+
+    @api.model
+    def _cron_create_overdue_rent_activities(self):
+        schedules = self.search(self._get_overdue_domain())
+        activity_type = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        model_id = self.env["ir.model"]._get_id(self._name)
+        if not activity_type or not model_id:
+            return
+
+        Activity = self.env["mail.activity"].sudo()
+        for schedule in schedules:
+            user = schedule.property_id.manager_id or schedule.lease_id.create_uid or self.env.user
+            existing = Activity.search_count(
+                [
+                    ("res_model_id", "=", model_id),
+                    ("res_id", "=", schedule.id),
+                    ("activity_type_id", "=", activity_type.id),
+                    ("user_id", "=", user.id),
+                    ("summary", "=", "逾期租金待處理"),
+                ]
+            )
+            if existing:
+                continue
+
+            currency = schedule.currency_id.symbol or schedule.currency_id.name or ""
+            Activity.create(
+                {
+                    "activity_type_id": activity_type.id,
+                    "summary": "逾期租金待處理",
+                    "note": (
+                        f"{schedule.display_name} 已逾期，"
+                        f"應收合計 {currency}{schedule.total_amount:,.0f}。"
+                    ),
+                    "date_deadline": fields.Date.context_today(schedule),
+                    "res_model_id": model_id,
+                    "res_id": schedule.id,
+                    "user_id": user.id,
+                }
+            )
 
     def action_open_invoice(self):
         self.ensure_one()

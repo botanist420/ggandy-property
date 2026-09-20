@@ -159,16 +159,28 @@ class GgandyTelegramLog(models.Model):
 
         if command == "/status":
             response = self._build_status_message(user)
+        elif command == "/overdue":
+            response = self._build_overdue_message(user)
+        elif command == "/leases":
+            response = self._build_expiring_leases_message(user)
+        elif command == "/maintenance":
+            response = self._build_maintenance_message(user)
         elif command in ("/start", "/help"):
             response = (
                 f"您好，{user.name}！\n"
                 "您已連結至 GGAndy Odoo 行動指揮中心。\n\n"
                 "目前可用指令：\n"
                 "/status - 今日營運摘要\n"
+                "/overdue - 逾期租金清單\n"
+                "/leases - 30 天內到期租約\n"
+                "/maintenance - 待處理維修\n"
                 "/help - 顯示指令說明"
             )
         else:
-            response = "目前不支援此指令。請輸入 /status 或 /help。"
+            response = (
+                "目前不支援此指令。請輸入 /status、/overdue、/leases、"
+                "/maintenance 或 /help。"
+            )
 
         self._send_and_log(
             token,
@@ -303,3 +315,153 @@ class GgandyTelegramLog(models.Model):
             f"30 天內到期租約：{expiring_count} 件"
         )
 
+    @api.model
+    def _build_overdue_message(self, user, limit=10):
+        company = user.company_id
+        Schedule = self.env["ggandy.rent.schedule"].with_user(user).with_company(company)
+        schedules = Schedule.search(
+            [("company_id", "=", company.id)] + Schedule._get_overdue_domain(),
+            order="due_date, property_id, unit_id",
+            limit=limit + 1,
+        )
+        if not schedules:
+            return "✅ 目前沒有逾期租金。"
+
+        currency = company.currency_id.symbol or company.currency_id.name
+        lines = ["⚠️ 逾期租金清單"]
+        total = 0.0
+        for schedule in schedules[:limit]:
+            paid = self._get_invoice_paid_amount(schedule.invoice_id)
+            unpaid = max(schedule.total_amount - paid, 0.0)
+            total += unpaid
+            lines.append(
+                "\n"
+                f"• {schedule.property_id.name} / {schedule.unit_id.name}\n"
+                f"  房客：{schedule.tenant_id.name}\n"
+                f"  到期：{schedule.due_date}｜未收：{currency}{unpaid:,.0f}"
+            )
+        if len(schedules) > limit:
+            lines.append(f"\n另有 {len(schedules) - limit} 筆未列出，請回 Odoo 查看租金期次。")
+        lines.append(f"\n未收合計：{currency}{total:,.0f}")
+        return "\n".join(lines)
+
+    @api.model
+    def _build_expiring_leases_message(self, user, limit=10):
+        company = user.company_id
+        Lease = self.env["ggandy.lease"].with_user(user).with_company(company)
+        today = fields.Date.context_today(self.with_user(user))
+        leases = Lease.search(
+            [
+                ("company_id", "=", company.id),
+                ("state", "=", "active"),
+                ("end_date", ">=", today),
+                ("end_date", "<=", today + timedelta(days=30)),
+            ],
+            order="end_date, property_id, unit_id",
+            limit=limit + 1,
+        )
+        if not leases:
+            return "✅ 30 天內沒有即將到期的租約。"
+
+        lines = ["📄 30 天內到期租約"]
+        for lease in leases[:limit]:
+            days_left = (lease.end_date - today).days
+            lines.append(
+                "\n"
+                f"• {lease.property_id.name} / {lease.unit_id.name}\n"
+                f"  房客：{lease.tenant_id.name}\n"
+                f"  到期：{lease.end_date}｜剩 {days_left} 天"
+            )
+        if len(leases) > limit:
+            lines.append(f"\n另有 {len(leases) - limit} 筆未列出，請回 Odoo 查看租約。")
+        return "\n".join(lines)
+
+    @api.model
+    def _build_maintenance_message(self, user, limit=10):
+        company = user.company_id
+        Maintenance = self.env["ggandy.maintenance.request"].with_user(user).with_company(company)
+        requests = Maintenance.search(
+            [
+                ("company_id", "=", company.id),
+                ("state", "not in", ("done", "cancelled")),
+            ],
+            order="priority desc, request_date",
+            limit=limit + 1,
+        )
+        if not requests:
+            return "✅ 目前沒有待處理維修。"
+
+        state_labels = dict(Maintenance._fields["state"].selection)
+        priority_labels = dict(Maintenance._fields["priority"].selection)
+        lines = ["🔧 待處理維修"]
+        for request in requests[:limit]:
+            target = request.unit_id.name or request.property_id.name
+            lines.append(
+                "\n"
+                f"• {request.title}\n"
+                f"  位置：{request.property_id.name} / {target}\n"
+                f"  狀態：{state_labels.get(request.state)}｜"
+                f"優先度：{priority_labels.get(request.priority)}"
+            )
+        if len(requests) > limit:
+            lines.append(f"\n另有 {len(requests) - limit} 筆未列出，請回 Odoo 查看報修單。")
+        return "\n".join(lines)
+
+    @api.model
+    def _get_invoice_paid_amount(self, invoice):
+        if not invoice or invoice.state != "posted":
+            return 0.0
+        return max(invoice.amount_total - invoice.amount_residual, 0.0)
+
+    @api.model
+    def _cron_send_overdue_rent_digest(self):
+        token = self._get_parameter("bot_token")
+        if not token:
+            return
+
+        users = self.env["res.users"].sudo().search(
+            [
+                ("telegram_enabled", "=", True),
+                ("telegram_chat_id", "!=", False),
+                ("active", "=", True),
+            ]
+        ).filtered(
+            lambda user: user._has_group("ggandy_property_management.group_property_manager")
+        )
+        today_key = fields.Date.context_today(self).isoformat()
+        sent_key = "overdue_digest_sent_date"
+        sent_date = self._get_parameter(sent_key)
+        if sent_date == today_key:
+            return
+
+        sent_any = False
+        for user in users:
+            message = self._build_overdue_message(user)
+            if "目前沒有逾期租金" in message:
+                continue
+            try:
+                TelegramAPIClient(token).send_message(user.telegram_chat_id, message)
+                status = "sent"
+            except TelegramAPIError as error:
+                status = "error"
+                message = f"{message}\n\n[傳送失敗：{error}]"
+                _logger.exception("Unable to send GGAndy overdue rent digest.")
+            self.sudo().create(
+                {
+                    "direction": "outgoing",
+                    "status": status,
+                    "command": "/overdue_digest",
+                    "response_text": message,
+                    "telegram_user_id": user.telegram_user_id,
+                    "telegram_chat_id": user.telegram_chat_id,
+                    "telegram_username": user.telegram_username,
+                    "user_id": user.id,
+                    "company_id": user.company_id.id,
+                }
+            )
+            sent_any = True
+
+        if sent_any:
+            self.env["ir.config_parameter"].sudo().set_param(
+                f"ggandy_property_telegram.{sent_key}", today_key
+            )

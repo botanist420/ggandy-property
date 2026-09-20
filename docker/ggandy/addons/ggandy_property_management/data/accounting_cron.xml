@@ -10,6 +10,16 @@
         <field name="active" eval="True"/>
     </record>
 
+    <record id="ir_cron_create_overdue_rent_activities" model="ir.cron">
+        <field name="name">GGAndy：建立逾期租金提醒</field>
+        <field name="model_id" ref="model_ggandy_rent_schedule"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_create_overdue_rent_activities()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+
     <record id="ir_cron_create_owner_vendor_bills" model="ir.cron">
         <field name="name">GGAndy：自動建立房東 Vendor Bill</field>
         <field name="model_id" ref="model_ggandy_owner_contract"/>

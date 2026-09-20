@@ -10,10 +10,14 @@
                 <field name="property_id"/>
                 <field name="unit_id"/>
                 <field name="tenant_id"/>
-                <filter name="uninvoiced" string="尚未開單" domain="[('invoice_id', '=', False)]"/>
-                <filter name="invoiced" string="已建立帳單" domain="[('invoice_id', '!=', False)]"/>
-                <filter name="due_this_month" string="本月到期"
+                <filter name="due_this_month" string="本月"
                         domain="[('due_date', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')), ('due_date', '&lt;', (context_today() + relativedelta(day=1, months=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="overdue" string="逾期"
+                        domain="[('due_date', '&lt;', context_today().strftime('%Y-%m-%d')), ('lease_id.state', '=', 'active'), '|', ('invoice_id', '=', False), '&amp;', ('invoice_id.state', '!=', 'cancel'), '|', ('invoice_id.state', '=', 'draft'), '&amp;', ('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'not in', ('paid', 'reversed'))]"/>
+                <filter name="uninvoiced" string="尚未開單" domain="[('invoice_id', '=', False)]"/>
+                <filter name="unpaid" string="未收款"
+                        domain="[('invoice_id', '!=', False), ('invoice_id.state', '!=', 'cancel'), '|', ('invoice_id.state', '=', 'draft'), '&amp;', ('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'not in', ('paid', 'reversed'))]"/>
+                <filter name="invoiced" string="已建立帳單" domain="[('invoice_id', '!=', False)]"/>
                 <group>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
                     <filter name="group_tenant" string="房客" context="{'group_by': 'tenant_id'}"/>

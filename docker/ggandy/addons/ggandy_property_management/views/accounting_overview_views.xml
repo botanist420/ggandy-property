@@ -11,6 +11,14 @@
                 <field name="owner_id"/>
                 <filter name="current_month" string="本月"
                         domain="[('period_start', '=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="previous_month" string="上月"
+                        domain="[('period_start', '=', (context_today() + relativedelta(day=1, months=-1)).strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="uncollected_rent" string="租金未收" domain="[('has_uncollected_rent', '=', True)]"/>
+                <filter name="owner_unpaid" string="房東待付" domain="[('has_owner_unpaid', '=', True)]"/>
+                <filter name="negative_cash_flow" string="現金流為負" domain="[('has_negative_cash_flow', '=', True)]"/>
+                <filter name="has_costs" string="有成本" domain="[('has_costs', '=', True)]"/>
+                <filter name="has_deposit_income" string="有押金" domain="[('has_deposit_income', '=', True)]"/>
                 <group>
                     <filter name="group_period" string="月份" context="{'group_by': 'period_start:month'}"/>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
@@ -32,13 +40,20 @@
                 <field name="owner_id"/>
                 <field name="rent_receivable" sum="租金應收"/>
                 <field name="rent_collected" sum="租金實收"/>
+                <field name="rent_uncollected" sum="租金未收" decoration-warning="rent_uncollected &gt; 0"/>
                 <field name="tenant_deposit" sum="租金押金"/>
                 <field name="owner_payable" sum="房東應付"/>
                 <field name="owner_paid" sum="房東已付"/>
+                <field name="owner_unpaid" sum="房東待付" decoration-warning="owner_unpaid &gt; 0"/>
                 <field name="purchase_cost" sum="採購費用"/>
                 <field name="employee_advance" sum="員工代墊"/>
                 <field name="net_cash_flow" sum="現金流小計"/>
                 <field name="currency_id" column_invisible="True"/>
+                <field name="has_uncollected_rent" column_invisible="True"/>
+                <field name="has_owner_unpaid" column_invisible="True"/>
+                <field name="has_negative_cash_flow" column_invisible="True"/>
+                <field name="has_costs" column_invisible="True"/>
+                <field name="has_deposit_income" column_invisible="True"/>
                 <field name="company_id" groups="base.group_multi_company" optional="hide"/>
             </list>
         </field>
@@ -72,11 +87,13 @@
                         <group>
                             <field name="rent_receivable"/>
                             <field name="rent_collected"/>
+                            <field name="rent_uncollected"/>
                             <field name="tenant_deposit"/>
                         </group>
                         <group>
                             <field name="owner_payable"/>
                             <field name="owner_paid"/>
+                            <field name="owner_unpaid"/>
                             <field name="purchase_cost"/>
                             <field name="employee_advance"/>
                             <field name="net_cash_flow"/>
