@@ -8,7 +8,12 @@ class GgandyPropertyUnit(models.Model):
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "property_id, floor, name"
 
-    name = fields.Char(string="房號／單位名稱", required=True, tracking=True)
+    name = fields.Char(
+        string="房號／單位名稱",
+        required=True,
+        tracking=True,
+        help="出租單位的名稱，例如 2F-A、B1 車位或 301。建議使用清楚、可辨識的命名。",
+    )
     active = fields.Boolean(default=True)
     property_id = fields.Many2one(
         "ggandy.property",
@@ -17,6 +22,7 @@ class GgandyPropertyUnit(models.Model):
         ondelete="restrict",
         tracking=True,
         index=True,
+        help="這個出租單位屬於哪個物件。若物件選錯，後續租約與報修也會跟著歸錯地方。",
     )
     company_id = fields.Many2one(
         "res.company",
@@ -45,13 +51,34 @@ class GgandyPropertyUnit(models.Model):
         required=True,
         default="suite",
         tracking=True,
+        help="單位類型會幫助分類與搜尋。它不會直接影響計算，但能讓報表更好讀。",
     )
-    floor = fields.Char(string="樓層")
-    area = fields.Float(string="坪數")
-    bedroom_count = fields.Integer(string="房間數")
-    bathroom_count = fields.Integer(string="衛浴數")
-    monthly_rent = fields.Monetary(string="參考月租", tracking=True)
-    deposit_months = fields.Float(string="押金月數", default=2.0)
+    floor = fields.Char(
+        string="樓層",
+        help="樓層或位置描述，例如 3F、B1、頂加。不是計算欄位，但現場溝通時很好用。",
+    )
+    area = fields.Float(
+        string="坪數",
+        help="單位坪數，提供管理與分析參考。若未填寫，坪效相關分析可能不完整。",
+    )
+    bedroom_count = fields.Integer(
+        string="房間數",
+        help="房間數量，方便描述物件。套房填 1 或依實際格局都可以，重點是團隊看得懂。",
+    )
+    bathroom_count = fields.Integer(
+        string="衛浴數",
+        help="衛浴數量。可作為帶看、維修與物件描述時的參考。",
+    )
+    monthly_rent = fields.Monetary(
+        string="參考月租",
+        tracking=True,
+        help="建立租約時會預設帶入的月租，也會用於帳務總表分攤房東應付金額。這格雖然叫參考，仍會影響部分計算。",
+    )
+    deposit_months = fields.Float(
+        string="押金月數",
+        default=2.0,
+        help="建立租約時，預設押金會用參考月租乘這個月數。填 2 就代表兩個月押金。",
+    )
     state = fields.Selection(
         [
             ("vacant", "空房"),
@@ -64,13 +91,20 @@ class GgandyPropertyUnit(models.Model):
         required=True,
         default="vacant",
         tracking=True,
+        help="目前出租狀態。租約生效或退回時，系統會嘗試自動調整空房／已出租；維修中、停用等特殊狀態則尊重你手動判斷。",
     )
     lease_ids = fields.One2many("ggandy.lease", "unit_id", string="租約紀錄")
     maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request", "unit_id", string="報修紀錄"
     )
-    lease_count = fields.Integer(compute="_compute_counts")
-    maintenance_count = fields.Integer(compute="_compute_counts")
+    lease_count = fields.Integer(
+        compute="_compute_counts",
+        help="這個單位的租約紀錄數量。包含歷史紀錄，不代表目前一定出租中。",
+    )
+    maintenance_count = fields.Integer(
+        compute="_compute_counts",
+        help="這個單位的報修紀錄數量。數字偏高時可以回頭看是不是設備該保養了。",
+    )
     note = fields.Html(string="單位備註")
 
     @api.depends("property_id.name", "name")

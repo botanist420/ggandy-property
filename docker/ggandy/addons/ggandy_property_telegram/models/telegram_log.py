@@ -14,13 +14,19 @@ class GgandyTelegramLog(models.Model):
     _description = "Telegram Bot 紀錄"
     _order = "create_date desc, id desc"
 
-    update_id = fields.Char(string="Telegram Update ID", index=True, readonly=True)
+    update_id = fields.Char(
+        string="Telegram Update ID",
+        index=True,
+        readonly=True,
+        help="Telegram 傳來的 update 編號，用來追蹤哪一則事件被處理。Debug 時可用它對照原始事件。",
+    )
     direction = fields.Selection(
         [("incoming", "接收"), ("outgoing", "傳送"), ("error", "錯誤")],
         string="方向",
         required=True,
         default="incoming",
         readonly=True,
+        help="這筆紀錄是接收、傳送或錯誤。排查時建議先看方向，再看處理結果。",
     )
     status = fields.Selection(
         [
@@ -33,14 +39,46 @@ class GgandyTelegramLog(models.Model):
         string="處理結果",
         required=True,
         readonly=True,
+        help="Bot 對這則訊息的處理狀態。denied 通常代表未授權，error 代表處理過程發生錯誤。",
     )
-    command = fields.Char(string="指令", readonly=True)
-    message_text = fields.Text(string="訊息內容", readonly=True)
-    response_text = fields.Text(string="回覆內容", readonly=True)
-    telegram_user_id = fields.Char(string="Telegram User ID", index=True, readonly=True)
-    telegram_chat_id = fields.Char(string="Telegram Chat ID", readonly=True)
-    telegram_username = fields.Char(string="Telegram 帳號", readonly=True)
-    user_id = fields.Many2one("res.users", string="Odoo 使用者", readonly=True, ondelete="set null")
+    command = fields.Char(
+        string="指令",
+        readonly=True,
+        help="系統從訊息中解析出的指令，例如 /start、/status。空白代表它可能只是一般文字，不一定是壞掉。",
+    )
+    message_text = fields.Text(
+        string="訊息內容",
+        readonly=True,
+        help="Telegram 收到的原始文字。排查時先看這裡，很多問題其實只是指令少打一個斜線。",
+    )
+    response_text = fields.Text(
+        string="回覆內容",
+        readonly=True,
+        help="Bot 回給使用者的內容，或錯誤紀錄附帶的訊息。排查時可先查看這裡。",
+    )
+    telegram_user_id = fields.Char(
+        string="Telegram User ID",
+        index=True,
+        readonly=True,
+        help="訊息來源的 Telegram 數字 ID。授權會用它對應 Odoo 使用者，而不是使用 @username。",
+    )
+    telegram_chat_id = fields.Char(
+        string="Telegram Chat ID",
+        readonly=True,
+        help="訊息所在聊天室 ID。Bot 需要透過它回覆正確聊天室。",
+    )
+    telegram_username = fields.Char(
+        string="Telegram 帳號",
+        readonly=True,
+        help="訊息來源的 Telegram 帳號名稱，主要給人看。它可能會改名，所以授權還是以 User ID 為準。",
+    )
+    user_id = fields.Many2one(
+        "res.users",
+        string="Odoo 使用者",
+        readonly=True,
+        ondelete="set null",
+        help="這則 Telegram 訊息成功對應到的 Odoo 使用者。若空白，多半是尚未授權或 User ID 沒綁好。",
+    )
     company_id = fields.Many2one(
         "res.company",
         string="公司",
@@ -48,6 +86,7 @@ class GgandyTelegramLog(models.Model):
         default=lambda self: self.env.company,
         readonly=True,
         index=True,
+        help="這筆 Telegram 紀錄所屬公司。多公司環境排查時很有用，避免 A 公司問 B 公司的 bot 怎麼沒回。",
     )
 
     @api.model

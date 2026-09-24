@@ -10,16 +10,19 @@ class ResConfigSettings(models.TransientModel):
     ggandy_telegram_bot_token = fields.Char(
         string="Bot Token",
         config_parameter="ggandy_property_telegram.bot_token",
+        help="Telegram BotFather 提供的 token，只會存到 Odoo 系統參數。請妥善保管，不要貼到公開訊息或文件中。",
     )
     ggandy_telegram_bot_username = fields.Char(
         string="Bot Username",
         config_parameter="ggandy_property_telegram.bot_username",
         readonly=True,
+        help="測試連線成功後由 Telegram 回傳的 bot 帳號。這格是確認你連到哪隻 bot，用來避免叫錯人。",
     )
     ggandy_telegram_polling_enabled = fields.Boolean(
         string="啟用訊息輪詢",
         config_parameter="ggandy_property_telegram.polling_enabled",
         default=False,
+        help="開啟後排程會定期向 Telegram 拉新訊息，適合 localhost 或沒有公開 webhook 的環境。正式環境若用 webhook，這格通常可以先關著。",
     )
 
     def action_test_ggandy_telegram_connection(self):
@@ -47,4 +50,3 @@ class ResConfigSettings(models.TransientModel):
                 "sticky": False,
             },
         }
-

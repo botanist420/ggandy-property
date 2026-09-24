@@ -7,7 +7,12 @@ class GgandyProperty(models.Model):
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "code, name"
 
-    name = fields.Char(string="物件名稱", required=True, tracking=True)
+    name = fields.Char(
+        string="物件名稱",
+        required=True,
+        tracking=True,
+        help="這個物件在 GGAndy 裡顯示的名稱。建議使用團隊一眼看得懂的命名。",
+    )
     code = fields.Char(
         string="物件編號",
         required=True,
@@ -15,6 +20,7 @@ class GgandyProperty(models.Model):
         readonly=True,
         default="New",
         index=True,
+        help="系統自動產生的物件編號，用來穩定辨識物件。名字可以改，編號盡量讓它安靜地當身分證。",
     )
     active = fields.Boolean(default=True)
     property_type = fields.Selection(
@@ -30,6 +36,7 @@ class GgandyProperty(models.Model):
         required=True,
         default="apartment",
         tracking=True,
+        help="物件的大致型態，方便篩選與管理。選不到完全相同的類型時，可先選最接近的。",
     )
     management_mode = fields.Selection(
         [
@@ -41,6 +48,7 @@ class GgandyProperty(models.Model):
         required=True,
         default="agency",
         tracking=True,
+        help="包租是公司向房東承租後再出租；代管是替房東管理並結算；混合則適合一個物件內有不同玩法。這格會影響房東合約預設值。",
     )
 
     owner_id = fields.Many2one(
@@ -49,6 +57,7 @@ class GgandyProperty(models.Model):
         required=True,
         ondelete="restrict",
         tracking=True,
+        help="此物件的主要房東。房東合約預設會帶入這位；共同屋主可另外記錄。",
     )
     co_owner_ids = fields.Many2many(
         "res.partner",
@@ -63,6 +72,7 @@ class GgandyProperty(models.Model):
         default=lambda self: self.env.user,
         tracking=True,
         ondelete="set null",
+        help="此物件主要負責的內部人員。逾期租金活動與日常追蹤會優先指派給此人。",
     )
 
     street = fields.Char(string="地址")
@@ -76,10 +86,22 @@ class GgandyProperty(models.Model):
         default=lambda self: self.env.company.country_id,
         ondelete="restrict",
     )
-    address_display = fields.Char(string="完整地址", compute="_compute_address_display")
+    address_display = fields.Char(
+        string="完整地址",
+        compute="_compute_address_display",
+        help="系統把郵遞區號、縣市、鄉鎮市區與地址欄位組合出的完整地址。",
+    )
 
-    acquisition_date = fields.Date(string="開始管理日", tracking=True)
-    management_end_date = fields.Date(string="管理截止日", tracking=True)
+    acquisition_date = fields.Date(
+        string="開始管理日",
+        tracking=True,
+        help="公司開始管理這個物件的日期。房東合約生效時會同步更新；若手動改，記得確認合約也說得通。",
+    )
+    management_end_date = fields.Date(
+        string="管理截止日",
+        tracking=True,
+        help="預計管理到哪一天。可用來篩選即將到期的管理案件。",
+    )
     note = fields.Html(string="內部備註")
 
     company_id = fields.Many2one(
@@ -104,10 +126,22 @@ class GgandyProperty(models.Model):
     maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request", "property_id", string="報修單"
     )
-    unit_count = fields.Integer(compute="_compute_counts")
-    owner_contract_count = fields.Integer(compute="_compute_counts")
-    lease_count = fields.Integer(compute="_compute_counts")
-    maintenance_count = fields.Integer(compute="_compute_counts")
+    unit_count = fields.Integer(
+        compute="_compute_counts",
+        help="這個物件底下的出租單位數量。若數字不對，先檢查單位是否建在別的物件底下。",
+    )
+    owner_contract_count = fields.Integer(
+        compute="_compute_counts",
+        help="此物件建立過的房東合約數量。同一期間只能有一份生效合約，請留意日期是否重疊。",
+    )
+    lease_count = fields.Integer(
+        compute="_compute_counts",
+        help="此物件底下的租約數量，包含歷史租約。它是履歷，不一定代表現在都出租中。",
+    )
+    maintenance_count = fields.Integer(
+        compute="_compute_counts",
+        help="此物件累積的報修單數量。數字變多時，不一定是壞事，也可能只是你管理得比較有紀錄。",
+    )
 
     @api.model_create_multi
     def create(self, vals_list):

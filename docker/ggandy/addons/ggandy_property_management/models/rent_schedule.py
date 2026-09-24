@@ -20,6 +20,7 @@ class GgandyRentSchedule(models.Model):
         required=True,
         ondelete="cascade",
         index=True,
+        help="這一期租金屬於哪份租約。刪掉租約時，相關期次也會一起移除。",
     )
     property_id = fields.Many2one(
         "ggandy.property",
@@ -52,15 +53,40 @@ class GgandyRentSchedule(models.Model):
         store=True,
         readonly=True,
     )
-    period_start = fields.Date(string="計費開始", required=True, tracking=True)
-    period_end = fields.Date(string="計費結束", required=True, tracking=True)
-    due_date = fields.Date(string="繳款期限", required=True, tracking=True)
-    rent_amount = fields.Monetary(string="租金", required=True, tracking=True)
-    management_fee = fields.Monetary(string="管理費", tracking=True)
+    period_start = fields.Date(
+        string="計費開始",
+        required=True,
+        tracking=True,
+        help="這一期租金涵蓋的第一天。第一期遇到月中入住時，會從租約開始日算起。",
+    )
+    period_end = fields.Date(
+        string="計費結束",
+        required=True,
+        tracking=True,
+        help="這一期租金涵蓋的最後一天。最後一期遇到月中退租時，會停在租約結束日。",
+    )
+    due_date = fields.Date(
+        string="繳款期限",
+        required=True,
+        tracking=True,
+        help="房客最晚應繳款日期。逾期判斷會看這個日期；期限已過且未收齊時，狀態會轉為已逾期。",
+    )
+    rent_amount = fields.Monetary(
+        string="租金",
+        required=True,
+        tracking=True,
+        help="這一期的租金本金。預設從租約每月租金帶入，但可針對單一期次調整，像臨時折讓或補收就不用改整份租約。",
+    )
+    management_fee = fields.Monetary(
+        string="管理費",
+        tracking=True,
+        help="這一期另外收的管理費。會和租金一起組成應收合計，對帳時也會一起納入。",
+    )
     total_amount = fields.Monetary(
         string="應收合計",
         compute="_compute_total_amount",
         store=True,
+        help="公式：租金 + 管理費。這是建立租金帳單前的應收金額，簡單但很關鍵。",
     )
     invoice_id = fields.Many2one(
         "account.move",
@@ -68,9 +94,18 @@ class GgandyRentSchedule(models.Model):
         copy=False,
         readonly=True,
         ondelete="set null",
+        help="由這一期建立出的客戶發票。已有發票時，再按建立帳單會直接開啟原帳單，不會重複建立。",
     )
-    invoice_state = fields.Selection(related="invoice_id.state", string="發票狀態")
-    payment_state = fields.Selection(related="invoice_id.payment_state", string="付款狀態")
+    invoice_state = fields.Selection(
+        related="invoice_id.state",
+        string="發票狀態",
+        help="顯示連結帳單的會計狀態，例如草稿、已過帳或取消。要不要算入實收，主要看它有沒有過帳。",
+    )
+    payment_state = fields.Selection(
+        related="invoice_id.payment_state",
+        string="付款狀態",
+        help="顯示連結帳單的付款狀態。部分收款也會被辨識，不只區分已付或未付。",
+    )
     collection_state = fields.Selection(
         [
             ("uninvoiced", "尚未開單"),
@@ -83,6 +118,7 @@ class GgandyRentSchedule(models.Model):
         ],
         string="收租狀態",
         compute="_compute_collection_state",
+        help="系統依帳單與付款狀態判斷：未開單、草稿、待收款、部分收款、已收款、已逾期或已取消。沒有發票先算未開單；過期又沒收齊，就會被標成已逾期。",
     )
     note = fields.Text(string="備註")
 

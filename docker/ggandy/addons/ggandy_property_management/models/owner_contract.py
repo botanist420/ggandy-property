@@ -48,6 +48,7 @@ class GgandyOwnerContract(models.Model):
         required=True,
         default="agency",
         tracking=True,
+        help="包租代表公司固定付房東保底租金；代管代表按實收租金扣代管費後結算給房東。",
     )
     property_id = fields.Many2one(
         "ggandy.property",
@@ -57,6 +58,7 @@ class GgandyOwnerContract(models.Model):
         tracking=True,
         index=True,
         check_company=True,
+        help="這份房東合約綁定的物件。合約生效後會同步更新物件的經營模式、房東與管理期間。",
     )
     owner_id = fields.Many2one(
         "res.partner",
@@ -64,29 +66,41 @@ class GgandyOwnerContract(models.Model):
         required=True,
         ondelete="restrict",
         tracking=True,
+        help="Vendor Bill 會開給這位房東。若有共同屋主，主要結算對象仍以這格為準。",
     )
     co_owner_ids = fields.Many2many(
         related="property_id.co_owner_ids",
         string="共同屋主",
         readonly=True,
     )
-    start_date = fields.Date(string="合約開始", required=True, tracking=True)
-    end_date = fields.Date(string="合約結束", required=True, tracking=True)
+    start_date = fields.Date(
+        string="合約開始",
+        required=True,
+        tracking=True,
+        help="房東合約開始日。自動建立房東 Vendor Bill 時，會檢查當月是否落在合約期間內。",
+    )
+    end_date = fields.Date(
+        string="合約結束",
+        required=True,
+        tracking=True,
+        help="房東合約最後一天。若結束日早於本月起始，系統不會再建立該合約的結算單。",
+    )
     owner_payment_day = fields.Integer(
         string="每月房東付款／結算日",
         default=10,
         required=True,
-        help="設定為 1 至 31；實際產生結算資料時，短月將使用當月最後一天。",
+        help="設定為 1 至 31；自動結算會等到當月這一天才建立房東 Vendor Bill。短月會使用當月最後一天。",
     )
 
     guaranteed_rent = fields.Monetary(
         string="每月保底租金",
         tracking=True,
-        help="包租模式下，公司每月應付房東的固定租金。",
+        help="包租模式下，公司每月應付房東的固定租金。即使房客尚未付款，仍會依合約計算房東應付金額。",
     )
     owner_deposit = fields.Monetary(
         string="公司支付房東押金",
         tracking=True,
+        help="公司付給房東的押金，用來記錄合約條件。目前不會自動進入每月房東結算。",
     )
     fee_type = fields.Selection(
         [
@@ -97,9 +111,19 @@ class GgandyOwnerContract(models.Model):
         default="percentage",
         required=True,
         tracking=True,
+        help="代管模式要怎麼扣服務費：按實收租金百分比，或每月固定金額。",
     )
-    fee_rate = fields.Float(string="代管費率 (%)", digits=(5, 2), tracking=True)
-    fixed_fee = fields.Monetary(string="每月固定代管費", tracking=True)
+    fee_rate = fields.Float(
+        string="代管費率 (%)",
+        digits=(5, 2),
+        tracking=True,
+        help="代管費採百分比時使用。房東結算會以實收租金乘上此比例扣除；填 10 代表 10%，不是 0.10。",
+    )
+    fixed_fee = fields.Monetary(
+        string="每月固定代管費",
+        tracking=True,
+        help="代管費採固定金額時使用。當月有實收租金才會扣這筆；完全沒收到租金時不會扣除。",
+    )
 
     company_id = fields.Many2one(
         "res.company",
@@ -128,7 +152,10 @@ class GgandyOwnerContract(models.Model):
         "ggandy_owner_contract_id",
         string="房東 Vendor Bills",
     )
-    vendor_bill_count = fields.Integer(compute="_compute_vendor_bill_count")
+    vendor_bill_count = fields.Integer(
+        compute="_compute_vendor_bill_count",
+        help="這份房東合約已建立的房東 Vendor Bill 數量。數字不代表已付款，仍需查看付款狀態。",
+    )
 
     @api.model_create_multi
     def create(self, vals_list):

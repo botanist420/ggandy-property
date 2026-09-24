@@ -21,18 +21,21 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
         string="Google Sheet URL",
         required=True,
         default=DEFAULT_PROPERTY_SHEET_URL,
+        help="貼上要匯入的 Google Sheet 連結。系統會轉成 CSV 讀取；若讀不到，請先確認工作表權限。",
     )
     owner_id = fields.Many2one(
         "res.partner",
         string="預設房東",
         required=True,
         default=lambda self: self.env.ref("base.partner_root"),
+        help="匯入新物件時預設帶入的主要房東。資料表沒有房東欄位時就靠它先頂上，之後可逐筆修正。",
     )
     manager_id = fields.Many2one(
         "res.users",
         string="預設管理人員",
         required=True,
         default=lambda self: self.env.ref("base.user_root"),
+        help="匯入新物件時預設負責的人。先指定窗口，後續報修與逾期提醒才有明確負責人。",
     )
     management_mode = fields.Selection(
         [
@@ -43,8 +46,13 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
         string="預設經營模式",
         required=True,
         default="mixed",
+        help="匯入物件時套用的經營模式。若 Google Sheet 沒有分包租或代管，可先用這格統一帶入，之後再逐筆調整。",
     )
-    result_html = fields.Html(string="匯入結果", readonly=True)
+    result_html = fields.Html(
+        string="匯入結果",
+        readonly=True,
+        help="匯入後顯示新增、更新、略過與前 80 筆訊息。若看到略過，先看是不是編號或案件名稱空白。",
+    )
 
     def action_import_properties(self):
         self.ensure_one()
@@ -226,7 +234,10 @@ class GgandyGoogleSheetContactImportWizard(models.TransientModel):
     _name = "ggandy.google.sheet.contact.import.wizard"
     _description = "從 Google Sheet 匯入聯絡人"
 
-    sheet_url = fields.Char(string="Google Sheet URL")
+    sheet_url = fields.Char(
+        string="Google Sheet URL",
+        help="預留給聯絡人匯入的 Google Sheet 連結。目前功能尚未實作。",
+    )
 
     def action_import_contacts(self):
         raise UserError("從 Google Sheet 匯入聯絡人尚未實作。")

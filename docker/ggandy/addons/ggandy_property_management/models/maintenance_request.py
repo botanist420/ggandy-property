@@ -16,7 +16,12 @@ class GgandyMaintenanceRequest(models.Model):
         default="New",
         index=True,
     )
-    title = fields.Char(string="報修主旨", required=True, tracking=True)
+    title = fields.Char(
+        string="報修主旨",
+        required=True,
+        tracking=True,
+        help="一句話講清楚問題，例如冷氣不冷、浴室漏水。主旨越清楚，日後搜尋越方便。",
+    )
     active = fields.Boolean(default=True)
     state = fields.Selection(
         [
@@ -38,6 +43,7 @@ class GgandyMaintenanceRequest(models.Model):
         string="優先度",
         default="0",
         tracking=True,
+        help="用來排序處理順序。非常緊急建議保留給會影響安全或居住的狀況。",
     )
     category = fields.Selection(
         [
@@ -55,6 +61,7 @@ class GgandyMaintenanceRequest(models.Model):
         required=True,
         default="other",
         tracking=True,
+        help="報修問題的大分類，方便後續統計常見維修類型。選不到精準類型時可先選其他，再把細節寫在問題說明。",
     )
     property_id = fields.Many2one(
         "ggandy.property",
@@ -63,6 +70,7 @@ class GgandyMaintenanceRequest(models.Model):
         ondelete="restrict",
         tracking=True,
         index=True,
+        help="報修發生在哪個物件。選定後出租單位會依物件篩選，先把地址定住，後面才不會跑偏。",
     )
     unit_id = fields.Many2one(
         "ggandy.property.unit",
@@ -70,18 +78,21 @@ class GgandyMaintenanceRequest(models.Model):
         ondelete="restrict",
         tracking=True,
         domain="[('property_id', '=', property_id)]",
+        help="報修發生的出租單位。選入後會自動嘗試帶出目前生效租約與房客，減少重複填寫。",
     )
     lease_id = fields.Many2one(
         "ggandy.lease",
         string="相關租約",
         ondelete="set null",
         domain="[('unit_id', '=', unit_id)]",
+        help="這張報修對應的租約。若選了出租單位，系統會先找生效中的租約；沒有也可以留空，不要硬湊。",
     )
     tenant_id = fields.Many2one(
         "res.partner",
         string="報修房客",
         ondelete="set null",
         tracking=True,
+        help="實際提出或受影響的房客。從生效租約帶出後，仍可依實際狀況調整。",
     )
     reported_by_id = fields.Many2one(
         "res.partner",
@@ -94,14 +105,24 @@ class GgandyMaintenanceRequest(models.Model):
         default=fields.Datetime.now,
         tracking=True,
     )
-    scheduled_date = fields.Datetime(string="預約處理時間", tracking=True)
-    completed_date = fields.Datetime(string="完成時間", copy=False, readonly=True)
+    scheduled_date = fields.Datetime(
+        string="預約處理時間",
+        tracking=True,
+        help="預計處理或到場時間。填寫後，內部人員與廠商比較容易掌握安排。",
+    )
+    completed_date = fields.Datetime(
+        string="完成時間",
+        copy=False,
+        readonly=True,
+        help="按下完成時由系統寫入。若要補充處理細節，請寫在處理結果。",
+    )
     user_id = fields.Many2one(
         "res.users",
         string="內部負責人",
         default=lambda self: self.env.user,
         ondelete="set null",
         tracking=True,
+        help="公司內部負責追蹤的人。即使外包給廠商，也建議保留一位內部窗口。",
     )
     vendor_id = fields.Many2one(
         "res.partner",
@@ -109,11 +130,27 @@ class GgandyMaintenanceRequest(models.Model):
         ondelete="restrict",
         tracking=True,
         domain="[('is_ggandy_vendor', '=', True)]",
+        help="負責維修的廠商。選到廠商後，系統會自動把聯絡人標記為 GGAndy 維修廠商，方便下次再找他。",
     )
-    description = fields.Html(string="問題說明", required=True)
-    resolution = fields.Html(string="處理結果")
-    estimated_cost = fields.Monetary(string="預估費用", tracking=True)
-    actual_cost = fields.Monetary(string="實際費用", tracking=True)
+    description = fields.Html(
+        string="問題說明",
+        required=True,
+        help="請記錄症狀、照片連結、發生時間與房客描述。前面寫清楚，後面追蹤會省很多時間。",
+    )
+    resolution = fields.Html(
+        string="處理結果",
+        help="完成前必填。建議記錄處理內容、更換項目，以及是否需要後續追蹤。",
+    )
+    estimated_cost = fields.Monetary(
+        string="預估費用",
+        tracking=True,
+        help="處理前的費用預估，用來先抓預算。實際金額可在結案後補上。",
+    )
+    actual_cost = fields.Monetary(
+        string="實際費用",
+        tracking=True,
+        help="最後實際發生的費用。若與預估差異較大，建議在處理結果補充原因，方便日後對帳。",
+    )
     charged_to = fields.Selection(
         [
             ("company", "管理公司負擔"),
@@ -125,6 +162,7 @@ class GgandyMaintenanceRequest(models.Model):
         default="pending",
         required=True,
         tracking=True,
+        help="這筆維修費最後由誰負擔。還沒確定可先放待確認，等確認後再更新。",
     )
     company_id = fields.Many2one(
         "res.company",
@@ -214,4 +252,3 @@ class GgandyMaintenanceRequest(models.Model):
     def action_reopen(self):
         self.write({"state": "new", "completed_date": False})
         return True
-

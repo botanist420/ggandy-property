@@ -4,9 +4,18 @@ from odoo import api, fields, models
 class ResPartner(models.Model):
     _inherit = "res.partner"
 
-    is_ggandy_owner = fields.Boolean(string="房東")
-    is_ggandy_tenant = fields.Boolean(string="房客")
-    is_ggandy_vendor = fields.Boolean(string="維修廠商")
+    is_ggandy_owner = fields.Boolean(
+        string="房東",
+        help="標記此聯絡人是 GGAndy 房東。建立物件或房東合約時會自動勾選，必要時也可手動調整。",
+    )
+    is_ggandy_tenant = fields.Boolean(
+        string="房客",
+        help="標記此聯絡人是 GGAndy 房客。建立租約時會自動勾選，之後篩選承租人比較快。",
+    )
+    is_ggandy_vendor = fields.Boolean(
+        string="維修廠商",
+        help="標記此聯絡人是 GGAndy 維修廠商。報修單選廠商時會用它篩選。",
+    )
 
     ggandy_owned_property_ids = fields.One2many(
         "ggandy.property",
@@ -29,10 +38,22 @@ class ResPartner(models.Model):
         string="承接報修單",
     )
 
-    ggandy_property_count = fields.Integer(compute="_compute_ggandy_counts")
-    ggandy_lease_count = fields.Integer(compute="_compute_ggandy_counts")
-    ggandy_owner_contract_count = fields.Integer(compute="_compute_ggandy_counts")
-    ggandy_maintenance_count = fields.Integer(compute="_compute_ggandy_counts")
+    ggandy_property_count = fields.Integer(
+        compute="_compute_ggandy_counts",
+        help="此聯絡人作為主要房東或共同屋主的物件數量。主要與共同都會列入計算。",
+    )
+    ggandy_lease_count = fields.Integer(
+        compute="_compute_ggandy_counts",
+        help="此聯絡人作為主承租人或共同承租人的租約數量。它是關係總覽，不代表每份都還在住。",
+    )
+    ggandy_owner_contract_count = fields.Integer(
+        compute="_compute_ggandy_counts",
+        help="此聯絡人作為簽約房東的合約數量。共同屋主不會算在這格，因為主要結算對象要看合約。",
+    )
+    ggandy_maintenance_count = fields.Integer(
+        compute="_compute_ggandy_counts",
+        help="此聯絡人作為維修廠商承接的報修單數量。可用來查看合作與維修紀錄。",
+    )
 
     @api.depends(
         "ggandy_owned_property_ids",

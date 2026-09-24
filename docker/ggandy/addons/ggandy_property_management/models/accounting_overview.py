@@ -9,8 +9,18 @@ class GgandyAccountingOverview(models.Model):
     _order = "period_start desc, property_id, unit_id"
 
     name = fields.Char(string="名稱", compute="_compute_name", store=True)
-    period_start = fields.Date(string="月份開始", required=True, index=True)
-    period_end = fields.Date(string="月份結束", required=True, index=True)
+    period_start = fields.Date(
+        string="月份開始",
+        required=True,
+        index=True,
+        help="這筆總表統計的起始日，通常是當月 1 號。月份選錯，後面的金額也會跟著跑偏。",
+    )
+    period_end = fields.Date(
+        string="月份結束",
+        required=True,
+        index=True,
+        help="這筆總表統計的最後一天，通常是月底。短月長月可交給系統處理。",
+    )
     property_id = fields.Many2one(
         "ggandy.property",
         string="物件",
@@ -36,6 +46,7 @@ class GgandyAccountingOverview(models.Model):
         "ggandy.owner.contract",
         string="當期房東合約",
         compute="_compute_amounts",
+        help="系統會抓這個月份內生效、且開始日最新的房東合約。若空白，通常是這段期間沒有生效合約，請先檢查合約日期與狀態。",
     )
     company_id = fields.Many2one(
         "res.company",
@@ -51,40 +62,85 @@ class GgandyAccountingOverview(models.Model):
         readonly=True,
     )
 
-    rent_receivable = fields.Monetary(string="租金應收", compute="_compute_amounts")
-    rent_collected = fields.Monetary(string="租金實收", compute="_compute_amounts")
-    rent_uncollected = fields.Monetary(string="租金未收", compute="_compute_amounts")
-    tenant_deposit = fields.Monetary(string="租金押金", compute="_compute_amounts")
-    owner_payable = fields.Monetary(string="房東應付", compute="_compute_amounts")
-    owner_paid = fields.Monetary(string="房東已付", compute="_compute_amounts")
-    owner_unpaid = fields.Monetary(string="房東待付", compute="_compute_amounts")
-    purchase_cost = fields.Monetary(string="採購費用", compute="_compute_amounts")
-    employee_advance = fields.Monetary(string="員工代墊", compute="_compute_amounts")
-    net_cash_flow = fields.Monetary(string="現金流小計", compute="_compute_amounts")
+    rent_receivable = fields.Monetary(
+        string="租金應收",
+        compute="_compute_amounts",
+        help="本月該出租單位所有租金期次的應收合計，也就是租金加管理費。請搭配租金實收一起判讀。",
+    )
+    rent_collected = fields.Monetary(
+        string="租金實收",
+        compute="_compute_amounts",
+        help="只計算已過帳帳單中實際收進來的金額。草稿帳單不會列入實收。",
+    )
+    rent_uncollected = fields.Monetary(
+        string="租金未收",
+        compute="_compute_amounts",
+        help="租金應收減租金實收，不會低於 0。這格有數字時，代表還有款項需要追蹤。",
+    )
+    tenant_deposit = fields.Monetary(
+        string="租金押金",
+        compute="_compute_amounts",
+        help="統計本月開始、且狀態為生效／到期／提前終止租約的押金。它是現金流收入，但不等同租金營收。",
+    )
+    owner_payable = fields.Monetary(
+        string="房東應付",
+        compute="_compute_amounts",
+        help="本月房東 Vendor Bill 金額，會依出租單位的參考月租比例分攤；若沒有參考月租，則平均分攤。",
+    )
+    owner_paid = fields.Monetary(
+        string="房東已付",
+        compute="_compute_amounts",
+        help="房東 Vendor Bill 中已實際付款的金額，同樣依出租單位比例分攤。未付款項不會列入已付。",
+    )
+    owner_unpaid = fields.Monetary(
+        string="房東待付",
+        compute="_compute_amounts",
+        help="房東應付減房東已付，不會低於 0。此欄位可用來追蹤仍待支付給房東的金額。",
+    )
+    purchase_cost = fields.Monetary(
+        string="採購費用",
+        compute="_compute_amounts",
+        help="抓採購帳單中歸屬到這個物件與出租單位、費用類型為採購費用的金額。要算準，帳單上的 GGAndy 歸屬欄位要記得填。",
+    )
+    employee_advance = fields.Monetary(
+        string="員工代墊",
+        compute="_compute_amounts",
+        help="抓採購帳單中標記為公司員工代墊的費用。代墊項目建議定期對帳，避免月底集中處理。",
+    )
+    net_cash_flow = fields.Monetary(
+        string="現金流小計",
+        compute="_compute_amounts",
+        help="公式：租金實收 + 押金 - 房東已付 - 採購費用 - 員工代墊。此欄位反映現金進出，不等同會計損益。",
+    )
     has_uncollected_rent = fields.Boolean(
         string="有租金未收",
         compute="_compute_amounts",
         search="_search_has_uncollected_rent",
+        help="租金未收大於 0 時會勾起來。可用來快速篩出需要追蹤的出租單位。",
     )
     has_owner_unpaid = fields.Boolean(
         string="有房東待付",
         compute="_compute_amounts",
         search="_search_has_owner_unpaid",
+        help="房東待付大於 0 時會勾起來。這是付款追蹤提醒，用來把待付帳款整理清楚。",
     )
     has_costs = fields.Boolean(
         string="有成本",
         compute="_compute_amounts",
         search="_search_has_costs",
+        help="採購費用或員工代墊任一有金額就會勾起來。用來提醒這個月份已有成本項目。",
     )
     has_deposit_income = fields.Boolean(
         string="有押金收入",
         compute="_compute_amounts",
         search="_search_has_deposit_income",
+        help="本月有租約押金時會勾起來。押金屬於現金流入，但不等同租金營收。",
     )
     has_negative_cash_flow = fields.Boolean(
         string="現金流為負",
         compute="_compute_amounts",
         search="_search_has_negative_cash_flow",
+        help="現金流小計小於 0 時會勾起來。建議檢查房東付款、成本與租金收款狀況。",
     )
     note = fields.Text(string="備註")
 

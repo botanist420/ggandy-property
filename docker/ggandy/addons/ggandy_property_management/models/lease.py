@@ -42,6 +42,7 @@ class GgandyLease(models.Model):
         ondelete="restrict",
         tracking=True,
         index=True,
+        help="這份租約掛在哪個物件底下。選對物件後，出租單位會跟著篩選，後續資料也會正確歸屬。",
     )
     unit_id = fields.Many2one(
         "ggandy.property.unit",
@@ -51,6 +52,7 @@ class GgandyLease(models.Model):
         tracking=True,
         index=True,
         domain="[('property_id', '=', property_id), ('active', '=', True)]",
+        help="實際出租的房號或單位。選定後會自動帶入物件、參考月租與押金；若帶出的金額不正確，請先檢查出租單位的參考資料。",
     )
     tenant_id = fields.Many2one(
         "res.partner",
@@ -58,6 +60,7 @@ class GgandyLease(models.Model):
         required=True,
         ondelete="restrict",
         tracking=True,
+        help="租金帳單會開給這位聯絡人。共同承租人可以記錄在下方，但收款對象以主承租人為準。",
     )
     co_tenant_ids = fields.Many2many(
         "res.partner",
@@ -66,20 +69,44 @@ class GgandyLease(models.Model):
         "partner_id",
         string="共同承租人／居住人",
     )
-    start_date = fields.Date(string="租期開始", required=True, tracking=True)
-    end_date = fields.Date(string="租期結束", required=True, tracking=True)
-    rent_amount = fields.Monetary(string="每月租金", required=True, tracking=True)
-    deposit_amount = fields.Monetary(string="押金", tracking=True)
-    management_fee = fields.Monetary(string="每月管理費", tracking=True)
+    start_date = fields.Date(
+        string="租期開始",
+        required=True,
+        tracking=True,
+        help="租約正式開始日。建立租金期次時，第一期會從這天開始，不會硬從月初起算。",
+    )
+    end_date = fields.Date(
+        string="租期結束",
+        required=True,
+        tracking=True,
+        help="租約最後一天。建立期次時，最後一期會切到這天為止，短租或提前結束比較不會算歪。",
+    )
+    rent_amount = fields.Monetary(
+        string="每月租金",
+        required=True,
+        tracking=True,
+        help="每月固定租金，建立租金期次時會複製到每一期。若只是某一期特殊折讓，建議只調整該期次。",
+    )
+    deposit_amount = fields.Monetary(
+        string="押金",
+        tracking=True,
+        help="承租人支付的押金。從出租單位選入時，預設為參考月租乘押金月數；押金不等同租金收入。",
+    )
+    management_fee = fields.Monetary(
+        string="每月管理費",
+        tracking=True,
+        help="每月向房客收取的管理費。建立期次時會和租金相加成應收合計，小小一格，月底對帳時很有存在感。",
+    )
     rent_due_day = fields.Integer(
         string="每月繳租日",
         required=True,
         default=5,
-        help="設定為 1 至 31；若該月沒有此日期，系統會使用當月最後一天。",
+        help="設定為 1 至 31；若該月沒有此日期，系統會使用當月最後一天，例如二月會自動順到月底。",
     )
     auto_generate_schedule = fields.Boolean(
         string="生效時建立租金期次",
         default=True,
+        help="租約生效時自動按月份建立租金期次，從租期開始一路排到租期結束，可少很多手動排表時間。",
     )
     company_id = fields.Many2one(
         "res.company",
@@ -101,9 +128,18 @@ class GgandyLease(models.Model):
     maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request", "lease_id", string="報修單"
     )
-    schedule_count = fields.Integer(compute="_compute_counts")
-    invoice_count = fields.Integer(compute="_compute_counts")
-    maintenance_count = fields.Integer(compute="_compute_counts")
+    schedule_count = fields.Integer(
+        compute="_compute_counts",
+        help="這份租約底下的租金期次數量。若數字少一截，通常是期次還沒產生或租期日期要檢查。",
+    )
+    invoice_count = fields.Integer(
+        compute="_compute_counts",
+        help="這份租約已建立的客戶發票數量，只計算租金帳單。此數字不代表已收款。",
+    )
+    maintenance_count = fields.Integer(
+        compute="_compute_counts",
+        help="這份租約相關的報修單數量。若突然變多，建議回頭檢查設備或居住狀況。",
+    )
     note = fields.Html(string="合約備註")
 
     @api.model_create_multi
