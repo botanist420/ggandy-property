@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_google_sheet_property_import_wizard_form" model="ir.ui.view">
+        <field name="name">ggandy.google.sheet.property.import.wizard.form</field>
+        <field name="model">ggandy.google.sheet.property.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="從 Google Sheet 匯入物件">
+                <group>
+                    <field name="sheet_url" placeholder="貼上 Google Sheet URL"/>
+                    <field name="owner_id"/>
+                    <field name="manager_id"/>
+                    <field name="management_mode"/>
+                </group>
+                <group invisible="not result_html">
+                    <field name="result_html" nolabel="1"/>
+                </group>
+                <footer>
+                    <button name="action_import_properties"
+                            type="object"
+                            string="匯入物件"
+                            class="btn-primary"/>
+                    <button string="關閉" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_google_sheet_property_import_wizard" model="ir.actions.act_window">
+        <field name="name">從 Google Sheet 匯入物件</field>
+        <field name="res_model">ggandy.google.sheet.property.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="view_google_sheet_contact_import_wizard_form" model="ir.ui.view">
+        <field name="name">ggandy.google.sheet.contact.import.wizard.form</field>
+        <field name="model">ggandy.google.sheet.contact.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="從 Google Sheet 匯入聯絡人">
+                <group>
+                    <field name="sheet_url" placeholder="貼上 Google Sheet URL"/>
+                </group>
+                <footer>
+                    <button name="action_import_contacts"
+                            type="object"
+                            string="匯入聯絡人"
+                            class="btn-primary"/>
+                    <button string="關閉" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_google_sheet_contact_import_wizard" model="ir.actions.act_window">
+        <field name="name">從 Google Sheet 匯入聯絡人</field>
+        <field name="res_model">ggandy.google.sheet.contact.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

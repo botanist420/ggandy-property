@@ -9,12 +9,16 @@ services:
         condition: service_healthy
     env_file:
       - ./config/ggandy.env
+    entrypoint: ["/mnt/ggandy-entrypoint.sh"]
+    command: ["odoo"]
     ports:
       - "1025:8069" # Odoo Web
       - "1026:8072" # Odoo WebSocket / gevent
     volumes:
       - ggandy_odoo19_data:/var/lib/odoo
       - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
+      - ./config/requirements.txt:/etc/odoo/requirements.txt:ro
+      - ./entrypoint.sh:/mnt/ggandy-entrypoint.sh:ro
       - ./addons:/mnt/extra-addons
     networks:
       - ggandy_backend
