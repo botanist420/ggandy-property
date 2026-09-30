@@ -106,6 +106,20 @@ class GgandyPropertyUnit(models.Model):
         help="這個單位的報修紀錄數量。數字偏高時可以回頭看是不是設備該保養了。",
     )
     note = fields.Html(string="單位備註")
+    layout_photo_ids = fields.Many2many(
+        "ir.attachment",
+        string="格局照片",
+        compute="_compute_photos",
+        help="上傳在這個單位 chatter 的圖片附件。要新增格局照片，請直接用下方 chatter 的迴紋針上傳。",
+    )
+    maintenance_photo_ids = fields.Many2many(
+        "ir.attachment",
+        string="維修照片",
+        compute="_compute_photos",
+        help="上傳在這個單位所有報修單 chatter 的圖片附件。要新增維修照片，請到該報修單的 chatter 上傳。",
+    )
+    layout_photo_count = fields.Integer(compute="_compute_photos")
+    maintenance_photo_count = fields.Integer(compute="_compute_photos")
 
     @api.depends("property_id.name", "name")
     def _compute_display_name(self):
@@ -121,6 +135,36 @@ class GgandyPropertyUnit(models.Model):
         for record in self:
             record.lease_count = len(record.lease_ids)
             record.maintenance_count = len(record.maintenance_request_ids)
+
+    @api.depends("maintenance_request_ids")
+    def _compute_photos(self):
+        Attachment = self.env["ir.attachment"]
+        for record in self:
+            image_domain = [("mimetype", "=like", "image/%")]
+            record.layout_photo_ids = Attachment.search(
+                image_domain
+                + [
+                    ("res_model", "=", "ggandy.property.unit"),
+                    ("res_id", "=", record.id),
+                ],
+                order="id desc",
+            )
+            # 含已封存的報修單，維修歷史照片不應因封存而消失。
+            requests = record.with_context(active_test=False).maintenance_request_ids
+            photos = Attachment.search(
+                image_domain
+                + [
+                    ("res_model", "=", "ggandy.maintenance.request"),
+                    ("res_id", "in", requests.ids),
+                ]
+            )
+            # 依報修通報時間由近而遠，同一張報修單內新上傳的排前面。
+            record.maintenance_photo_ids = photos.sorted(
+                key=lambda a: (a.ggandy_request_date or fields.Datetime.from_string("1970-01-01"), a.id),
+                reverse=True,
+            )
+            record.layout_photo_count = len(record.layout_photo_ids)
+            record.maintenance_photo_count = len(record.maintenance_photo_ids)
 
     @api.constrains("area", "monthly_rent", "deposit_months")
     def _check_non_negative_values(self):

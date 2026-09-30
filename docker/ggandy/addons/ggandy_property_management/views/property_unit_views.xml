@@ -96,6 +96,65 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="維修紀錄" name="maintenance_history">
+                            <field name="maintenance_request_ids" readonly="1">
+                                <list default_order="request_date desc, id desc">
+                                    <field name="name"/>
+                                    <field name="title"/>
+                                    <field name="request_date"/>
+                                    <field name="category"/>
+                                    <field name="vendor_id"/>
+                                    <field name="actual_cost"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'done'"
+                                           decoration-warning="state in ('assigned', 'waiting')"
+                                           decoration-info="state == 'in_progress'"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="格局照片" name="layout_photos">
+                            <div class="text-muted mb-2">
+                                請用下方 chatter 的迴紋針上傳格局照片，圖片會自動顯示在這裡。
+                            </div>
+                            <field name="layout_photo_ids" readonly="1" nolabel="1">
+                                <kanban create="0" edit="0">
+                                    <field name="id"/>
+                                    <field name="name"/>
+                                    <templates>
+                                        <t t-name="card">
+                                            <a t-attf-href="/web/image/#{record.id.raw_value}?download=false" target="_blank">
+                                                <img class="img-fluid mb-2" t-attf-src="/web/image/#{record.id.raw_value}/256x256" t-att-alt="record.name.value"/>
+                                            </a>
+                                            <field name="name" class="fw-bold"/>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
+                        </page>
+                        <page string="維修照片" name="maintenance_photos">
+                            <div class="text-muted mb-2">
+                                維修照片請到該報修單的 chatter 上傳，這裡會彙整這個單位所有報修單的圖片。
+                            </div>
+                            <field name="maintenance_photo_ids" readonly="1" nolabel="1">
+                                <kanban create="0" edit="0">
+                                    <field name="id"/>
+                                    <field name="name"/>
+                                    <field name="res_name"/>
+                                    <field name="ggandy_request_date"/>
+                                    <templates>
+                                        <t t-name="card">
+                                            <a t-attf-href="/web/image/#{record.id.raw_value}?download=false" target="_blank">
+                                                <img class="img-fluid mb-2" t-attf-src="/web/image/#{record.id.raw_value}/256x256" t-att-alt="record.name.value"/>
+                                            </a>
+                                            <field name="name" class="fw-bold"/>
+                                            <div class="text-muted">報修單：<field name="res_name"/></div>
+                                            <div class="text-muted">通報時間：<field name="ggandy_request_date"/></div>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
+                        </page>
                         <page string="備註">
                             <field name="note"/>
                         </page>
