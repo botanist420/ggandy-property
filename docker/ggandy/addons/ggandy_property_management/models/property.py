@@ -55,6 +55,7 @@ class GgandyProperty(models.Model):
         "res.partner",
         string="主要房東",
         required=True,
+        domain=[("is_ggandy_owner", "=", True)],
         ondelete="restrict",
         tracking=True,
         help="此物件的主要房東。房東合約預設會帶入這位；共同屋主可另外記錄。",
