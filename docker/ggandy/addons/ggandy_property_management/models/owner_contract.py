@@ -160,6 +160,12 @@ class GgandyOwnerContract(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for values in vals_list:
+            if "owner_payment_day" not in values and values.get("property_id"):
+                property_day = self.env["ggandy.property"].browse(
+                    values["property_id"]
+                ).owner_payment_day
+                if property_day:
+                    values["owner_payment_day"] = property_day
             if values.get("name", "New") == "New":
                 values["name"] = self.env["ir.sequence"].next_by_code(
                     "ggandy.owner.contract"
@@ -179,6 +185,8 @@ class GgandyOwnerContract(models.Model):
         if self.property_id:
             self.owner_id = self.property_id.owner_id
             self.company_id = self.property_id.company_id
+            if self.property_id.owner_payment_day:
+                self.owner_payment_day = self.property_id.owner_payment_day
             if self.property_id.management_mode in ("master_lease", "agency"):
                 self.contract_type = self.property_id.management_mode
 

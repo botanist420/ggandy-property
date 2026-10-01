@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class GgandyProperty(models.Model):
@@ -49,6 +50,12 @@ class GgandyProperty(models.Model):
         default="agency",
         tracking=True,
         help="包租是公司向房東承租後再出租；代管是替房東管理並結算；混合則適合一個物件內有不同玩法。這格會影響房東合約預設值。",
+    )
+
+    owner_payment_day = fields.Integer(
+        string="匯款日期",
+        tracking=True,
+        help="每月收完房客房租後，匯款給房東的日期（1 至 31），留空代表未設定。新增房東合約時會預設帶入合約的「每月房東付款／結算日」。",
     )
 
     owner_id = fields.Many2one(
@@ -175,6 +182,12 @@ class GgandyProperty(models.Model):
                 record.country_id.name if record.country_id and not record.state_id else False,
             ]
             record.address_display = " ".join(part for part in parts if part)
+
+    @api.constrains("owner_payment_day")
+    def _check_owner_payment_day(self):
+        for record in self:
+            if record.owner_payment_day and not 1 <= record.owner_payment_day <= 31:
+                raise ValidationError("匯款日期必須介於 1 到 31。")
 
     @api.depends("unit_ids", "owner_contract_ids", "lease_ids", "maintenance_request_ids")
     def _compute_counts(self):

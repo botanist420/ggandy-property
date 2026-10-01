@@ -68,6 +68,8 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
             source_ref = self._clean_cell(row.get("編號"))
             property_name = self._clean_cell(row.get("案件名稱"))
             street = self._clean_cell(row.get("地址"))
+            payment_day_text = self._clean_cell(row.get("匯款日期"))
+            payment_day = self._parse_payment_day(payment_day_text)
 
             if not source_ref and not property_name and not street:
                 skipped_count += 1
@@ -79,10 +81,15 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
                 )
                 continue
 
+            if payment_day_text and not payment_day:
+                messages.append(
+                    f"第 {index + 2} 列匯款日期「{payment_day_text}」無法辨識，已略過該欄位。"
+                )
             property_record, was_created = self._upsert_property(
                 source_ref=source_ref,
                 property_name=property_name,
                 street=street,
+                payment_day=payment_day,
             )
             if was_created:
                 created_count += 1
@@ -147,7 +154,7 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
                 + "、".join(sorted(missing_columns))
             )
 
-    def _upsert_property(self, source_ref, property_name, street):
+    def _upsert_property(self, source_ref, property_name, street, payment_day=0):
         external_id_name = self._external_id_name(source_ref, property_name)
         model_data = self.env["ir.model.data"].sudo().search(
             [
@@ -172,6 +179,8 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
         }
         if street:
             values["street"] = street
+        if payment_day:
+            values["owner_payment_day"] = payment_day
 
         if property_record:
             property_record.write(values)
@@ -190,6 +199,14 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
         else:
             self.env["ir.model.data"].sudo().create(model_data_values)
         return property_record, True
+
+    def _parse_payment_day(self, text):
+        """解析「30號」、「5號」這類匯款日期，回傳 1~31 的整數，無法辨識則回傳 0。"""
+        match = re.search(r"\d+", text or "")
+        if not match:
+            return 0
+        day = int(match.group())
+        return day if 1 <= day <= 31 else 0
 
     def _external_id_name(self, source_ref, property_name):
         digest = hashlib.sha1(f"{source_ref}|{property_name}".encode()).hexdigest()
