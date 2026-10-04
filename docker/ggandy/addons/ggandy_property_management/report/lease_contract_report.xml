@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="paperformat_ggandy_lease_contract" model="report.paperformat">
+        <field name="name">GGAndy 租約 A4</field>
+        <field name="format">A4</field>
+        <field name="page_height">0</field>
+        <field name="page_width">0</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">18</field>
+        <field name="margin_bottom">18</field>
+        <field name="margin_left">18</field>
+        <field name="margin_right">18</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="action_report_ggandy_lease_contract" model="ir.actions.report">
+        <field name="name">房客租約 PDF</field>
+        <field name="model">ggandy.lease</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">ggandy_property_management.report_lease_contract</field>
+        <field name="report_file">ggandy_property_management.report_lease_contract</field>
+        <field name="print_report_name">'房客租約_%s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_ggandy_lease_contract"/>
+        <field name="binding_model_id" ref="model_ggandy_lease"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- 立契約書人簽章欄：需要 role（甲方／乙方…）與 party（res.partner） -->
+    <template id="report_lease_contract_party">
+        <table class="table table-sm table-bordered align-middle mb-3" style="font-size: 13px;">
+            <tr>
+                <th style="width: 22%;" t-out="role"/>
+                <td style="width: 38%;" t-out="party.name"/>
+                <th style="width: 14%;">簽章</th>
+                <td style="width: 26%; height: 56px;"/>
+            </tr>
+            <tr>
+                <th>身分證字號／統一編號</th>
+                <td colspan="3" t-out="party.vat or ''"/>
+            </tr>
+            <tr>
+                <th>通訊地址</th>
+                <td colspan="3" t-out="partner_address(party)"/>
+            </tr>
+            <tr>
+                <th>電話</th>
+                <td t-out="party.phone or ''"/>
+                <th>電子郵件</th>
+                <td t-out="party.email or ''"/>
+            </tr>
+        </table>
+    </template>
+
+    <template id="report_lease_contract">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="lessor" t-value="parties[doc.id]['lessor']"/>
+                <t t-set="agent" t-value="parties[doc.id]['agent']"/>
+                <t t-set="currency" t-value="doc.currency_id"/>
+                <t t-call="web.basic_layout">
+                    <div class="page" style="font-family: 'Noto Serif CJK TC', serif; font-size: 14px; line-height: 1.9;">
+                        <h2 class="text-center mb-1" style="letter-spacing: 6px;">房屋租賃契約書</h2>
+                        <p class="text-end text-muted mb-4" style="font-size: 12px;">租約編號：<t t-out="doc.name"/></p>
+
+                        <p class="mb-1">立契約書人</p>
+                        <p class="mb-1">出租人：<strong t-out="lessor.name"/>（以下簡稱甲方）</p>
+                        <p class="mb-1">承租人：<strong t-out="doc.tenant_id.name"/>（以下簡稱乙方）<t t-if="doc.co_tenant_ids">，共同承租人：<t t-out="'、'.join(doc.co_tenant_ids.mapped('name'))"/></t></p>
+                        <p t-if="agent" class="mb-1">租賃住宅代管業者：<strong t-out="agent.name"/>（以下簡稱丙方）</p>
+                        <p class="mt-3">茲為房屋租賃事宜，雙方同意訂立本契約，條款如下：</p>
+
+                        <div class="mt-4" style="page-break-inside: avoid;">
+                            <h5>第一條　租賃標的</h5>
+                            <p class="mb-1">（一）物件名稱：<t t-out="doc.property_id.name"/></p>
+                            <p class="mb-1">（二）房屋地址：<t t-out="doc.property_id.address_display or '＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿'"/></p>
+                            <p>（三）出租單位：<t t-out="unit_description(doc.unit_id)"/></p>
+                        </div>
+
+                        <div class="mt-4" style="page-break-inside: avoid;">
+                            <h5>第二條　租賃期間</h5>
+                            <p>自 <t t-out="roc_date(doc.start_date)"/> 起，至 <t t-out="roc_date(doc.end_date)"/> 止。</p>
+                        </div>
+
+                        <div class="mt-4" style="page-break-inside: avoid;">
+                            <h5>第三條　租金</h5>
+                            <p class="mb-1">（一）每月租金 <strong t-out="format_amount(doc.rent_amount, currency)"/>，乙方應於每月 <strong t-out="doc.rent_due_day"/> 日前支付；當月無該日者，以當月最後一日為準。</p>
+                            <p t-if="doc.management_fee" class="mb-1">（二）每月管理費 <strong t-out="format_amount(doc.management_fee, currency)"/>，與租金一併支付。</p>
+                            <p>（<t t-out="'三' if doc.management_fee else '二'"/>）支付方式：依<t t-out="'丙方' if agent else '甲方'"/>指定之帳戶或方式支付。</p>
+                        </div>
+
+                        <div class="mt-4" style="page-break-inside: avoid;">
+                            <h5>第四條　押金</h5>
+                            <p t-if="doc.deposit_amount">乙方應於簽約時支付押金 <strong t-out="format_amount(doc.deposit_amount, currency)"/>。租期屆滿或契約終止，乙方返還房屋並結清應付費用後，甲方應無息返還押金；如有應付未付之費用，得自押金中扣抵。</p>
+                            <p t-else="">本租約不收取押金。</p>
+                        </div>
+
+                        <div class="mt-4" style="page-break-inside: avoid;">
+                            <h5>第五條　使用限制</h5>
+                            <p>乙方應以居住使用為限，不得違法使用或存放危險物品；未經甲方書面同意，不得將房屋全部或一部轉租、出借或以其他方式供他人使用。</p>
+                        </div>
+
+                        <div class="mt-4" style="page-break-inside: avoid;">
+                            <h5>第六條　修繕</h5>
+                            <p>房屋或附屬設備損壞時，乙方應即通知<t t-out="'丙方' if agent else '甲方'"/>；除因乙方故意或過失所致者外，修繕費用由甲方負擔。</p>
+                        </div>
+
+                        <div class="mt-4" style="page-break-inside: avoid;">
+                            <h5>第七條　提前終止</h5>
+                            <p>任一方於租期內欲提前終止租約，應於一個月前以書面通知他方，並依特約事項辦理。</p>
+                        </div>
+
+                        <div class="mt-4" style="page-break-inside: avoid;">
+                            <h5>第八條　返還房屋</h5>
+                            <p>租期屆滿或契約終止時，乙方應將房屋回復原狀（通常使用之自然耗損除外）並遷出返還甲方。</p>
+                        </div>
+
+                        <div class="mt-4" style="page-break-inside: avoid;">
+                            <h5>第九條　特約事項</h5>
+                            <div t-if="not is_html_empty(doc.note)" t-out="doc.note"/>
+                            <p t-else="">無。</p>
+                        </div>
+
+                        <div class="mt-4" style="page-break-inside: avoid;">
+                            <h5>第十條　其他</h5>
+                            <p>本契約未約定事項，依民法及租賃住宅市場發展及管理條例等相關法令辦理。本契約一式<t t-out="'三' if agent else '二'"/>份，由立契約書人各執一份為憑。</p>
+                        </div>
+
+                        <div style="page-break-inside: avoid;">
+                            <h5 class="mt-5 mb-3">立契約書人</h5>
+                            <t t-call="ggandy_property_management.report_lease_contract_party">
+                                <t t-set="role" t-value="'甲方（出租人）'"/>
+                                <t t-set="party" t-value="lessor"/>
+                            </t>
+                            <t t-call="ggandy_property_management.report_lease_contract_party">
+                                <t t-set="role" t-value="'乙方（承租人）'"/>
+                                <t t-set="party" t-value="doc.tenant_id"/>
+                            </t>
+                            <t t-foreach="doc.co_tenant_ids" t-as="co_tenant">
+                                <t t-call="ggandy_property_management.report_lease_contract_party">
+                                    <t t-set="role" t-value="'共同承租人'"/>
+                                    <t t-set="party" t-value="co_tenant"/>
+                                </t>
+                            </t>
+                            <t t-if="agent" t-call="ggandy_property_management.report_lease_contract_party">
+                                <t t-set="role" t-value="'丙方（代管業者）'"/>
+                                <t t-set="party" t-value="agent"/>
+                            </t>
+                            <p class="text-center mt-5" style="letter-spacing: 4px;">中華民國　　　　年　　　　月　　　　日</p>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

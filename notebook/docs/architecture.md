@@ -98,6 +98,17 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 
 > 注意：期次金額**不按天數比例**，月中入住 / 退租的那一期也是完整月租。
 
+`contract_document_ids`：非 stored compute，抓 `res_model = ggandy.lease`、`res_id = 本租約` 的所有 `ir.attachment`（不限圖片），一次 search 後依 `res_id` 分配；未儲存的新租約為空。
+
+#### 租約 PDF（`report/lease_contract_report.*`）
+
+- `ir.actions.report` `action_report_ggandy_lease_contract`（qweb-pdf，綁在租約的「列印」選單，表單 header 也有按鈕），紙張用自訂的 `paperformat_ggandy_lease_contract`（A4、四邊 18mm，因為 `web.basic_layout` 沒有頁首）。
+- 資料由 AbstractModel `report.ggandy_property_management.report_lease_contract` 的 `_get_report_values` 準備：
+  - 出租人判斷：找該物件在租約開始日有效的 active 房東合約 → 用 `contract_type`；找不到就用物件 `management_mode`。`master_lease` → 出租人 = 公司 partner、沒有丙方；其他（代管 / 混合）→ 出租人 = 物件 `owner_id`、丙方 = 公司 partner。
+  - 民國日期、`新臺幣 x,xxx 元` 金額、出租單位描述、通訊地址都在 Python 組好字串，避免 XML 換行在中文裡變成空格。
+- 字型用容器內的 `Noto Serif CJK TC`；每一條用 `page-break-inside: avoid` 避免標題和內容被拆到兩頁。
+- 只下載、不自動存附件（範本沒設 `attachment`），避免每按一次就在 chatter 多一份。
+
 ### ggandy.rent.schedule（租金期次）
 
 | 欄位 | 說明 |

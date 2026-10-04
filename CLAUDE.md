@@ -61,6 +61,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `res.partner`（inherit） | `models/res_partner.py` | `is_ggandy_owner / tenant / vendor` 身分旗標 |
 | `account.move`（inherit） | `models/account_move.py` | `ggandy_lease_id`、`ggandy_owner_contract_id`、`ggandy_expense_*`、`ggandy_settlement_period_*` |
 | `ir.attachment`（inherit） | `models/ir_attachment.py` | `ggandy_request_date` 給維修照片排序 |
+| `report.ggandy_property_management.report_lease_contract` | `report/lease_contract_report.py` | 房客租約 PDF 的資料準備（出租人判斷、民國日期）；範本與 action 在同目錄 `.xml` |
 
 Telegram 模組：`ggandy.telegram.log`（`models/telegram_log.py`，指令處理與 cron 都在這）、`res.users` 綁定欄位、`res.config.settings`（token 存 `ir.config_parameter`，key 前綴 `ggandy_property_telegram.`）、`services/telegram_service.py`（純 `requests` 的 Bot API client）。
 

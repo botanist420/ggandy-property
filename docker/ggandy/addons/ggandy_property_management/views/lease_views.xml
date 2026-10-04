@@ -57,6 +57,7 @@
                 <header>
                     <button name="action_activate" type="object" string="租約生效" class="btn-primary" invisible="state != 'draft'"/>
                     <button name="action_generate_schedule" type="object" string="建立租金期次" invisible="state not in ('draft', 'active')"/>
+                    <button name="%(action_report_ggandy_lease_contract)d" type="action" string="產生租約 PDF" icon="fa-file-pdf-o" invisible="state not in ('draft', 'active')"/>
                     <button name="action_terminate" type="object" string="提前終止" confirm="確定要提前終止這份租約？" invisible="state != 'active'"/>
                     <button name="action_cancel" type="object" string="取消租約" confirm="確定要取消這份租約？" invisible="state != 'draft'"/>
                     <button name="action_set_draft" type="object" string="退回草稿" invisible="state not in ('terminated', 'cancelled')"/>
@@ -140,6 +141,32 @@
                         </page>
                         <page string="合約備註" name="notes">
                             <field name="note" placeholder="特殊約定、繳款方式、點交資訊等……"/>
+                        </page>
+                        <page string="合約文件" name="contract_documents">
+                            <div class="text-muted mb-2">
+                                請用下方 chatter 的迴紋針上傳簽好名的合約、公證書或點交照片，檔案會自動顯示在這裡。
+                            </div>
+                            <field name="contract_document_ids" readonly="1" nolabel="1">
+                                <kanban create="0" edit="0">
+                                    <field name="id"/>
+                                    <field name="name"/>
+                                    <field name="mimetype"/>
+                                    <field name="create_date"/>
+                                    <field name="create_uid"/>
+                                    <templates>
+                                        <t t-name="card">
+                                            <a t-attf-href="/web/content/#{record.id.raw_value}?download=false" target="_blank">
+                                                <img t-if="(record.mimetype.raw_value or '').startsWith('image/')"
+                                                     class="img-fluid mb-2" t-attf-src="/web/image/#{record.id.raw_value}/256x256" t-att-alt="record.name.value"/>
+                                                <div t-else="" class="o_image mb-2" t-att-data-mimetype="record.mimetype.raw_value"/>
+                                            </a>
+                                            <field name="name" class="fw-bold text-break"/>
+                                            <div class="text-muted">上傳時間：<field name="create_date"/></div>
+                                            <div class="text-muted">上傳者：<field name="create_uid"/></div>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
                         </page>
                     </notebook>
                 </sheet>

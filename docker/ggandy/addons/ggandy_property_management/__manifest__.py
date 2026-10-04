@@ -17,6 +17,7 @@
         "data/sequence_data.xml",
         "data/product_data.xml",
         "data/accounting_cron.xml",
+        "report/lease_contract_report.xml",
         "views/property_views.xml",
         "views/property_unit_views.xml",
         "views/owner_contract_views.xml",

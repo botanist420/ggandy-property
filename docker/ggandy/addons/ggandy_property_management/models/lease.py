@@ -141,6 +141,13 @@ class GgandyLease(models.Model):
         help="這份租約相關的報修單數量。若突然變多，建議回頭檢查設備或居住狀況。",
     )
     note = fields.Html(string="合約備註")
+    contract_document_ids = fields.Many2many(
+        "ir.attachment",
+        string="合約文件",
+        compute="_compute_contract_documents",
+        help="上傳在這份租約 chatter 的所有附件，例如簽好名的合約掃描檔、公證書或點交照片。要新增文件，請直接用下方 chatter 的迴紋針上傳。",
+    )
+    contract_document_count = fields.Integer(compute="_compute_contract_documents")
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -182,6 +189,20 @@ class GgandyLease(models.Model):
             record.schedule_count = len(record.schedule_ids)
             record.invoice_count = len(record.invoice_ids.filtered(lambda move: move.move_type == "out_invoice"))
             record.maintenance_count = len(record.maintenance_request_ids)
+
+    def _compute_contract_documents(self):
+        # 尚未儲存的新租約沒有 chatter，也就不會有附件。
+        saved_ids = [record._origin.id for record in self if record._origin.id]
+        attachments = self.env["ir.attachment"].search(
+            [("res_model", "=", "ggandy.lease"), ("res_id", "in", saved_ids)],
+            order="id desc",
+        )
+        for record in self:
+            documents = attachments.filtered(
+                lambda attachment: attachment.res_id == record._origin.id
+            )
+            record.contract_document_ids = documents
+            record.contract_document_count = len(documents)
 
     @api.constrains("start_date", "end_date")
     def _check_dates(self):
