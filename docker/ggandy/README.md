@@ -13,14 +13,20 @@
 - PostgreSQL data volume：`ggandy_postgres17_data`
 - Network：`ggandy_erp19_network`
 
-PostgreSQL 沒有發布到主機連接埠，只能由此 Compose network 中的服務存取。
+- PostgreSQL：主機 `5555` 對應容器 `5432`（給 pgAdmin / DBeaver 等本機工具使用，帳密見 `config/ggandy.env`）
+
+## 額外 Python 套件
+
+`config/requirements.txt` 會掛進容器，`entrypoint.sh` 在每次啟動時先 `pip install` 再交給官方 entrypoint。新增套件後 `docker restart ggandy_odoo19_web` 即可。
+
+更多開發指令（升級模組、Odoo shell、SQL、除錯）請看 [notebook/docs/dev_workflow.md](../../notebook/docs/dev_workflow.md)。
 
 ## 啟動前設定
 
 請先修改：
 
 - `config/ggandy.env` 的 `POSTGRES_PASSWORD`
-- `config/odoo.conf` 的 `admin_passwd`（Odoo 資料庫管理密碼，不是使用者登入密碼）
+- `config/odoo.conf` 的 `admin_passwd`（Odoo 資料庫管理密碼，不是使用者登入密碼；這個檔案被 git 追蹤，改成真實密碼後不要 commit）
 
 ## 指令
 
