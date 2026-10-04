@@ -45,6 +45,6 @@
 ## ⚪ 環境與文件
 
 - [ ] **`odoo.conf` 的 `admin_passwd` 被 git 追蹤**：本機已改成真實密碼（未 commit）。建議改成 `odoo.conf.example` 進 git、`odoo.conf` 加進 `.gitignore`，或改用環境變數。
-- [ ] **Notebook 無法在容器內執行**：commit `01c70d5` 移除了 `../../notebook:/mnt/notebook` mount 與 ipykernel image，但 notebook 與 `notebook/.vscode/*` 仍指向 `/mnt/notebook`、`/opt/ggandy-notebook-venv`。二選一：恢復 mount + 在 `requirements.txt` 加 `ipykernel`；或改寫 notebook 用 XML-RPC / psycopg 從主機連線（PostgreSQL 已開在 5555）。
+- [x] ~~Notebook 無法在容器內執行~~ → 2026-10-04 決定不再使用 Jupyter：playground 改寫成 `notebook/scripts/orm_playground.py`，刪除 ipynb 與 `notebook/.vscode`，腳本用 stdin 餵 `odoo shell`，不需要 notebook mount。
 - [ ] `docker-compose.yml` 新增的 PostgreSQL `5555` port 尚未 commit；確認要保留後再 commit（文件已按 5555 撰寫）。
 - [ ] `scripts/__pycache__/` 出現在工作目錄（已被 gitignore 的 `__pycache__/` 涵蓋，不影響 git，可刪）。

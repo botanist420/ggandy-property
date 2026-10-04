@@ -114,6 +114,6 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 - Telegram Bot token 只存在資料庫 `ir.config_parameter`，不要寫進程式碼、文件或 log。
 - 不要執行 `docker compose down -v`、不要 drop `ggandy_dev`。
 - Commit 訊息格式沿用既有風格：`feature: ...`、`update: ...`、`fix: ...`、`add: ...`。
-- `notebook/` 是學習 / 研究用：notebook、文件（`notebook/docs/`）、代辦（`notebook/TODO.md`）。`notebook/scripts/test.py` 被 gitignore（個人 scratch）。目前 compose **沒有**把 `notebook/` 掛載進容器（見 `notebook/TODO.md`）。
+- `notebook/` 是學習 / 研究用：文件（`notebook/docs/`）、代辦（`notebook/TODO.md`）、Odoo shell 練習腳本（`notebook/scripts/`，`test.py` 被 gitignore）。**不使用 Jupyter**，`notebook/` 也刻意不掛載進容器：腳本一律用 `docker exec -i ... odoo shell ... < notebook/scripts/xxx.py` 從主機餵進去。
 - `scripts/ggandy_common.sql` 是常用查詢集；新增欄位或模型後，若有常用查詢需求可順手補上。
 - 完成功能後，若行為有變，同步更新 `README.md`、`notebook/docs/architecture.md`，並把完成的項目從 `notebook/TODO.md` 勾掉。

@@ -96,14 +96,19 @@ docker exec ggandy_postgres17_db sh -c 'psql -U "$POSTGRES_USER" -d ggandy_dev -
 - 想看 Odoo 原生 view 結構再決定 xpath：`docker exec ggandy_odoo19_web grep -n ... /usr/lib/python3/dist-packages/odoo/addons/<module>/views/*.xml`
 - Telegram 收不到訊息：確認「本機輪詢模式」已勾、token 正確、Bot 沒有設 webhook、使用者有 `telegram_enabled` 且屬於管理員群組；看「包租代管 → Telegram → 訊息紀錄」。
 
-## 6. Notebook（Jupyter）
+## 6. 練習 / 研究腳本（notebook/scripts）
 
-`notebook/2026-09-15_playground.ipynb` 示範用 Odoo ORM 讀 `ggandy_dev` 的資料關係。它需要在容器內執行（import `odoo`），並假設：
+不使用 Jupyter，也**不需要**把 `notebook/` 掛載進容器：腳本留在主機，用 stdin 餵給容器內的 `odoo shell` 執行（見 §3）。
 
-- `notebook/` 掛載在容器 `/mnt/notebook`
-- 容器內有 ipykernel（`.vscode/settings.json` 指向 `/opt/ggandy-notebook-venv/bin/python3`）
+| 腳本 | 用途 |
+| --- | --- |
+| `orm_playground.py` | ORM 入門：物件 → 單位 → 租約 → 期次的資料關係（純查詢，結尾 rollback） |
+| `check_user_online.py` | 查某使用者登入 / 在線狀態 / 裝置；用 `TARGET_LOGIN` 指定帳號（需 `docker exec -e TARGET_LOGIN=...`） |
+| `test.py` | 個人 scratch（gitignore） |
 
-這兩個條件在 commit `01c70d5` 改回官方 `odoo:19.0` image 時被移除了，目前 **compose 沒有 notebook mount**。若要恢復，可在 `ggandy_web.volumes` 加上 `- ../../notebook:/mnt/notebook`，並在 `config/requirements.txt` 加 `ipykernel`，再用 VS Code Dev Containers attach 到 `ggandy_odoo19_web`。（已列入 [TODO](../TODO.md)）
+VS Code：根目錄 `.vscode/tasks.json` 有「Odoo shell: 執行目前開啟的檔案」task（Terminal → Run Task），會把目前編輯中的 `.py` 餵進容器執行。
+
+寫新腳本時：開頭沿用 `if TYPE_CHECKING: env = cast(Environment, None)` 讓 Pylance 不報錯；預設只查詢，需要寫入才明確 `env.cr.commit()`。
 
 ## 7. Git
 
