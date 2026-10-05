@@ -58,6 +58,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `ggandy.maintenance.request` | `models/maintenance_request.py` | 報修單 |
 | `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每單位 × 每月一列**，金額全是非 stored compute |
 | `ggandy.google.sheet.*.import.wizard` | `models/google_sheet_import_wizard.py` | TransientModel；物件匯入（pandas 讀 CSV export）；聯絡人匯入尚未實作 |
+| `ggandy.master.lease.profit.wizard` | `models/master_lease_profit_wizard.py` | TransientModel；包租獲利試算，純 compute 不寫資料，僅 manager |
 | `res.partner`（inherit） | `models/res_partner.py` | `is_ggandy_owner / tenant / vendor` 身分旗標 |
 | `account.move`（inherit） | `models/account_move.py` | `ggandy_lease_id`、`ggandy_owner_contract_id`、`ggandy_expense_*`、`ggandy_settlement_period_*` |
 | `ir.attachment`（inherit） | `models/ir_attachment.py` | `ggandy_request_date` 給維修照片排序 |

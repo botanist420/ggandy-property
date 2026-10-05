@@ -170,6 +170,27 @@ net_cash_flow    = collected + deposit − owner_paid − purchase_cost − empl
 - `ggandy.google.sheet.contact.import.wizard`：尚未實作（`UserError`）。
 - 外部腳本 `scripts/google_res_partner.py`：XML-RPC 匯入聯絡人，欄位 `partner_key,name,phone,mobile,email,street,city,zip,is_owner,is_tenant,is_vendor`，依 ref → email → mobile → phone → name 找既有聯絡人。
 
+### 包租獲利試算（TransientModel）
+
+- `ggandy.master.lease.profit.wizard`（`models/master_lease_profit_wizard.py`），選單只開給 `group_property_manager`。
+- 只有「關閉」按鈕，結果全是非 stored compute，在畫面上即時重算，不會寫入資料庫。`property_id` 只用來帶入 `room_count`（= `unit_count`）。
+- 公式（N=房間數、P=每間付房東、R=每間月租、o=出租率、T=包租月數、F=免租裝潢月數、I=初始投入）：
+
+```text
+monthly_owner_total    = N × P
+monthly_income         = N × R × o
+monthly_profit         = monthly_income − monthly_owner_total
+total_profit           = monthly_profit × T − I
+roi                    = total_profit / I
+annual_roi             = roi / ((F + T) / 12)          # 免租期也算資金卡住的時間
+payback_months         = F + I / monthly_profit        # total_profit < 0 → 包租期內無法回本
+break_even_occupancy   = (N×P×T + I) / (N×R×T)
+break_even_tenant_rent = (N×P×T + I) / (N×o×T)
+max_owner_rent         = (N×R×o×T − I) / (N×T)
+```
+
+- 免租裝潢期不付房東、也沒有收入，所以不影響總賺賠，只影響回本月數與年化報酬率。
+
 ## 3. Telegram 模組
 
 ```text

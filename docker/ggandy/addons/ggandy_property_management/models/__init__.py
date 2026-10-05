@@ -4,6 +4,7 @@ from . import google_sheet_import_wizard
 from . import ir_attachment
 from . import lease
 from . import maintenance_request
+from . import master_lease_profit_wizard
 from . import owner_contract
 from . import property
 from . import property_unit

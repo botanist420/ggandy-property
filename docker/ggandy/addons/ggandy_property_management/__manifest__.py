@@ -27,6 +27,7 @@
         "views/res_partner_views.xml",
         "views/account_move_views.xml",
         "views/google_sheet_import_views.xml",
+        "views/master_lease_profit_wizard_views.xml",
         "views/menu_views.xml",
         "views/accounting_overview_views.xml",
     ],

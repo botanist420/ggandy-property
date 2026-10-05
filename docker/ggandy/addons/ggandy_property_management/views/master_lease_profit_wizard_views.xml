@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_master_lease_profit_wizard_form" model="ir.ui.view">
+        <field name="name">ggandy.master.lease.profit.wizard.form</field>
+        <field name="model">ggandy.master.lease.profit.wizard</field>
+        <field name="arch" type="xml">
+            <form string="包租獲利試算">
+                <field name="currency_id" invisible="1"/>
+                <field name="can_payback" invisible="1"/>
+                <group>
+                    <group string="物件條件">
+                        <field name="property_id" placeholder="選填，帶入房間數" options="{'no_create': True}"/>
+                        <label for="room_count"/>
+                        <div class="o_row">
+                            <field name="room_count"/>
+                            <span>間</span>
+                        </div>
+                        <field name="initial_investment"/>
+                        <label for="free_months"/>
+                        <div class="o_row">
+                            <field name="free_months"/>
+                            <span>個月</span>
+                        </div>
+                        <label for="lease_months"/>
+                        <div class="o_row">
+                            <field name="lease_months"/>
+                            <span>個月</span>
+                        </div>
+                    </group>
+                    <group string="房租行情">
+                        <field name="owner_rent_per_room"/>
+                        <field name="tenant_rent_per_room"/>
+                        <field name="occupancy_rate" widget="percentage"/>
+                    </group>
+                </group>
+
+                <div class="text-center border rounded p-3 my-3">
+                    <div class="text-muted">整個包租期間，預估總共賺</div>
+                    <h1 class="mb-0" invisible="total_profit &lt; 0">
+                        <field name="total_profit" class="text-success"/>
+                    </h1>
+                    <h1 class="mb-0 text-danger" invisible="total_profit &gt;= 0">
+                        <field name="total_profit" class="text-danger"/>
+                    </h1>
+                    <div class="text-muted small">（已扣掉初始投入）</div>
+                </div>
+
+                <group>
+                    <group string="每個月">
+                        <field name="monthly_owner_total"/>
+                        <field name="monthly_income"/>
+                        <field name="monthly_profit"/>
+                    </group>
+                    <group string="整段包租">
+                        <field name="total_income"/>
+                        <field name="total_owner_payment"/>
+                    </group>
+                </group>
+
+                <group>
+                    <group string="這案子划不划">
+                        <field name="roi" widget="percentage" invisible="not initial_investment"/>
+                        <field name="annual_roi" widget="percentage" invisible="not initial_investment"/>
+                        <div colspan="2" class="text-muted" invisible="initial_investment">
+                            初始投入為 0，無法計算報酬率。
+                        </div>
+                        <label for="payback_months"/>
+                        <div class="o_row">
+                            <field name="payback_months" invisible="not can_payback"/>
+                            <span invisible="not can_payback">個月</span>
+                            <span class="text-danger" invisible="can_payback">包租期內無法回本</span>
+                        </div>
+                    </group>
+                    <group string="談判時的底線">
+                        <label for="break_even_occupancy"/>
+                        <div class="o_row">
+                            <field name="break_even_occupancy" widget="percentage"/>
+                            <span>才不賠</span>
+                        </div>
+                        <label for="break_even_tenant_rent"/>
+                        <div class="o_row">
+                            <field name="break_even_tenant_rent"/>
+                            <span>才不賠</span>
+                        </div>
+                        <label for="max_owner_rent"/>
+                        <div class="o_row">
+                            <field name="max_owner_rent"/>
+                            <span>才不賠</span>
+                        </div>
+                    </group>
+                </group>
+
+                <div class="alert alert-info mb-0" role="alert">
+                    這是粗估，還沒扣水電、維修、人事與稅，實際會比這個少。
+                </div>
+
+                <footer>
+                    <button string="關閉" special="cancel" class="btn-primary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_master_lease_profit_wizard" model="ir.actions.act_window">
+        <field name="name">包租獲利試算</field>
+        <field name="res_model">ggandy.master.lease.profit.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

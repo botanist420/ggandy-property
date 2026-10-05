@@ -74,4 +74,10 @@
               parent="menu_ggandy_integrations"
               action="action_google_sheet_property_import_wizard"
               sequence="20"/>
+    <menuitem id="menu_ggandy_master_lease_profit_wizard"
+              name="包租獲利試算"
+              parent="menu_ggandy_integrations"
+              action="action_master_lease_profit_wizard"
+              groups="ggandy_property_management.group_property_manager"
+              sequence="30"/>
 </odoo>
