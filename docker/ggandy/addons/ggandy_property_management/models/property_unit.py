@@ -79,6 +79,62 @@ class GgandyPropertyUnit(models.Model):
         default=2.0,
         help="建立租約時，預設押金會用參考月租乘這個月數。填 2 就代表兩個月押金。",
     )
+    electricity_billing_type = fields.Selection(
+        [
+            ("metered", "依度數計費"),
+            ("fixed", "每月固定金額"),
+            ("included", "含在租金內"),
+            ("tenant_paid", "房客自繳台電"),
+        ],
+        string="電費計費方式",
+        tracking=True,
+        help="這個單位的電費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度電價；"
+        "每月固定金額＝不看度數、每月收固定電費；含在租金內＝不另外收；房客自繳台電＝獨立電錶、帳單直接寄給房客。"
+        "空白代表還沒設定。",
+    )
+    electricity_rate = fields.Float(
+        string="每度電價",
+        digits=(10, 2),
+        tracking=True,
+        help="依度數計費時，每一度電跟房客收多少元，例如 5 或 5.5。每間房可以不同，改動會記錄在下方 chatter，方便日後對帳。",
+    )
+    electricity_fixed_fee = fields.Monetary(
+        string="每月固定電費",
+        tracking=True,
+        help="計費方式選「每月固定金額」時，每個月跟房客收的電費。",
+    )
+    electricity_meter_ref = fields.Char(
+        string="電錶編號／位置",
+        help="分電錶或台電電號、裝設位置等，抄表時用來確認沒有抄錯錶。",
+    )
+    water_billing_type = fields.Selection(
+        [
+            ("metered", "依度數計費"),
+            ("fixed", "每月固定金額"),
+            ("included", "含在租金內"),
+            ("tenant_paid", "房客自繳水公司"),
+        ],
+        string="水費計費方式",
+        tracking=True,
+        help="這個單位的水費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度水價；"
+        "每月固定金額＝不看度數、每月收固定水費；含在租金內＝不另外收；房客自繳水公司＝獨立水錶、帳單直接寄給房客。"
+        "空白代表還沒設定。",
+    )
+    water_rate = fields.Float(
+        string="每度水價",
+        digits=(10, 2),
+        tracking=True,
+        help="依度數計費時，每一度水跟房客收多少元。改動會記錄在下方 chatter。",
+    )
+    water_fixed_fee = fields.Monetary(
+        string="每月固定水費",
+        tracking=True,
+        help="計費方式選「每月固定金額」時，每個月跟房客收的水費，例如每月 200 元。",
+    )
+    water_meter_ref = fields.Char(
+        string="水錶編號／位置",
+        help="分水錶或水號、裝設位置等，抄表時用來確認沒有抄錯錶。",
+    )
     state = fields.Selection(
         [
             ("vacant", "空房"),
@@ -171,6 +227,22 @@ class GgandyPropertyUnit(models.Model):
         for record in self:
             if record.area < 0 or record.monthly_rent < 0 or record.deposit_months < 0:
                 raise ValidationError("坪數、租金與押金月數不可小於零。")
+
+    @api.constrains(
+        "electricity_rate",
+        "electricity_fixed_fee",
+        "water_rate",
+        "water_fixed_fee",
+    )
+    def _check_utility_fees(self):
+        for record in self:
+            if (
+                record.electricity_rate < 0
+                or record.electricity_fixed_fee < 0
+                or record.water_rate < 0
+                or record.water_fixed_fee < 0
+            ):
+                raise ValidationError("水電單價與固定水電費不可小於零。")
 
     def _refresh_from_active_leases(self):
         Lease = self.env["ggandy.lease"]

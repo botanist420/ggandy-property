@@ -16,6 +16,8 @@
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
                     <filter name="group_state" string="出租狀態" context="{'group_by': 'state'}"/>
                     <filter name="group_type" string="單位類型" context="{'group_by': 'unit_type'}"/>
+                    <filter name="group_electricity_billing" string="電費計費方式" context="{'group_by': 'electricity_billing_type'}"/>
+                    <filter name="group_water_billing" string="水費計費方式" context="{'group_by': 'water_billing_type'}"/>
                 </group>
             </search>
         </field>
@@ -32,6 +34,10 @@
                 <field name="floor" optional="show"/>
                 <field name="area" optional="show"/>
                 <field name="monthly_rent" widget="monetary"/>
+                <field name="electricity_billing_type" optional="hide"/>
+                <field name="electricity_rate" optional="hide"/>
+                <field name="water_billing_type" optional="hide"/>
+                <field name="water_fixed_fee" optional="hide"/>
                 <field name="currency_id" column_invisible="True"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'occupied'"
@@ -80,6 +86,20 @@
                             <field name="deposit_months"/>
                             <field name="currency_id" invisible="1"/>
                             <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <group name="utility_fees">
+                        <group string="電費">
+                            <field name="electricity_billing_type"/>
+                            <field name="electricity_rate" invisible="electricity_billing_type != 'metered'"/>
+                            <field name="electricity_fixed_fee" invisible="electricity_billing_type != 'fixed'"/>
+                            <field name="electricity_meter_ref" invisible="electricity_billing_type in ('included', 'fixed')"/>
+                        </group>
+                        <group string="水費">
+                            <field name="water_billing_type"/>
+                            <field name="water_rate" invisible="water_billing_type != 'metered'"/>
+                            <field name="water_fixed_fee" invisible="water_billing_type != 'fixed'"/>
+                            <field name="water_meter_ref" invisible="water_billing_type in ('included', 'fixed')"/>
                         </group>
                     </group>
                     <notebook>

@@ -51,6 +51,10 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `unit_type` | suite / room / whole / shop / office / parking / other |
 | `monthly_rent` | 參考月租：租約預設值，也是帳務總表房東應付的**分攤權重** |
 | `deposit_months` | 押金月數（預設 2） |
+| `electricity_billing_type` / `water_billing_type` | metered（依度數）/ fixed（每月固定）/ included（含租金）/ tenant_paid（房客自繳）；空白 = 未設定，無預設值 |
+| `electricity_rate` / `water_rate` | 每度單價（Float, digits (10,2)，不用 Monetary 以免被幣別小數位四捨五入）；費用 = (本月度數 − 上月度數) × 單價 |
+| `electricity_fixed_fee` / `water_fixed_fee` | 每月固定水電費（Monetary） |
+| `electricity_meter_ref` / `water_meter_ref` | 電錶／水錶編號或位置 |
 | `state` | vacant / reserved / occupied / maintenance / inactive |
 | `layout_photo_ids` | compute：本單位 chatter 上的 `image/*` 附件 |
 | `maintenance_photo_ids` | compute：本單位所有報修單（含封存）的 `image/*` 附件，依 `ggandy_request_date` desc |
