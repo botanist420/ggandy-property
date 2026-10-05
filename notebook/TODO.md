@@ -26,7 +26,8 @@
 - [ ] **從 Google Sheet 匯入聯絡人**：選單已存在，`action_import_contacts` 只會丟 `UserError`。可把 `scripts/google_res_partner.py` 的邏輯（欄位對應、依 ref/email/mobile/phone/name 找既有聯絡人）搬進 wizard。
 - [ ] **報修費用沒有進帳務**：`charged_to`、`actual_cost` 只是記錄。可在完成報修時依費用歸屬：公司／房東負擔 → 建 vendor bill（帶 `ggandy_expense_*`），房客負擔 → 加到下一期租金或另開 invoice；房東負擔的部分從代管結算扣除。
 - [ ] **逾期活動不會自動結案**：收款後「逾期租金待處理」活動還在，需在付款後（或 cron 中）`action_feedback` 關掉。
-- [ ] **月中入住／退租的期次不按天數計算**：目前第一期、最後一期都是完整月租。確認公司實際收法後決定要不要按日比例。
+- [x] **月中入住／退租的期次按天數計算**：租金與管理費 = 月額 × 期次天數 ÷ 當月實際天數，四捨五入到元；既有期次不重算（2026-10-05）
+- [ ] **房東端月中起訖不按天數計算**：包租保底租金 `guaranteed_rent` 每月固定付整月，房東合約月中開始／結束也一樣。代管結算讀期次 `rent_amount`，已自動跟著按日比例。包租端要不要按日比例，待確認。
 - [ ] **租約生效會觸發全域開帳單**：`lease.action_activate` 最後呼叫 `_cron_create_due_invoices()`，會順便替**所有**租約開帳單。改成只處理 `self.schedule_ids`。
 - [ ] **`action_terminate` 沒檢查狀態**：可以對 draft / cancelled 租約呼叫（UI 有擋，RPC 沒擋），也沒記錄實際終止日。考慮加 `termination_date` 欄位。
 - [ ] **押金退還流程**：目前押金只在帳務總表算入現金流，沒有收押金 / 退押金的帳單或負債科目。

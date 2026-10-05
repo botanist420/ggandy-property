@@ -4,6 +4,7 @@ from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from odoo.tools import float_round
 
 
 class GgandyLease(models.Model):
@@ -85,7 +86,7 @@ class GgandyLease(models.Model):
         string="每月租金",
         required=True,
         tracking=True,
-        help="每月固定租金，建立租金期次時會複製到每一期。若只是某一期特殊折讓，建議只調整該期次。",
+        help="每月固定租金，建立租金期次時會複製到每一期；月中入住或退租的那一期，會依當月實際天數按日計算（四捨五入到元）。若只是某一期特殊折讓，建議只調整該期次。",
     )
     deposit_amount = fields.Monetary(
         string="押金",
@@ -95,7 +96,7 @@ class GgandyLease(models.Model):
     management_fee = fields.Monetary(
         string="每月管理費",
         tracking=True,
-        help="每月向房客收取的管理費。建立期次時會和租金相加成應收合計，小小一格，月底對帳時很有存在感。",
+        help="每月向房客收取的管理費。建立期次時會和租金相加成應收合計；月中入住或退租的那一期，和租金一樣按日計算。",
     )
     rent_due_day = fields.Integer(
         string="每月繳租日",
@@ -290,10 +291,8 @@ class GgandyLease(models.Model):
                 period_start = max(lease.start_date, month_cursor)
                 month_end = month_cursor + relativedelta(months=1, days=-1)
                 period_end = min(lease.end_date, month_end)
-                due_day = min(
-                    lease.rent_due_day,
-                    calendar.monthrange(month_cursor.year, month_cursor.month)[1],
-                )
+                days_in_month = calendar.monthrange(month_cursor.year, month_cursor.month)[1]
+                due_day = min(lease.rent_due_day, days_in_month)
                 due_date = month_cursor.replace(day=due_day)
                 if due_date < lease.start_date:
                     due_date = lease.start_date
@@ -304,17 +303,24 @@ class GgandyLease(models.Model):
                     ]
                 )
                 if not existing:
+                    # 月中入住／退租：依當月實際天數按日比例計算，四捨五入到元
+                    ratio = ((period_end - period_start).days + 1) / days_in_month
                     Schedule.create(
                         {
                             "lease_id": lease.id,
                             "period_start": period_start,
                             "period_end": period_end,
                             "due_date": due_date,
-                            "rent_amount": lease.rent_amount,
-                            "management_fee": lease.management_fee,
+                            "rent_amount": lease._prorate_amount(lease.rent_amount, ratio),
+                            "management_fee": lease._prorate_amount(lease.management_fee, ratio),
                         }
                     )
                 month_cursor += relativedelta(months=1)
+
+    def _prorate_amount(self, amount, ratio):
+        if ratio >= 1:
+            return amount
+        return float_round(amount * ratio, precision_rounding=1.0)
 
     def action_view_schedules(self):
         self.ensure_one()

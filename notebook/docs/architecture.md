@@ -97,10 +97,14 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
     period_start = max(start_date, 月初)
     period_end   = min(end_date, 月底)
     due_date     = 該月 rent_due_day（短月取月底），若早於 start_date 則用 start_date
+    ratio        = 期次天數 ÷ 當月實際天數（整月 = 1）
+    rent_amount / management_fee = 月額 × ratio，四捨五入到元（整月直接用月額）
     同 lease + period_start 已存在 → 跳過（可重複執行）
 ```
 
-> 注意：期次金額**不按天數比例**，月中入住 / 退租的那一期也是完整月租。
+> 按日比例用**當月實際天數**（不是固定 30 天）：一年期租約起訖在同一個月份，第一期 + 最後一期剛好等於一個月，總額 = 12 個月租金。
+> 例：9/25 起租、月租 31,000 → 第一期 9/25–9/30 = 31,000 × 6/30 = 6,200。
+> 規則只影響新產生的期次；改版前已建立的期次維持原金額。
 
 `contract_document_ids`：非 stored compute，抓 `res_model = ggandy.lease`、`res_id = 本租約` 的所有 `ir.attachment`（不限圖片），一次 search 後依 `res_id` 分配；未儲存的新租約為空。
 
