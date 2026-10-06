@@ -2,6 +2,7 @@
 <odoo>
     <menuitem id="menu_ggandy_root"
               name="包租代管"
+              web_icon="ggandy_property_management,static/description/icon.png"
               sequence="30"
               groups="ggandy_property_management.group_property_user"/>
 
