@@ -145,9 +145,9 @@ GGAndy 帳務總表 ggandy.accounting.overview（每個出租單位 × 每個月
 
 | 指令 | 內容 |
 | --- | --- |
-| `/status` | 今日營運摘要：管理物件數、出租中／空房、本月應收／已收／未收、逾期租金、待處理維修、30 天內到期租約 |
+| `/status` | 今日營運摘要：管理物件數、出租中／空房、本月應收／已收／未收、逾期租金、待處理維修、一個月內到期租約 |
 | `/overdue` | 逾期租金清單（前 10 筆與未收合計） |
-| `/leases` | 30 天內到期租約 |
+| `/renew` | 續約提醒：一個月內到期的租約，附房客電話／email、共同承租人、租期、月租、押金、剩幾天；另列「已過到期日但租約仍是生效中」的租約。可帶天數，例如 `/renew 60`（1–365）。舊指令 `/leases` 也會回傳一樣的內容 |
 | `/maintenance` | 待處理維修 |
 | `/start`、`/help` | 指令說明 |
 
@@ -166,7 +166,7 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 選單「包租代管 → 整合工具」：
 
 - **從 Google Sheet 匯入物件**：貼上 Google Sheet 連結（需可公開讀取），欄位為 `編號`、`案件名稱`（必填）、`經營模式`（包租／代管／混合）、`房東`、`地址`、`管理人員`、`匯款日期`（例如 `30號`）、`出租單位`（房號用半形逗號隔開，例如 `201,202,店面`）。用 `編號 + 案件名稱` 產生穩定的 external id，重複匯入會更新同一筆物件，不會重複建立；留空的欄位不會覆蓋既有資料。房東依名稱比對聯絡人，找不到時預設自動建立房東聯絡人；管理人員依名稱或登入帳號比對內部使用者，找不到就留空，並在匯入結果以警告列出「編號／案件名稱／管理人員」。出租單位只新增物件底下還沒有的房號，不會刪除。
-- **從 Google Sheet 匯入聯絡人**：選單已建立，功能尚未實作。目前聯絡人匯入請使用 `scripts/google_res_partner.py`（XML-RPC 外部腳本）。
+- **從 Google Sheet 匯入聯絡人**：貼上 Google Sheet 連結，預設讀取 `gid=0` 分頁，表頭為 `partner_key`、`name`（必填）、`phone`（手機或市話都填這格）、`email`、`street`、`city`、`zip`、`is_owner`、`is_tenant`、`is_vendor`（填 `TRUE` / `FALSE`）。依 `partner_key → email → 電話 → 名稱` 找既有聯絡人，找到就更新、找不到才新增；同一條件對到多位時整列略過並提醒。留空欄位不覆蓋；身分旗標只加不減。舊表頭的 `mobile` 已停用，留著也不會匯入。
 - **包租獲利試算**（僅管理者）：跟房東談包租前先試算划不划。輸入房間數、初始投入、免租裝潢期、包租期間、每間付房東、每間預估月租、出租率，即時算出每月與整段期間的賺賠、投資報酬率、年化報酬率（ROI）、幾個月回本，以及出租率、月租、付房東的不賠底線。純試算，不會寫入任何資料；尚未扣水電、維修、人事與稅。
 
 ---
@@ -207,7 +207,7 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 │           └── services/              ← Telegram Bot API client
 ├── scripts/
 │   ├── ggandy_common.sql              ← 常用 SQL 查詢（pgAdmin / psql）
-│   └── google_res_partner.py          ← Google Sheet / CSV 匯入聯絡人（XML-RPC）
+│   └── google_res_partner.py          ← Google Sheet / CSV 匯入聯絡人（XML-RPC，舊版；已由 Odoo 內的匯入精靈取代）
 └── notebook/                          ← 學習用 notebook、開發文件與代辦
     ├── README.md
     ├── TODO.md

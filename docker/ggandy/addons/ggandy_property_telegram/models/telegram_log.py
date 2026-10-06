@@ -1,6 +1,8 @@
 import logging
 from datetime import timedelta
 
+from dateutil.relativedelta import relativedelta
+
 from odoo import api, fields, models
 
 from ..services import TelegramAPIClient, TelegramAPIError
@@ -200,8 +202,9 @@ class GgandyTelegramLog(models.Model):
             response = self._build_status_message(user)
         elif command == "/overdue":
             response = self._build_overdue_message(user)
-        elif command == "/leases":
-            response = self._build_expiring_leases_message(user)
+        elif command in ("/renew", "/leases"):
+            argument = text.split(maxsplit=1)[1] if len(text.split(maxsplit=1)) > 1 else ""
+            response = self._build_renewal_message(user, argument)
         elif command == "/maintenance":
             response = self._build_maintenance_message(user)
         elif command in ("/start", "/help"):
@@ -211,13 +214,14 @@ class GgandyTelegramLog(models.Model):
                 "目前可用指令：\n"
                 "/status - 今日營運摘要\n"
                 "/overdue - 逾期租金清單\n"
-                "/leases - 30 天內到期租約\n"
+                "/renew - 一個月內到期、要談續約的租約（含房客電話）\n"
+                "　例：/renew 60 → 查 60 天內到期\n"
                 "/maintenance - 待處理維修\n"
                 "/help - 顯示指令說明"
             )
         else:
             response = (
-                "目前不支援此指令。請輸入 /status、/overdue、/leases、"
+                "目前不支援此指令。請輸入 /status、/overdue、/renew、"
                 "/maintenance 或 /help。"
             )
 
@@ -336,7 +340,7 @@ class GgandyTelegramLog(models.Model):
             + [
                 ("state", "=", "active"),
                 ("end_date", ">=", today),
-                ("end_date", "<=", today + timedelta(days=30)),
+                ("end_date", "<=", today + relativedelta(months=1)),
             ]
         )
 
@@ -351,7 +355,7 @@ class GgandyTelegramLog(models.Model):
             f"未收：{currency}{uncollected:,.0f}\n\n"
             f"逾期租金：{overdue_count} 戶\n"
             f"待處理維修：{maintenance_count} 件\n"
-            f"30 天內到期租約：{expiring_count} 件"
+            f"一個月內到期租約：{expiring_count} 件（/renew 看明細）"
         )
 
     @api.model
@@ -385,34 +389,76 @@ class GgandyTelegramLog(models.Model):
         return "\n".join(lines)
 
     @api.model
-    def _build_expiring_leases_message(self, user, limit=10):
+    def _build_renewal_message(self, user, argument="", limit=10):
+        """續約提醒：一個月內到期的生效中租約，加上已過到期日卻還沒處理的租約。
+
+        argument 可帶天數（1～365），例如「/renew 60」查 60 天內到期；沒帶就是一個月。
+        """
         company = user.company_id
         Lease = self.env["ggandy.lease"].with_user(user).with_company(company)
         today = fields.Date.context_today(self.with_user(user))
-        leases = Lease.search(
-            [
-                ("company_id", "=", company.id),
-                ("state", "=", "active"),
-                ("end_date", ">=", today),
-                ("end_date", "<=", today + timedelta(days=30)),
-            ],
-            order="end_date, property_id, unit_id",
+
+        argument = (argument or "").strip()
+        if argument:
+            if not argument.isdigit() or not 1 <= int(argument) <= 365:
+                return "天數請填 1～365 的數字，例如：/renew 60（查 60 天內到期的租約）。"
+            window_end = today + timedelta(days=int(argument))
+            window_label = f"{argument} 天內"
+        else:
+            window_end = today + relativedelta(months=1)
+            window_label = "一個月內"
+
+        base_domain = [("company_id", "=", company.id), ("state", "=", "active")]
+        order = "end_date, property_id, unit_id"
+        upcoming = Lease.search(
+            base_domain + [("end_date", ">=", today), ("end_date", "<=", window_end)],
+            order=order,
             limit=limit + 1,
         )
-        if not leases:
-            return "✅ 30 天內沒有即將到期的租約。"
+        # 租約過了到期日不會自動結案，還掛「生效中」代表沒人處理，最需要追。
+        overdue = Lease.search(
+            base_domain + [("end_date", "<", today)],
+            order=order,
+            limit=limit + 1,
+        )
+        if not upcoming and not overdue:
+            return f"✅ {window_label}（到 {window_end}）沒有要談續約的租約。"
 
-        lines = ["📄 30 天內到期租約"]
-        for lease in leases[:limit]:
-            days_left = (lease.end_date - today).days
-            lines.append(
-                "\n"
-                f"• {lease.property_id.name} / {lease.unit_id.name}\n"
-                f"  房客：{lease.tenant_id.name}\n"
-                f"  到期：{lease.end_date}｜剩 {days_left} 天"
-            )
-        if len(leases) > limit:
-            lines.append(f"\n另有 {len(leases) - limit} 筆未列出，請回 Odoo 查看租約。")
+        currency = company.currency_id.symbol or company.currency_id.name
+        lines = [f"📄 續約提醒：{window_label}到期（{today} ～ {window_end}）"]
+        if upcoming:
+            for lease in upcoming[:limit]:
+                days_left = (lease.end_date - today).days
+                lines.append(self._format_renewal_lease(lease, currency, f"剩 {days_left} 天"))
+            if len(upcoming) > limit:
+                lines.append(f"\n另有 {len(upcoming) - limit} 筆未列出，請回 Odoo 查看租約。")
+        else:
+            lines.append("\n（這段期間沒有到期的租約）")
+
+        if overdue:
+            lines.append("\n⚠️ 已過到期日、租約還是「生效中」（請確認是否已續約或退租）")
+            for lease in overdue[:limit]:
+                days_over = (today - lease.end_date).days
+                lines.append(self._format_renewal_lease(lease, currency, f"已過 {days_over} 天"))
+            if len(overdue) > limit:
+                lines.append(f"\n另有 {len(overdue) - limit} 筆未列出，請回 Odoo 查看租約。")
+        return "\n".join(lines)
+
+    @api.model
+    def _format_renewal_lease(self, lease, currency, days_text):
+        tenant = lease.tenant_id
+        contact = "｜".join(part for part in (tenant.phone, tenant.email) if part)
+        lines = [
+            "\n"
+            f"• {lease.property_id.name} / {lease.unit_id.name}",
+            f"  房客：{tenant.name}" + (f"｜{contact}" if contact else "｜（未填電話）"),
+        ]
+        if lease.co_tenant_ids:
+            lines.append("  共同承租：" + "、".join(lease.co_tenant_ids.mapped("name")))
+        lines += [
+            f"  租期：{lease.start_date} ～ {lease.end_date}（{days_text}）",
+            f"  月租：{currency}{lease.rent_amount:,.0f}｜押金：{currency}{lease.deposit_amount:,.0f}",
+        ]
         return "\n".join(lines)
 
     @api.model

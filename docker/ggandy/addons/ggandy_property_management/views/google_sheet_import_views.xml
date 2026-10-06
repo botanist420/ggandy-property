@@ -13,49 +13,49 @@
                     <table class="table table-sm table-bordered bg-white mb-2">
                         <thead>
                             <tr>
-                                <th>欄位</th>
+                                <th class="text-nowrap">欄位</th>
                                 <th>怎麼填</th>
                                 <th>留空時</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td><strong>編號</strong> <span class="text-danger">*</span></td>
+                                <td class="text-nowrap"><strong>編號</strong><span class="text-danger ms-1">*</span></td>
                                 <td>Sheet 上的流水號，搭配案件名稱辨識同一個物件</td>
                                 <td>整列略過</td>
                             </tr>
                             <tr>
-                                <td><strong>案件名稱</strong> <span class="text-danger">*</span></td>
+                                <td class="text-nowrap"><strong>案件名稱</strong><span class="text-danger ms-1">*</span></td>
                                 <td>物件名稱，例如「輔大」</td>
                                 <td>整列略過</td>
                             </tr>
                             <tr>
-                                <td>經營模式</td>
+                                <td class="text-nowrap">經營模式</td>
                                 <td>填 <code>包租</code>、<code>代管</code> 或 <code>混合</code></td>
                                 <td>新物件用下方「經營模式留空時」</td>
                             </tr>
                             <tr>
-                                <td>房東</td>
+                                <td class="text-nowrap">房東</td>
                                 <td>房東姓名，會比對聯絡人名稱</td>
                                 <td>不設定房東</td>
                             </tr>
                             <tr>
-                                <td>地址</td>
+                                <td class="text-nowrap">地址</td>
                                 <td>完整地址</td>
                                 <td>不設定地址</td>
                             </tr>
                             <tr>
-                                <td>管理人員</td>
+                                <td class="text-nowrap">管理人員</td>
                                 <td>負責同事的使用者名稱或登入帳號，例如「Andy Chu」，必須是已存在的內部使用者</td>
                                 <td>不設定管理人員；填了但找不到使用者也會留空，並在匯入結果標記</td>
                             </tr>
                             <tr>
-                                <td>匯款日期</td>
+                                <td class="text-nowrap">匯款日期</td>
                                 <td>每月匯款給房東的日子，例如 <code>20號</code>、<code>5</code></td>
                                 <td>不設定匯款日期</td>
                             </tr>
                             <tr>
-                                <td>出租單位</td>
+                                <td class="text-nowrap">出租單位</td>
                                 <td>
                                     房號用<strong>半形逗號 <code>,</code></strong> 隔開，例如
                                     <code>201,202,203,301,店面</code>
@@ -118,14 +118,102 @@
         <field name="model">ggandy.google.sheet.contact.import.wizard</field>
         <field name="arch" type="xml">
             <form string="從 Google Sheet 匯入聯絡人">
-                <group>
-                    <field name="sheet_url" placeholder="貼上 Google Sheet URL"/>
+                <div class="alert alert-info mb-3" role="alert" invisible="result_html">
+                    <p class="mb-2">
+                        <strong>Google Sheet 第一列請放英文標題</strong>，順序不拘，名稱要一字不差。
+                        只有 <strong><code>name</code></strong> 必填，其他欄位留空都沒關係。
+                    </p>
+                    <table class="table table-sm table-bordered bg-white mb-2">
+                        <thead>
+                            <tr>
+                                <th class="text-nowrap">欄位</th>
+                                <th>怎麼填</th>
+                                <th class="text-nowrap">留空時</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="text-nowrap"><code>partner_key</code></td>
+                                <td>聯絡人編號，例如 <code>OWNER_001</code>、<code>TENANT_001</code>。有填就用它認人，最準確</td>
+                                <td>改用 email、電話、名稱找既有聯絡人</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><strong><code>name</code></strong><span class="text-danger ms-1">*</span></td>
+                                <td>聯絡人姓名或公司名稱</td>
+                                <td>整列略過</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><code>phone</code></td>
+                                <td>電話，手機或市話都填這格，例如 <code>0912-000-001</code></td>
+                                <td>不變更</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><code>email</code></td>
+                                <td>電子郵件</td>
+                                <td>不變更</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><code>street</code></td>
+                                <td>地址</td>
+                                <td>不變更</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><code>city</code></td>
+                                <td>縣市，例如 <code>台北市</code></td>
+                                <td>不變更</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><code>zip</code></td>
+                                <td>郵遞區號，例如 <code>100</code></td>
+                                <td>不變更</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><code>is_owner</code></td>
+                                <td>是房東填 <code>TRUE</code>，不是填 <code>FALSE</code></td>
+                                <td>不變更</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><code>is_tenant</code></td>
+                                <td>是房客填 <code>TRUE</code>，不是填 <code>FALSE</code></td>
+                                <td>不變更</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><code>is_vendor</code></td>
+                                <td>是維修廠商填 <code>TRUE</code>，不是填 <code>FALSE</code></td>
+                                <td>不變更</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <ul class="mb-0 small">
+                        <li>找既有聯絡人的順序：<strong>partner_key → email → 電話 → 名稱</strong>。找到就更新，找不到才新增，重複匯入不會建出重複的人。</li>
+                        <li>同一個條件對到好幾位聯絡人時，系統不會亂猜，會整列略過並在結果中提醒你。</li>
+                        <li>電話比對只看數字，<code>0912-000-001</code> 和 <code>0912000001</code> 會當成同一支。舊表頭的 <code>mobile</code> 欄位已停用，就算還留著也不會匯入。</li>
+                        <li><code>is_owner</code> 等身分欄位<strong>只會加上、不會取消</strong>：填 <code>FALSE</code> 不會把原本的房東身分拿掉，要取消請到聯絡人頁面手動調整。</li>
+                    </ul>
+                </div>
+                <group string="資料來源">
+                    <field name="sheet_url"
+                           placeholder="https://docs.google.com/spreadsheets/d/.../edit?gid=..."
+                           widget="url"/>
+                    <div class="text-muted small" colspan="2">
+                        網址要包含 <code>gid=</code> 才會讀到正確的分頁；共用設定需為「知道連結的任何人都能檢視」。
+                    </div>
                 </group>
+                <div invisible="not result_html">
+                    <separator string="匯入結果"/>
+                    <field name="result_html" nolabel="1"/>
+                </div>
                 <footer>
                     <button name="action_import_contacts"
                             type="object"
                             string="匯入聯絡人"
-                            class="btn-primary"/>
+                            class="btn-primary"
+                            invisible="result_html"/>
+                    <button name="action_import_contacts"
+                            type="object"
+                            string="再匯入一次"
+                            class="btn-secondary"
+                            invisible="not result_html"/>
                     <button string="關閉" special="cancel"/>
                 </footer>
             </form>

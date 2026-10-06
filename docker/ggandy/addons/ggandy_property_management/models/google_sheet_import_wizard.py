@@ -11,6 +11,10 @@ DEFAULT_PROPERTY_SHEET_URL = (
     "https://docs.google.com/spreadsheets/d/"
     "1FucODwVYY3oh1lxHwzc-QJ-5xStSZ1yWEla0aqoC4AQ/edit?gid=1664248865"
 )
+DEFAULT_CONTACT_SHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1FucODwVYY3oh1lxHwzc-QJ-5xStSZ1yWEla0aqoC4AQ/edit?gid=0#gid=0"
+)
 
 MANAGEMENT_MODE_SELECTION = [
     ("master_lease", "包租"),
@@ -25,9 +29,115 @@ OPTIONAL_PROPERTY_COLUMNS = ["經營模式", "房東", "地址", "管理人員",
 # 出租單位的分隔符號：半形逗號為主，順便接受全形逗號與頓號，避免手滑打錯。
 UNIT_SEPARATOR_PATTERN = r"[,，、]"
 
+# 聯絡人沿用舊的 scripts/google_res_partner.py 表頭（英文），順序就是建議的 Sheet 欄位順序。
+CONTACT_COLUMNS = [
+    "partner_key", "name", "phone", "email", "street", "city", "zip",
+    "is_owner", "is_tenant", "is_vendor",
+]
+REQUIRED_CONTACT_COLUMNS = ["name"]
+# 已棄用的欄位：Sheet 上還留著也不會報錯，只提醒不會匯入。
+DEPRECATED_CONTACT_COLUMNS = {"mobile": "手機請統一填在 phone"}
+CONTACT_FLAG_COLUMNS = {
+    "is_owner": ("is_ggandy_owner", "房東"),
+    "is_tenant": ("is_ggandy_tenant", "房客"),
+    "is_vendor": ("is_ggandy_vendor", "維修廠商"),
+}
+# Google Sheet 核取方塊匯出是 TRUE / FALSE；手打的常見寫法也一併接受。
+TRUE_TEXTS = {"true", "1", "y", "yes", "v", "是", "✓", "✔"}
+FALSE_TEXTS = {"", "false", "0", "n", "no", "否"}
+
+
+class GgandyGoogleSheetImportMixin(models.AbstractModel):
+    _name = "ggandy.google.sheet.import.mixin"
+    _description = "Google Sheet 匯入共用功能"
+
+    result_html = fields.Html(
+        string="匯入結果",
+        readonly=True,
+        help="匯入後顯示新增、更新、略過與前 80 筆訊息。若看到略過，先看是不是必填欄位空白。",
+    )
+
+    def _read_google_sheet_csv(self, sheet_url):
+        try:
+            import pandas as pd
+        except ImportError as error:
+            raise UserError("伺服器尚未安裝 pandas，無法讀取 Google Sheet。") from error
+
+        csv_url = self._to_google_sheet_csv_url(sheet_url)
+        try:
+            df = pd.read_csv(csv_url, dtype=str, keep_default_na=False)
+        except Exception as error:
+            raise UserError(f"讀取 Google Sheet 失敗：{error}") from error
+        df.columns = [self._clean_cell(column) for column in df.columns]
+        return df
+
+    def _to_google_sheet_csv_url(self, sheet_url):
+        parsed = urlparse(sheet_url)
+        match = re.search(r"/spreadsheets/d/([^/]+)", parsed.path)
+        if not match:
+            raise UserError("請輸入有效的 Google Sheet URL。")
+
+        spreadsheet_id = match.group(1)
+        query = parse_qs(parsed.query)
+        fragment_query = parse_qs(parsed.fragment)
+        gid = (
+            query.get("gid", [None])[0]
+            or fragment_query.get("gid", [None])[0]
+            or "0"
+        )
+        return (
+            f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+            f"/export?format=csv&gid={gid}"
+        )
+
+    def _check_required_columns(self, df, required_columns, all_columns):
+        missing_columns = [column for column in required_columns if column not in df.columns]
+        if missing_columns:
+            raise UserError(
+                "Google Sheet 缺少必要欄位："
+                + "、".join(missing_columns)
+                + "\n\n第一列標題請照這個順序填寫：\n"
+                + "　".join(all_columns)
+                + "\n\n目前讀到的標題：" + "、".join(df.columns)
+            )
+
+    def _render_result_html(self, summary, messages, warnings=(), warning_title="", warning_hint=""):
+        """組匯入結果：最上面是需要人處理的警告，接著摘要，最後是逐筆訊息（最多 80 筆）。"""
+        safe_messages = "".join(
+            f"<li>{html.escape(message)}</li>" for message in messages[:80]
+        )
+        if len(messages) > 80:
+            safe_messages += f"<li>另有 {len(messages) - 80} 筆訊息未顯示。</li>"
+        warning_html = ""
+        if warnings:
+            warning_items = "".join(f"<li>{html.escape(warning)}</li>" for warning in warnings)
+            warning_html = (
+                '<div class="alert alert-warning" role="alert">'
+                f"<p><strong>{html.escape(warning_title)}</strong></p>"
+                f"<ul>{warning_items}</ul>"
+                + (f'<p class="mb-0 small">{html.escape(warning_hint)}</p>' if warning_hint else "")
+                + "</div>"
+            )
+        return f"{warning_html}<p>{html.escape(summary)}</p><ul>{safe_messages}</ul>"
+
+    def _reopen_wizard(self):
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": self._name,
+            "res_id": self.id,
+            "view_mode": "form",
+            "target": "new",
+        }
+
+    def _clean_cell(self, value):
+        if value is None:
+            return ""
+        return str(value).strip()
+
 
 class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
     _name = "ggandy.google.sheet.property.import.wizard"
+    _inherit = "ggandy.google.sheet.import.mixin"
     _description = "從 Google Sheet 匯入物件"
 
     sheet_url = fields.Char(
@@ -46,23 +156,21 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
         "既有物件遇到留空則維持原本的設定，不會被覆蓋。",
     )
     create_missing_owner = fields.Boolean(
-        string="自動建立找不到的房東",
+        string="自動建立房東",
         default=True,
-        help="勾選時，Sheet 上的房東在聯絡人裡找不到，會自動新增一位房東聯絡人。"
+        help="勾選時，Sheet 上的房東如果在聯絡人裡找不到，會自動新增一位房東聯絡人。"
         "取消勾選則只對應既有聯絡人，找不到的會在匯入結果中列出。"
         "管理人員不會自動建立：找不到對應的內部使用者時一律留空，並在匯入結果標記出來。",
-    )
-    result_html = fields.Html(
-        string="匯入結果",
-        readonly=True,
-        help="匯入後顯示新增、更新、略過與前 80 筆訊息。若看到略過，先看是不是編號或案件名稱空白。",
     )
 
     def action_import_properties(self):
         self.ensure_one()
         df = self._read_google_sheet_csv(self.sheet_url)
-        df.columns = [self._clean_cell(column) for column in df.columns]
-        self._validate_columns(df)
+        self._check_required_columns(
+            df,
+            REQUIRED_PROPERTY_COLUMNS,
+            REQUIRED_PROPERTY_COLUMNS + OPTIONAL_PROPERTY_COLUMNS,
+        )
 
         created_count = 0
         updated_count = 0
@@ -142,65 +250,18 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
                 message += f"（新增出租單位 {len(new_units)} 間：{'、'.join(new_units.mapped('name'))}）"
             messages.append(message)
 
-        self.result_html = self._build_result_html(
-            created_count=created_count,
-            updated_count=updated_count,
-            skipped_count=skipped_count,
-            unit_created_count=unit_created_count,
+        self.result_html = self._render_result_html(
+            summary=(
+                f"物件新增 {created_count} 筆，更新 {updated_count} 筆，"
+                f"略過 {skipped_count} 筆；出租單位新增 {unit_created_count} 間。"
+            ),
             messages=messages,
-            manager_warnings=manager_warnings,
+            warnings=manager_warnings,
+            warning_title=f"有 {len(manager_warnings)} 個物件的管理人員不是內部使用者，已留空：",
+            warning_hint="請確認 Sheet 上的名字和 Odoo 使用者名稱（或登入帳號）一字不差，"
+            "或先到「設定 → 使用者」建立帳號後再重新匯入。",
         )
-        return {
-            "type": "ir.actions.act_window",
-            "res_model": self._name,
-            "res_id": self.id,
-            "view_mode": "form",
-            "target": "new",
-        }
-
-    def _read_google_sheet_csv(self, sheet_url):
-        try:
-            import pandas as pd
-        except ImportError as error:
-            raise UserError("伺服器尚未安裝 pandas，無法讀取 Google Sheet。") from error
-
-        csv_url = self._to_google_sheet_csv_url(sheet_url)
-        try:
-            return pd.read_csv(csv_url, dtype=str, keep_default_na=False)
-        except Exception as error:
-            raise UserError(f"讀取 Google Sheet 失敗：{error}") from error
-
-    def _to_google_sheet_csv_url(self, sheet_url):
-        parsed = urlparse(sheet_url)
-        match = re.search(r"/spreadsheets/d/([^/]+)", parsed.path)
-        if not match:
-            raise UserError("請輸入有效的 Google Sheet URL。")
-
-        spreadsheet_id = match.group(1)
-        query = parse_qs(parsed.query)
-        fragment_query = parse_qs(parsed.fragment)
-        gid = (
-            query.get("gid", [None])[0]
-            or fragment_query.get("gid", [None])[0]
-            or "0"
-        )
-        return (
-            f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
-            f"/export?format=csv&gid={gid}"
-        )
-
-    def _validate_columns(self, df):
-        missing_columns = [
-            column for column in REQUIRED_PROPERTY_COLUMNS if column not in df.columns
-        ]
-        if missing_columns:
-            raise UserError(
-                "Google Sheet 缺少必要欄位："
-                + "、".join(missing_columns)
-                + "\n\n第一列標題請照這個順序填寫：\n"
-                + "　".join(REQUIRED_PROPERTY_COLUMNS + OPTIONAL_PROPERTY_COLUMNS)
-                + "\n\n目前讀到的標題：" + "、".join(df.columns)
-            )
+        return self._reopen_wizard()
 
     def _find_or_create_owner(self, owner_name, line_no, messages):
         """依名稱找房東聯絡人；留空回傳空 recordset，找不到時視設定自動建立。"""
@@ -362,58 +423,142 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
             "</ul>"
         )
 
-    def _build_result_html(
-        self,
-        created_count,
-        updated_count,
-        skipped_count,
-        unit_created_count,
-        messages,
-        manager_warnings=(),
-    ):
-        safe_messages = "".join(
-            f"<li>{html.escape(message)}</li>" for message in messages[:80]
-        )
-        if len(messages) > 80:
-            safe_messages += (
-                f"<li>另有 {len(messages) - 80} 筆訊息未顯示。</li>"
-            )
-        warning_html = ""
-        if manager_warnings:
-            warning_items = "".join(
-                f"<li>{html.escape(warning)}</li>" for warning in manager_warnings
-            )
-            warning_html = (
-                '<div class="alert alert-warning" role="alert">'
-                f"<p><strong>有 {len(manager_warnings)} 個物件的管理人員不是內部使用者，已留空：</strong></p>"
-                f"<ul>{warning_items}</ul>"
-                '<p class="mb-0 small">請確認 Sheet 上的名字和 Odoo 使用者名稱（或登入帳號）一字不差，'
-                "或先到「設定 → 使用者」建立帳號後再重新匯入。</p>"
-                "</div>"
-            )
-        return (
-            warning_html
-            + "<p>"
-            f"物件新增 {created_count} 筆，更新 {updated_count} 筆，"
-            f"略過 {skipped_count} 筆；出租單位新增 {unit_created_count} 間。"
-            "</p>"
-            f"<ul>{safe_messages}</ul>"
-        )
-
-    def _clean_cell(self, value):
-        if value is None:
-            return ""
-        return str(value).strip()
-
 
 class GgandyGoogleSheetContactImportWizard(models.TransientModel):
     _name = "ggandy.google.sheet.contact.import.wizard"
+    _inherit = "ggandy.google.sheet.import.mixin"
     _description = "從 Google Sheet 匯入聯絡人"
 
     sheet_url = fields.Char(
         string="Google Sheet URL",
-        help="預留給聯絡人匯入的 Google Sheet 連結。目前功能尚未實作。",
+        required=True,
+        default=DEFAULT_CONTACT_SHEET_URL,
+        help="貼上聯絡人 Google Sheet 的連結（網址要包含 gid，才會讀到正確的分頁）。"
+        "系統會轉成 CSV 讀取；若讀不到，請先確認共用設定是「知道連結的任何人都能檢視」。",
     )
 
     def action_import_contacts(self):
-        raise UserError("從 Google Sheet 匯入聯絡人尚未實作。")
+        self.ensure_one()
+        df = self._read_google_sheet_csv(self.sheet_url)
+        self._check_required_columns(df, REQUIRED_CONTACT_COLUMNS, CONTACT_COLUMNS)
+
+        created_count = 0
+        updated_count = 0
+        skipped_count = 0
+        messages = []
+        conflict_warnings = []
+
+        for column, hint in DEPRECATED_CONTACT_COLUMNS.items():
+            if column in df.columns:
+                messages.append(f"{column} 欄位已停用，不會匯入（{hint}）。")
+        missing_optional = [column for column in CONTACT_COLUMNS if column not in df.columns]
+        if missing_optional:
+            messages.append(
+                "Sheet 沒有這些欄位，已當作留空處理：" + "、".join(missing_optional)
+            )
+
+        for index, row in df.iterrows():
+            line_no = index + 2
+            data = {column: self._clean_cell(row.get(column)) for column in CONTACT_COLUMNS}
+            if not any(data.values()):
+                skipped_count += 1
+                continue
+            if not data["name"]:
+                skipped_count += 1
+                messages.append(f"第 {line_no} 列略過：name 為空。")
+                continue
+
+            label = data["name"] + (f"（{data['partner_key']}）" if data["partner_key"] else "")
+            partner, match_reason, conflict = self._find_existing_partner(data)
+            if conflict:
+                skipped_count += 1
+                conflict_warnings.append(f"第 {line_no} 列 {label}：{conflict}")
+                continue
+
+            values = self._prepare_partner_values(data, line_no, messages)
+            if partner:
+                partner.write(values)
+                updated_count += 1
+                messages.append(f"更新：{label}，{match_reason}")
+            else:
+                self.env["res.partner"].create(values)
+                created_count += 1
+                messages.append(f"新增：{label}")
+
+        self.result_html = self._render_result_html(
+            summary=(
+                f"聯絡人新增 {created_count} 筆，更新 {updated_count} 筆，略過 {skipped_count} 筆。"
+            ),
+            messages=messages,
+            warnings=conflict_warnings,
+            warning_title=f"有 {len(conflict_warnings)} 列無法判斷是哪位聯絡人，已略過：",
+            warning_hint="請在 Sheet 補上 partner_key，或到聯絡人清單合併重複的聯絡人後再重新匯入。",
+        )
+        return self._reopen_wizard()
+
+    def _find_existing_partner(self, data):
+        """依 partner_key → email → 電話 → 名稱 找既有聯絡人。
+
+        回傳 (partner, 對應方式, 衝突說明)。partner_key 以外的比對只看還沒有編號、
+        或編號相同的聯絡人，避免把兩個不同 partner_key 的人合併成一個；
+        同一條件找到多位時不猜，回傳衝突讓使用者處理。
+        """
+        Partner = self.env["res.partner"]
+        partner_key = data["partner_key"]
+        if partner_key:
+            partner = Partner.search([("ref", "=", partner_key)], limit=1)
+            if partner:
+                return partner, "依 partner_key 對應", ""
+            ref_domain = ["|", ("ref", "=", False), ("ref", "=", "")]
+        else:
+            ref_domain = []
+
+        criteria = []
+        if data["email"]:
+            criteria.append(("email", [("email", "=ilike", data["email"])]))
+        phone_partner_ids = self._partner_ids_by_phone_digits(data["phone"])
+        if phone_partner_ids:
+            criteria.append(("電話", [("id", "in", phone_partner_ids)]))
+        criteria.append(("名稱", [("name", "=", data["name"])]))
+
+        for criterion_label, domain in criteria:
+            partners = Partner.search(ref_domain + domain, limit=2)
+            if len(partners) == 1:
+                return partners, f"依{criterion_label}對應", ""
+            if len(partners) > 1:
+                return Partner, "", f"有多位聯絡人的{criterion_label}相同，無法判斷要更新哪一位。"
+        return Partner, "", ""
+
+    def _partner_ids_by_phone_digits(self, phone):
+        """只比數字找電話相同的聯絡人：0912-000-001、0912 000 001、0912000001 視為同一支。"""
+        digits = re.sub(r"\D", "", phone or "")
+        if not digits:
+            return []
+        self.env["res.partner"].flush_model(["phone"])
+        self.env.cr.execute(
+            "SELECT id FROM res_partner"
+            " WHERE phone IS NOT NULL AND regexp_replace(phone, '\\D', '', 'g') = %s",
+            [digits],
+        )
+        return [partner_id for (partner_id,) in self.env.cr.fetchall()]
+
+    def _prepare_partner_values(self, data, line_no, messages):
+        # Sheet 留空的欄位不寫入，避免把聯絡人上手動補好的資料清掉。
+        values = {"name": data["name"]}
+        if data["partner_key"]:
+            values["ref"] = data["partner_key"]
+        for column in ("phone", "email", "street", "city", "zip"):
+            if data[column]:
+                values[column] = data[column]
+
+        # 身分旗標只會「加上」不會「拿掉」：房東身分被物件、合約用到時，Sheet 寫 FALSE 也不會被取消。
+        for column, (field_name, flag_label) in CONTACT_FLAG_COLUMNS.items():
+            text = data[column]
+            if text.lower() in TRUE_TEXTS:
+                values[field_name] = True
+            elif text.lower() not in FALSE_TEXTS:
+                messages.append(
+                    f"第 {line_no} 列 {column}「{text}」無法辨識（請填 TRUE 或 FALSE），"
+                    f"未變更{flag_label}身分。"
+                )
+        return values

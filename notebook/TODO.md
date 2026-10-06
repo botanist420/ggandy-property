@@ -12,7 +12,7 @@
   `accounting_overview._compute_amounts` 用單位 + 月份抓期次，沒過濾 `lease_id.state`。租約提前終止後，剩下的期次還在，會讓應收、未收、現金流判讀失真。
   → 終止時刪除（或標記）`period_start > 終止日` 且未開單的期次，並在總表排除 `cancelled` 租約的期次。
 - [ ] **租約沒有辦法變成「已到期」**
-  `ggandy.lease` 有 `expired` 狀態，但沒有按鈕也沒有排程會設定它。租期結束後租約永遠是 `active`，單位也一直是「已出租」，Telegram 的到期提醒只看得到 30 天內的。
+  `ggandy.lease` 有 `expired` 狀態，但沒有按鈕也沒有排程會設定它。租期結束後租約永遠是 `active`，單位也一直是「已出租」。（Telegram `/renew` 目前靠「end_date 已過但仍 active」另列一段提醒；做了自動到期後，要記得改成列出近期轉 `expired` 的租約，否則這段提醒會消失。）
   → 新增 `action_mark_expired` + 每日 cron：`end_date < today` 的 active 租約 → expired，並 `_refresh_from_active_leases()`。房東合約也一樣只有手動「標記到期」，可以一起處理。
 - [ ] **Telegram `/status` 的逾期戶數和 `/overdue` 對不起來**
   `_build_status_message` 自己寫篩選，沒排除非 active 租約、也沒排除已取消發票；`/overdue` 用的是 `_get_overdue_domain()`。
@@ -23,7 +23,8 @@
 - [ ] **55 / 59 個物件的房東是預設的系統 Bot（`base.partner_root`）**
   Google Sheet 匯入精靈的預設房東是 `base.partner_root`，而且每次重新匯入都會**覆寫** `owner_id / manager_id / management_mode`，手動修正過的房東會被蓋回去。
   → ~~(1) 匯入時只在新建時寫入預設房東／管理人／經營模式；(2) 在 Sheet 加「房東」欄位~~（2026-10-06 已完成：Sheet 新增經營模式／房東／管理人員／出租單位欄位，留空不覆蓋，預設房東拿掉）；(3) 清理現有資料：Sheet 補上房東後重新匯入即可覆寫掉 `base.partner_root`。
-- [ ] **從 Google Sheet 匯入聯絡人**：選單已存在，`action_import_contacts` 只會丟 `UserError`。可把 `scripts/google_res_partner.py` 的邏輯（欄位對應、依 ref/email/mobile/phone/name 找既有聯絡人）搬進 wizard。
+- [x] **從 Google Sheet 匯入聯絡人**：已搬進 wizard（2026-10-06），表頭沿用舊腳本的英文欄位。
+- [ ] **聯絡人匯入表頭優化**：改成中文表頭（與物件匯入一致）。電話已統一用 `phone`，`mobile` 停用。
 - [ ] **報修費用沒有進帳務**：`charged_to`、`actual_cost` 只是記錄。可在完成報修時依費用歸屬：公司／房東負擔 → 建 vendor bill（帶 `ggandy_expense_*`），房客負擔 → 加到下一期租金或另開 invoice；房東負擔的部分從代管結算扣除。
 - [ ] **逾期活動不會自動結案**：收款後「逾期租金待處理」活動還在，需在付款後（或 cron 中）`action_feedback` 關掉。
 - [x] **月中入住／退租的期次按天數計算**：租金與管理費 = 月額 × 期次天數 ÷ 當月實際天數，四捨五入到元；既有期次不重算（2026-10-05）
@@ -58,7 +59,7 @@
 
 - [ ] **自動化測試**：兩個模組都沒有 `tests/`。最值得先寫：`_generate_rent_schedule`（短月、月中起訖）、`_get_owner_settlement_amount`（包租／代管百分比／固定費／部分收款）、`_compute_amounts`（分攤比例）、重疊檢查 constraint。
 - [ ] **帳務總表效能**：`_search_computed_flag` 是 `self.search([]).filtered(...)`，每次篩選都會算整張表所有列。資料量大後考慮改成 stored + cron 重算，或用 SQL view（`_auto = False`）。
-- [ ] **Google Sheet URL 寫死在程式碼**（`DEFAULT_PROPERTY_SHEET_URL`）：改成 `ir.config_parameter` 或設定頁欄位。
+- [ ] **Google Sheet URL 寫死在程式碼**（`DEFAULT_PROPERTY_SHEET_URL`、`DEFAULT_CONTACT_SHEET_URL`）：改成 `ir.config_parameter` 或設定頁欄位。
 - [ ] **Telegram 正式環境**：目前只有 getUpdates 輪詢（每分鐘，和其他 cron 共用 `max_cron_threads = 1`）。正式站可加 webhook controller；`TelegramAPIClient.get_updates` 可用 long polling `timeout`。
 - [ ] Telegram 訊息改用 `parse_mode=HTML` 做粗體／連結，並加上 Odoo 記錄的深層連結。
 - [ ] 物件的 `owner_payment_day` 改了之後，是否要同步到生效中的房東合約？（目前只在 create / onchange 帶入）

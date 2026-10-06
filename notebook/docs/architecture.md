@@ -174,8 +174,12 @@ net_cash_flow    = collected + deposit − owner_paid − purchase_cost − empl
   - 房東：`res.partner` 依 `name =` 比對，同名優先 `is_ggandy_owner`；找不到且 `create_missing_owner` 時自動建立（`is_ggandy_owner=True`）。
   - 管理人員：`res.users` 依 `name` 或 `login` 比對，限 `share = False`（內部使用者）；**不自動建立**，找不到就留空，並收集到 `manager_warnings`，在結果最上方以 `alert-warning` 列出「編號／案件名稱：管理人員「X」不是內部使用者」。
   - 出租單位：只建立物件底下（含封存）沒有的名稱；`\d{3,4}` 房號自動帶 floor（去掉末兩碼），名稱含「店面」「車位」設 unit_type。
-- `ggandy.google.sheet.contact.import.wizard`：尚未實作（`UserError`）。
-- 外部腳本 `scripts/google_res_partner.py`：XML-RPC 匯入聯絡人，欄位 `partner_key,name,phone,mobile,email,street,city,zip,is_owner,is_tenant,is_vendor`，依 ref → email → mobile → phone → name 找既有聯絡人。
+- 共用 `ggandy.google.sheet.import.mixin`（AbstractModel）：`result_html`、`_read_google_sheet_csv`（會 strip 表頭）、`_to_google_sheet_csv_url`、`_check_required_columns`、`_render_result_html`（警告框 + 摘要 + 前 80 筆訊息）、`_reopen_wizard`、`_clean_cell`。
+- `ggandy.google.sheet.contact.import.wizard`：預設 URL `DEFAULT_CONTACT_SHEET_URL`（與物件同一份試算表的 `gid=0`）。表頭 `partner_key,name,phone,email,street,city,zip,is_owner,is_tenant,is_vendor`，僅 `name` 必填；`mobile` 已停用（`DEPRECATED_CONTACT_COLUMNS`，出現時只提醒不匯入）。
+  - 對應既有聯絡人：`ref = partner_key` → `email =ilike` → 電話（SQL `regexp_replace(phone, '\D', '', 'g')` 只比數字）→ `name =`。有 partner_key 但 ref 找不到時，後三種只在 `ref` 空白的聯絡人中找，避免合併不同 key 的人。同一條件 >1 位 → 整列略過、列入警告。
+  - 寫入：留空不覆蓋。
+  - 身分旗標：`TRUE/1/y/yes/v/是/✓` → 設 True；`FALSE/0/n/no/否/空白` → 不變更；其他值 → 訊息提醒。只加不減，避免把物件／合約在用的房東身分拿掉。
+- 外部腳本 `scripts/google_res_partner.py`（舊版，已由上面的精靈取代）：XML-RPC 匯入聯絡人，依 ref → email → mobile → phone → name 找既有聯絡人。注意它會把 FALSE 寫回身分旗標，且 Odoo 19 沒有 `mobile` 欄位，手機會被略過。
 
 ### 包租獲利試算（TransientModel）
 
@@ -207,7 +211,8 @@ ir.cron（每分鐘）→ ggandy.telegram.log._cron_poll_updates
         非私訊 → log ignored
         _find_authorized_user(telegram_user_id)  # telegram_enabled + group_property_manager
            未授權 → 回覆 User ID，log denied
-        /status /overdue /leases /maintenance /start /help → _build_*_message(user)
+        /status /overdue /renew(/leases) /maintenance /start /help → _build_*_message(user)
+        /renew [天數]：end_date ∈ [today, today + 1 個月 或 N 天] 的 active 租約 + end_date < today 仍 active 的租約
    → _send_and_log → TelegramAPIClient.send_message
 ```
 
