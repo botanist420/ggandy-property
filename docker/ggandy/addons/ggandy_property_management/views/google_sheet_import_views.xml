@@ -5,20 +5,101 @@
         <field name="model">ggandy.google.sheet.property.import.wizard</field>
         <field name="arch" type="xml">
             <form string="從 Google Sheet 匯入物件">
+                <div class="alert alert-info mb-3" role="alert" invisible="result_html">
+                    <p class="mb-2">
+                        <strong>Google Sheet 第一列請放標題</strong>，順序不拘，名稱要一字不差。
+                        只有 <strong>編號</strong>、<strong>案件名稱</strong> 必填，其他欄位留空都沒關係。
+                    </p>
+                    <table class="table table-sm table-bordered bg-white mb-2">
+                        <thead>
+                            <tr>
+                                <th>欄位</th>
+                                <th>怎麼填</th>
+                                <th>留空時</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>編號</strong> <span class="text-danger">*</span></td>
+                                <td>Sheet 上的流水號，搭配案件名稱辨識同一個物件</td>
+                                <td>整列略過</td>
+                            </tr>
+                            <tr>
+                                <td><strong>案件名稱</strong> <span class="text-danger">*</span></td>
+                                <td>物件名稱，例如「輔大」</td>
+                                <td>整列略過</td>
+                            </tr>
+                            <tr>
+                                <td>經營模式</td>
+                                <td>填 <code>包租</code>、<code>代管</code> 或 <code>混合</code></td>
+                                <td>新物件用下方「經營模式留空時」</td>
+                            </tr>
+                            <tr>
+                                <td>房東</td>
+                                <td>房東姓名，會比對聯絡人名稱</td>
+                                <td>不設定房東</td>
+                            </tr>
+                            <tr>
+                                <td>地址</td>
+                                <td>完整地址</td>
+                                <td>不設定地址</td>
+                            </tr>
+                            <tr>
+                                <td>管理人員</td>
+                                <td>負責同事的使用者名稱或登入帳號，例如「Andy Chu」，必須是已存在的內部使用者</td>
+                                <td>不設定管理人員；填了但找不到使用者也會留空，並在匯入結果標記</td>
+                            </tr>
+                            <tr>
+                                <td>匯款日期</td>
+                                <td>每月匯款給房東的日子，例如 <code>20號</code>、<code>5</code></td>
+                                <td>不設定匯款日期</td>
+                            </tr>
+                            <tr>
+                                <td>出租單位</td>
+                                <td>
+                                    房號用<strong>半形逗號 <code>,</code></strong> 隔開，例如
+                                    <code>201,202,203,301,店面</code>
+                                </td>
+                                <td>不建立出租單位</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <ul class="mb-0 small">
+                        <li>重複匯入同一份 Sheet 不會重複建立物件，而是更新同一筆；<strong>留空的欄位不會蓋掉</strong>系統上已填好的資料。</li>
+                        <li>出租單位只會<strong>新增</strong>物件底下還沒有的房號，Sheet 上刪掉的房號不會被刪除。
+                            <code>201</code>、<code>1203</code> 這類房號會自動帶入樓層，名稱含「店面」「車位」會自動設定單位類型。</li>
+                        <li>全形逗號「，」或頓號「、」也看得懂，但建議統一用半形逗號。</li>
+                    </ul>
+                </div>
                 <group>
-                    <field name="sheet_url" placeholder="貼上 Google Sheet URL"/>
-                    <field name="owner_id"/>
-                    <field name="manager_id"/>
-                    <field name="management_mode"/>
+                    <group string="資料來源">
+                        <field name="sheet_url"
+                               placeholder="https://docs.google.com/spreadsheets/d/.../edit?gid=..."
+                               widget="url"/>
+                        <div class="text-muted small" colspan="2">
+                            網址要包含 <code>gid=</code> 才會讀到正確的分頁；共用設定需為「知道連結的任何人都能檢視」。
+                        </div>
+                    </group>
+                    <group string="匯入設定">
+                        <field name="management_mode"/>
+                        <field name="create_missing_owner"/>
+                    </group>
                 </group>
-                <group invisible="not result_html">
+                <div invisible="not result_html">
+                    <separator string="匯入結果"/>
                     <field name="result_html" nolabel="1"/>
-                </group>
+                </div>
                 <footer>
                     <button name="action_import_properties"
                             type="object"
                             string="匯入物件"
-                            class="btn-primary"/>
+                            class="btn-primary"
+                            invisible="result_html"/>
+                    <button name="action_import_properties"
+                            type="object"
+                            string="再匯入一次"
+                            class="btn-secondary"
+                            invisible="not result_html"/>
                     <button string="關閉" special="cancel"/>
                 </footer>
             </form>

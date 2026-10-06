@@ -61,11 +61,11 @@ class GgandyProperty(models.Model):
     owner_id = fields.Many2one(
         "res.partner",
         string="主要房東",
-        required=True,
         domain=[("is_ggandy_owner", "=", True)],
         ondelete="restrict",
         tracking=True,
-        help="此物件的主要房東。房東合約預設會帶入這位；共同屋主可另外記錄。",
+        help="此物件的主要房東。房東合約預設會帶入這位；共同屋主可另外記錄。"
+        "還不確定房東是誰可以先留空，但產生租約 PDF、建立房東合約前記得補上。",
     )
     co_owner_ids = fields.Many2many(
         "res.partner",

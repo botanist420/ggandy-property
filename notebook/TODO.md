@@ -22,7 +22,7 @@
 
 - [ ] **55 / 59 個物件的房東是預設的系統 Bot（`base.partner_root`）**
   Google Sheet 匯入精靈的預設房東是 `base.partner_root`，而且每次重新匯入都會**覆寫** `owner_id / manager_id / management_mode`，手動修正過的房東會被蓋回去。
-  → (1) 匯入時只在新建時寫入預設房東／管理人／經營模式；(2) 預設房東改成必填、不給預設值，或在 Sheet 加「房東」欄位；(3) 清理現有資料。
+  → ~~(1) 匯入時只在新建時寫入預設房東／管理人／經營模式；(2) 在 Sheet 加「房東」欄位~~（2026-10-06 已完成：Sheet 新增經營模式／房東／管理人員／出租單位欄位，留空不覆蓋，預設房東拿掉）；(3) 清理現有資料：Sheet 補上房東後重新匯入即可覆寫掉 `base.partner_root`。
 - [ ] **從 Google Sheet 匯入聯絡人**：選單已存在，`action_import_contacts` 只會丟 `UserError`。可把 `scripts/google_res_partner.py` 的邏輯（欄位對應、依 ref/email/mobile/phone/name 找既有聯絡人）搬進 wizard。
 - [ ] **報修費用沒有進帳務**：`charged_to`、`actual_cost` 只是記錄。可在完成報修時依費用歸屬：公司／房東負擔 → 建 vendor bill（帶 `ggandy_expense_*`），房客負擔 → 加到下一期租金或另開 invoice；房東負擔的部分從代管結算扣除。
 - [ ] **逾期活動不會自動結案**：收款後「逾期租金待處理」活動還在，需在付款後（或 cron 中）`action_feedback` 關掉。

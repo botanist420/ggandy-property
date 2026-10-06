@@ -168,9 +168,12 @@ net_cash_flow    = collected + deposit − owner_paid − purchase_cost − empl
 ### Google Sheet 匯入（TransientModel）
 
 - `ggandy.google.sheet.property.import.wizard`：Google Sheet URL → `/export?format=csv&gid=...` → `pandas.read_csv(dtype=str)`。
-  - 必要欄位：`編號`、`案件名稱`；選填：`地址`、`匯款日期`（取第一組數字，1–31）。
+  - 必要欄位：`編號`、`案件名稱`；選填：`經營模式`（包租／代管／混合）、`房東`、`地址`、`管理人員`、`匯款日期`（取第一組數字，1–31）、`出租單位`（以 `,`／`，`／`、` 分隔）。標題會先 strip。
   - Upsert 鍵：`ir.model.data`，`module=ggandy_property_management`、`name=google_sheet_property_<編號slug>_<sha1(編號|案件名稱)[:10]>`。
-  - 更新時會覆寫 name、owner、manager、management_mode、note（以及有值的 street、owner_payment_day）。
+  - 更新時一律覆寫 name、note；其他欄位**只有 Sheet 有值才寫入**。新建時經營模式留空用 wizard 的 `management_mode`，房東／管理人員留空就真的留空（`ggandy.property.owner_id` 已非必填）。
+  - 房東：`res.partner` 依 `name =` 比對，同名優先 `is_ggandy_owner`；找不到且 `create_missing_owner` 時自動建立（`is_ggandy_owner=True`）。
+  - 管理人員：`res.users` 依 `name` 或 `login` 比對，限 `share = False`（內部使用者）；**不自動建立**，找不到就留空，並收集到 `manager_warnings`，在結果最上方以 `alert-warning` 列出「編號／案件名稱：管理人員「X」不是內部使用者」。
+  - 出租單位：只建立物件底下（含封存）沒有的名稱；`\d{3,4}` 房號自動帶 floor（去掉末兩碼），名稱含「店面」「車位」設 unit_type。
 - `ggandy.google.sheet.contact.import.wizard`：尚未實作（`UserError`）。
 - 外部腳本 `scripts/google_res_partner.py`：XML-RPC 匯入聯絡人，欄位 `partner_key,name,phone,mobile,email,street,city,zip,is_owner,is_tenant,is_vendor`，依 ref → email → mobile → phone → name 找既有聯絡人。
 
