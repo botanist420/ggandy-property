@@ -178,11 +178,15 @@ class GgandyPropertyUnit(models.Model):
     maintenance_photo_count = fields.Integer(compute="_compute_photos")
 
     @api.depends("property_id.name", "name")
+    @api.depends_context("ggandy_unit_short_name")
     def _compute_display_name(self):
+        # 預設顯示「物件 / 單位」避免不同物件的同名房號混淆；
+        # 畫面上已有物件欄位時，欄位帶 context ggandy_unit_short_name 只顯示單位名稱。
+        short_name = self.env.context.get("ggandy_unit_short_name")
         for record in self:
             record.display_name = (
                 f"{record.property_id.name} / {record.name}"
-                if record.property_id
+                if record.property_id and not short_name
                 else record.name
             )
 

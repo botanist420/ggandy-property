@@ -30,7 +30,7 @@ class GgandyAccountingOverview(models.Model):
     )
     unit_id = fields.Many2one(
         "ggandy.property.unit",
-        string="租金單位",
+        string="出租單位",
         ondelete="cascade",
         index=True,
         domain="[('property_id', '=', property_id)]",

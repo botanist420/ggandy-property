@@ -34,7 +34,7 @@
             <list string="租金期次" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
                 <field name="name"/>
                 <field name="property_id"/>
-                <field name="unit_id"/>
+                <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
                 <field name="tenant_id"/>
                 <field name="due_date"/>
                 <field name="rent_amount"/>
@@ -72,7 +72,7 @@
                         <group string="租約資料">
                             <field name="lease_id"/>
                             <field name="property_id"/>
-                            <field name="unit_id"/>
+                            <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
                             <field name="tenant_id"/>
                         </group>
                         <group string="計費期間">

@@ -34,7 +34,7 @@
                   decoration-muted="state in ('expired', 'terminated', 'cancelled')">
                 <field name="name"/>
                 <field name="property_id"/>
-                <field name="unit_id"/>
+                <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
                 <field name="tenant_id"/>
                 <field name="start_date"/>
                 <field name="end_date"/>
@@ -84,7 +84,7 @@
                     <group>
                         <group string="租賃標的">
                             <field name="property_id"/>
-                            <field name="unit_id" options="{'no_create': True}"/>
+                            <field name="unit_id" options="{'no_create': True}" context="{'ggandy_unit_short_name': True}"/>
                             <field name="tenant_id" context="{'default_is_ggandy_tenant': True}"/>
                             <field name="co_tenant_ids" widget="many2many_tags" context="{'default_is_ggandy_tenant': True}"/>
                         </group>

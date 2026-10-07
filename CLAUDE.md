@@ -51,7 +51,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | 模型 | 檔案 | 重點 |
 | --- | --- | --- |
 | `ggandy.property` | `models/property.py` | 物件；編號 `PROP/%(year)s/`；`owner_payment_day` 會預設帶入房東合約 |
-| `ggandy.property.unit` | `models/property_unit.py` | 出租單位；`display_name` = `物件 / 單位`；格局／維修照片是 compute 的 `ir.attachment` Many2many |
+| `ggandy.property.unit` | `models/property_unit.py` | 出租單位；`display_name` = `物件 / 單位`（context `ggandy_unit_short_name` 時只顯示單位名）；格局／維修照片是 compute 的 `ir.attachment` Many2many |
 | `ggandy.owner.contract` | `models/owner_contract.py` | 房東合約（包租 / 代管）；cron 建房東 Vendor Bill |
 | `ggandy.lease` | `models/lease.py` | 房客租約；生效時拆月建期次 |
 | `ggandy.rent.schedule` | `models/rent_schedule.py` | 租金期次；建客戶 Invoice；逾期活動 |

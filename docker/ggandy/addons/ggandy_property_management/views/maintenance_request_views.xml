@@ -39,7 +39,7 @@
                 <field name="name"/>
                 <field name="title"/>
                 <field name="property_id"/>
-                <field name="unit_id"/>
+                <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
                 <field name="category"/>
                 <field name="request_date"/>
                 <field name="user_id" widget="many2one_avatar_user" optional="show"/>
@@ -80,7 +80,7 @@
                     <group>
                         <group string="報修位置">
                             <field name="property_id"/>
-                            <field name="unit_id" options="{'no_create': True}"/>
+                            <field name="unit_id" options="{'no_create': True}" context="{'ggandy_unit_short_name': True}"/>
                             <field name="lease_id" options="{'no_create': True}"/>
                             <field name="tenant_id" context="{'default_is_ggandy_tenant': True}"/>
                             <field name="reported_by_id"/>

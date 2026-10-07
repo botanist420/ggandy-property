@@ -22,7 +22,7 @@
                 <group>
                     <filter name="group_period" string="月份" context="{'group_by': 'period_start:month'}"/>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
-                    <filter name="group_unit" string="租金單位" context="{'group_by': 'unit_id'}"/>
+                    <filter name="group_unit" string="出租單位" context="{'group_by': 'unit_id'}"/>
                     <filter name="group_owner" string="房東" context="{'group_by': 'owner_id'}"/>
                 </group>
             </search>
@@ -36,7 +36,7 @@
             <list string="GGAndy 帳務總表" decoration-success="net_cash_flow &gt;= 0" decoration-danger="net_cash_flow &lt; 0">
                 <field name="period_start" string="月份"/>
                 <field name="property_id"/>
-                <field name="unit_id"/>
+                <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
                 <field name="owner_id"/>
                 <field name="rent_receivable" sum="租金應收"/>
                 <field name="rent_collected" sum="租金實收"/>
@@ -74,7 +74,7 @@
                             <field name="period_start"/>
                             <field name="period_end"/>
                             <field name="property_id"/>
-                            <field name="unit_id"/>
+                            <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
                             <field name="owner_id"/>
                             <field name="active_owner_contract_id"/>
                         </group>
