@@ -101,15 +101,20 @@
                         <group string="收租設定">
                             <field name="rent_due_day"/>
                             <field name="auto_generate_schedule"/>
-                        </group>
-                        <group string="公司">
                             <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="水電計費" name="utility">
+                            <field name="electricity_billing_type"/>
+                            <field name="electricity_start_reading" invisible="electricity_billing_type != 'metered'"/>
+                            <field name="water_billing_type"/>
+                            <field name="water_start_reading" invisible="water_billing_type != 'metered'"/>
                         </group>
                     </group>
                     <notebook>
                         <page string="租金期次" name="rent_schedule">
                             <div class="alert alert-info" role="alert" invisible="not auto_generate_schedule">
-                                第一版每月建立一筆完整租金，不會自動計算首尾月按日比例；生效前可修改設定，生效後也可調整尚未開單的期次。
+                                每月一期：租金、管理費依租約帶入，水電依出租單位設定帶入（月中入住／退租的那一期按日計算）。
+                                水電依度數計費時，每次抄表後在該期填「本期度數」，系統會算出費用、帶到下一期的上期度數，草稿帳單也會一起更新。
                             </div>
                             <field name="schedule_ids" context="{'default_lease_id': id}">
                                 <list editable="bottom" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
@@ -118,6 +123,25 @@
                                     <field name="due_date"/>
                                     <field name="rent_amount"/>
                                     <field name="management_fee" optional="show"/>
+                                    <field name="invoice_state" column_invisible="True"/>
+                                    <field name="electricity_billing_type" column_invisible="True"/>
+                                    <field name="water_billing_type" column_invisible="True"/>
+                                    <field name="electricity_prev_reading" string="電錶上期" optional="show"
+                                           column_invisible="parent.electricity_billing_type != 'metered'"
+                                           readonly="invoice_state == 'posted' or electricity_billing_type != 'metered'"/>
+                                    <field name="electricity_curr_reading" string="電錶本期"
+                                           column_invisible="parent.electricity_billing_type != 'metered'"
+                                           readonly="invoice_state == 'posted' or electricity_billing_type != 'metered'"/>
+                                    <field name="electricity_amount" sum="電費"
+                                           column_invisible="parent.electricity_billing_type not in ('metered', 'fixed')"/>
+                                    <field name="water_prev_reading" string="水錶上期" optional="show"
+                                           column_invisible="parent.water_billing_type != 'metered'"
+                                           readonly="invoice_state == 'posted' or water_billing_type != 'metered'"/>
+                                    <field name="water_curr_reading" string="水錶本期"
+                                           column_invisible="parent.water_billing_type != 'metered'"
+                                           readonly="invoice_state == 'posted' or water_billing_type != 'metered'"/>
+                                    <field name="water_amount" sum="水費"
+                                           column_invisible="parent.water_billing_type not in ('metered', 'fixed')"/>
                                     <field name="total_amount" sum="合計"/>
                                     <field name="currency_id" column_invisible="True"/>
                                     <field name="collection_state" widget="badge"/>

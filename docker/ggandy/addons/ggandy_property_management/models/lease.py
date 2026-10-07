@@ -6,6 +6,8 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import float_round
 
+from .property_unit import UTILITY_KINDS
+
 
 class GgandyLease(models.Model):
     _name = "ggandy.lease"
@@ -98,6 +100,28 @@ class GgandyLease(models.Model):
         tracking=True,
         help="每月向房客收取的管理費。建立期次時會和租金相加成應收合計；月中入住或退租的那一期，和租金一樣按日計算。",
     )
+    electricity_billing_type = fields.Selection(
+        related="unit_id.electricity_billing_type",
+        string="電費計費方式",
+        help="從出租單位帶出來的電費設定；要修改請到出租單位。",
+    )
+    water_billing_type = fields.Selection(
+        related="unit_id.water_billing_type",
+        string="水費計費方式",
+        help="從出租單位帶出來的水費設定；要修改請到出租單位。",
+    )
+    electricity_start_reading = fields.Float(
+        string="入住電錶度數",
+        digits=(12, 1),
+        tracking=True,
+        help="點交時抄的電錶度數，會當成第一期的「電錶上期度數」。選出租單位時，會預設帶入這個單位最近一次抄表的度數。",
+    )
+    water_start_reading = fields.Float(
+        string="入住水錶度數",
+        digits=(12, 1),
+        tracking=True,
+        help="點交時抄的水錶度數，會當成第一期的「水錶上期度數」。選出租單位時，會預設帶入這個單位最近一次抄表的度數。",
+    )
     rent_due_day = fields.Integer(
         string="每月繳租日",
         required=True,
@@ -167,6 +191,12 @@ class GgandyLease(models.Model):
         if "tenant_id" in values or "co_tenant_ids" in values:
             self.mapped("tenant_id").write({"is_ggandy_tenant": True})
             self.mapped("co_tenant_ids").write({"is_ggandy_tenant": True})
+        for kind in UTILITY_KINDS:
+            if f"{kind}_start_reading" in values:
+                for lease in self:
+                    lease.schedule_ids.sorted("period_start")._apply_previous_reading(
+                        kind, lease[f"{kind}_start_reading"]
+                    )
         return result
 
     @api.onchange("property_id")
@@ -183,6 +213,9 @@ class GgandyLease(models.Model):
             self.rent_amount = self.unit_id.monthly_rent
         if not self.deposit_amount:
             self.deposit_amount = self.unit_id.monthly_rent * self.unit_id.deposit_months
+        for kind in UTILITY_KINDS:
+            if not self[f"{kind}_start_reading"]:
+                self[f"{kind}_start_reading"] = self.unit_id._get_last_meter_reading(kind)
 
     @api.depends("schedule_ids", "invoice_ids", "maintenance_request_ids")
     def _compute_counts(self):
@@ -224,6 +257,12 @@ class GgandyLease(models.Model):
                 raise ValidationError("每月租金必須大於零。")
             if record.deposit_amount < 0 or record.management_fee < 0:
                 raise ValidationError("押金與管理費不可小於零。")
+
+    @api.constrains("electricity_start_reading", "water_start_reading")
+    def _check_start_readings(self):
+        for record in self:
+            if record.electricity_start_reading < 0 or record.water_start_reading < 0:
+                raise ValidationError("入住水電錶度數不可小於零。")
 
     @api.constrains("unit_id", "start_date", "end_date", "state")
     def _check_active_lease_overlap(self):
@@ -305,17 +344,31 @@ class GgandyLease(models.Model):
                 if not existing:
                     # 月中入住／退租：依當月實際天數按日比例計算，四捨五入到元
                     ratio = ((period_end - period_start).days + 1) / days_in_month
-                    Schedule.create(
-                        {
-                            "lease_id": lease.id,
-                            "period_start": period_start,
-                            "period_end": period_end,
-                            "due_date": due_date,
-                            "rent_amount": lease._prorate_amount(lease.rent_amount, ratio),
-                            "management_fee": lease._prorate_amount(lease.management_fee, ratio),
-                        }
-                    )
+                    values = {
+                        "lease_id": lease.id,
+                        "period_start": period_start,
+                        "period_end": period_end,
+                        "due_date": due_date,
+                        "rent_amount": lease._prorate_amount(lease.rent_amount, ratio),
+                        "management_fee": lease._prorate_amount(lease.management_fee, ratio),
+                        **lease.unit_id._get_utility_schedule_values(ratio),
+                    }
+                    for kind in UTILITY_KINDS:
+                        values[f"{kind}_prev_reading"] = lease._get_meter_reading_before(kind, period_start)
+                    Schedule.create(values)
                 month_cursor += relativedelta(months=1)
+
+    def _get_meter_reading_before(self, kind, date):
+        """某期次開始前最後的讀數：前一期的本期度數（沒抄就沿用它的上期度數），第一期用入住度數。"""
+        self.ensure_one()
+        previous = self.env["ggandy.rent.schedule"].search(
+            [("lease_id", "=", self.id), ("period_start", "<", date)],
+            order="period_start desc",
+            limit=1,
+        )
+        if not previous:
+            return self[f"{kind}_start_reading"]
+        return previous[f"{kind}_curr_reading"] or previous[f"{kind}_prev_reading"]
 
     def _prorate_amount(self, amount, ratio):
         if ratio >= 1:

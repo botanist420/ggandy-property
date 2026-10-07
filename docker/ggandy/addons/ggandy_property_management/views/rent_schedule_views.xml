@@ -15,6 +15,8 @@
                 <filter name="overdue" string="逾期"
                         domain="[('due_date', '&lt;', context_today().strftime('%Y-%m-%d')), ('lease_id.state', '=', 'active'), '|', ('invoice_id', '=', False), '&amp;', ('invoice_id.state', '!=', 'cancel'), '|', ('invoice_id.state', '=', 'draft'), '&amp;', ('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'not in', ('paid', 'reversed'))]"/>
                 <filter name="uninvoiced" string="尚未開單" domain="[('invoice_id', '=', False)]"/>
+                <filter name="meter_reading_pending" string="待抄表"
+                        domain="[('meter_reading_pending', '=', True), ('lease_id.state', '=', 'active'), ('period_start', '&lt;=', context_today().strftime('%Y-%m-%d')), '|', ('invoice_id', '=', False), ('invoice_id.state', '=', 'draft')]"/>
                 <filter name="unpaid" string="未收款"
                         domain="[('invoice_id', '!=', False), ('invoice_id.state', '!=', 'cancel'), '|', ('invoice_id.state', '=', 'draft'), '&amp;', ('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'not in', ('paid', 'reversed'))]"/>
                 <filter name="invoiced" string="已建立帳單" domain="[('invoice_id', '!=', False)]"/>
@@ -39,7 +41,10 @@
                 <field name="due_date"/>
                 <field name="rent_amount"/>
                 <field name="management_fee" optional="show"/>
+                <field name="electricity_amount" optional="show" sum="電費"/>
+                <field name="water_amount" optional="show" sum="水費"/>
                 <field name="total_amount" sum="應收合計"/>
+                <field name="meter_reading_pending" optional="hide"/>
                 <field name="currency_id" column_invisible="True"/>
                 <field name="collection_state" widget="badge"
                        decoration-danger="collection_state == 'overdue'"
@@ -93,6 +98,27 @@
                             <field name="invoice_state" invisible="not invoice_id"/>
                             <field name="payment_state" invisible="not invoice_id"/>
                             <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <field name="invoice_state" invisible="1"/>
+                    <group name="utility">
+                        <group string="電費">
+                            <field name="electricity_billing_type" readonly="invoice_state == 'posted'"/>
+                            <field name="electricity_rate" invisible="electricity_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
+                            <field name="electricity_prev_reading" invisible="electricity_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
+                            <field name="electricity_curr_reading" invisible="electricity_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
+                            <field name="electricity_usage" invisible="electricity_billing_type != 'metered'"/>
+                            <field name="electricity_fixed_fee" invisible="electricity_billing_type != 'fixed'" readonly="invoice_state == 'posted'"/>
+                            <field name="electricity_amount"/>
+                        </group>
+                        <group string="水費">
+                            <field name="water_billing_type" readonly="invoice_state == 'posted'"/>
+                            <field name="water_rate" invisible="water_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
+                            <field name="water_prev_reading" invisible="water_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
+                            <field name="water_curr_reading" invisible="water_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
+                            <field name="water_usage" invisible="water_billing_type != 'metered'"/>
+                            <field name="water_fixed_fee" invisible="water_billing_type != 'fixed'" readonly="invoice_state == 'posted'"/>
+                            <field name="water_amount"/>
                         </group>
                     </group>
                     <group string="備註">

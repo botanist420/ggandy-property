@@ -1,6 +1,24 @@
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
+UTILITY_KINDS = ("electricity", "water")
+ELECTRICITY_BILLING_TYPES = [
+    ("metered", "依度數計費"),
+    ("fixed", "每月固定金額"),
+    ("included", "含在租金內"),
+    ("tenant_paid", "房客自繳台電"),
+]
+WATER_BILLING_TYPES = [
+    ("metered", "依度數計費"),
+    ("fixed", "每月固定金額"),
+    ("included", "含在租金內"),
+    ("tenant_paid", "房客自繳水公司"),
+]
+# 這些設定改變時，要同步到尚未過帳的租金期次。
+UTILITY_SETTING_FIELDS = tuple(
+    f"{kind}_{suffix}" for kind in UTILITY_KINDS for suffix in ("billing_type", "rate", "fixed_fee")
+)
+
 
 class GgandyPropertyUnit(models.Model):
     _name = "ggandy.property.unit"
@@ -80,17 +98,12 @@ class GgandyPropertyUnit(models.Model):
         help="建立租約時，預設押金會用參考月租乘這個月數。填 2 就代表兩個月押金。",
     )
     electricity_billing_type = fields.Selection(
-        [
-            ("metered", "依度數計費"),
-            ("fixed", "每月固定金額"),
-            ("included", "含在租金內"),
-            ("tenant_paid", "房客自繳台電"),
-        ],
+        ELECTRICITY_BILLING_TYPES,
         string="電費計費方式",
         tracking=True,
         help="這個單位的電費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度電價；"
         "每月固定金額＝不看度數、每月收固定電費；含在租金內＝不另外收；房客自繳台電＝獨立電錶、帳單直接寄給房客。"
-        "空白代表還沒設定。",
+        "空白代表還沒設定。改動後，生效中租約尚未過帳的租金期次會跟著更新。",
     )
     electricity_rate = fields.Float(
         string="每度電價",
@@ -108,17 +121,12 @@ class GgandyPropertyUnit(models.Model):
         help="分電錶或台電電號、裝設位置等，抄表時用來確認沒有抄錯錶。",
     )
     water_billing_type = fields.Selection(
-        [
-            ("metered", "依度數計費"),
-            ("fixed", "每月固定金額"),
-            ("included", "含在租金內"),
-            ("tenant_paid", "房客自繳水公司"),
-        ],
+        WATER_BILLING_TYPES,
         string="水費計費方式",
         tracking=True,
         help="這個單位的水費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度水價；"
         "每月固定金額＝不看度數、每月收固定水費；含在租金內＝不另外收；房客自繳水公司＝獨立水錶、帳單直接寄給房客。"
-        "空白代表還沒設定。",
+        "空白代表還沒設定。改動後，生效中租約尚未過帳的租金期次會跟著更新。",
     )
     water_rate = fields.Float(
         string="每度水價",
@@ -247,6 +255,48 @@ class GgandyPropertyUnit(models.Model):
                 or record.water_fixed_fee < 0
             ):
                 raise ValidationError("水電單價與固定水電費不可小於零。")
+
+    def write(self, values):
+        result = super().write(values)
+        if any(field in values for field in UTILITY_SETTING_FIELDS):
+            self._sync_utility_settings_to_schedules()
+        return result
+
+    def _get_utility_schedule_values(self, ratio=1.0):
+        """建立／更新租金期次時要帶入的水電設定；固定水電費和租金一樣按日計算。"""
+        self.ensure_one()
+        Lease = self.env["ggandy.lease"]
+        values = {}
+        for kind in UTILITY_KINDS:
+            values[f"{kind}_billing_type"] = self[f"{kind}_billing_type"]
+            values[f"{kind}_rate"] = self[f"{kind}_rate"]
+            values[f"{kind}_fixed_fee"] = Lease._prorate_amount(self[f"{kind}_fixed_fee"], ratio)
+        return values
+
+    def _sync_utility_settings_to_schedules(self):
+        """把單位的水電設定同步到草稿／生效中租約、帳單還沒過帳的期次。"""
+        schedules = self.env["ggandy.rent.schedule"].search(
+            [
+                ("unit_id", "in", self.ids),
+                ("lease_id.state", "in", ("draft", "active")),
+                "|",
+                ("invoice_id", "=", False),
+                ("invoice_id.state", "=", "draft"),
+            ]
+        )
+        for schedule in schedules:
+            schedule.write(schedule.unit_id._get_utility_schedule_values(schedule._get_period_ratio()))
+
+    def _get_last_meter_reading(self, kind):
+        """這個單位最近一次抄表的度數（跨租約），新租約的入住度數會預設帶入這個值。"""
+        self.ensure_one()
+        field_name = f"{kind}_curr_reading"
+        schedule = self.env["ggandy.rent.schedule"].search(
+            [("unit_id", "=", self.id), (field_name, "!=", 0)],
+            order="period_start desc, id desc",
+            limit=1,
+        )
+        return schedule[field_name] if schedule else 0.0
 
     def _refresh_from_active_leases(self):
         Lease = self.env["ggandy.lease"]

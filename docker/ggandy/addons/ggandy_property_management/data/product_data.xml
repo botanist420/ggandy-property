@@ -16,6 +16,26 @@
         <field name="purchase_ok" eval="False"/>
         <field name="list_price">0</field>
     </record>
+    <record id="product_product_electricity" model="product.product">
+        <field name="name">電費</field>
+        <field name="default_code">GGANDY-ELECTRICITY</field>
+        <field name="type">service</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+        <!-- 代收水電比照租金，不自動帶入公司預設銷項稅 -->
+        <field name="taxes_id" eval="[(5, 0, 0)]"/>
+    </record>
+    <record id="product_product_water" model="product.product">
+        <field name="name">水費</field>
+        <field name="default_code">GGANDY-WATER</field>
+        <field name="type">service</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+        <!-- 代收水電比照租金，不自動帶入公司預設銷項稅 -->
+        <field name="taxes_id" eval="[(5, 0, 0)]"/>
+    </record>
     <record id="product_product_owner_settlement" model="product.product">
         <field name="name">房東結算款</field>
         <field name="default_code">GGANDY-OWNER-SETTLEMENT</field>

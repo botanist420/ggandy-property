@@ -90,6 +90,8 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 
 狀態：`draft → active → expired / terminated`，`draft → cancelled`，`→ draft`（無已過帳帳單才可）。
 
+水電：`electricity_billing_type` / `water_billing_type` related 出租單位（給表單與期次列表 `column_invisible` 用）；`electricity_start_reading` / `water_start_reading` 為入住度數，onchange 出租單位時預設帶 `unit._get_last_meter_reading()`（該單位跨租約最近一筆 curr ≠ 0 的期次）。
+
 `_generate_rent_schedule()` 拆月規則：
 
 ```text
@@ -99,6 +101,7 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
     due_date     = 該月 rent_due_day（短月取月底），若早於 start_date 則用 start_date
     ratio        = 期次天數 ÷ 當月實際天數（整月 = 1）
     rent_amount / management_fee = 月額 × ratio，四捨五入到元（整月直接用月額）
+    水電設定 = 出租單位快照（固定水電費同樣 × ratio）；prev_reading = _get_meter_reading_before()
     同 lease + period_start 已存在 → 跳過（可重複執行）
 ```
 
@@ -121,10 +124,17 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 
 | 欄位 | 說明 |
 | --- | --- |
-| `total_amount` | stored compute = `rent_amount + management_fee` |
-| `invoice_id` | 建立的客戶發票（租金、管理費兩行） |
+| `{electricity,water}_billing_type` / `_rate` / `_fixed_fee` | 建期次時從出租單位**快照**（固定費按日比例）；單位 `write()` 改這些設定時，`_sync_utility_settings_to_schedules()` 會更新租約 draft/active、帳單未過帳的期次 |
+| `{electricity,water}_prev_reading` / `_curr_reading` | 上期／本期度數（Float digits (12,1)）。第一期 prev = 租約 `*_start_reading`，之後 = 前一期的 curr（沒抄就沿用前一期的 prev） |
+| `{electricity,water}_usage` / `_amount` | stored compute：metered = (curr − prev) × rate 四捨五入到元（curr 為 0 視為未抄、金額 0）；fixed = fixed_fee；其他 = 0 |
+| `meter_reading_pending` | stored compute：任一項 metered 且 curr 為 0（「待抄表」篩選用） |
+| `total_amount` | stored compute = `rent_amount + management_fee + electricity_amount + water_amount` |
+| `invoice_id` | 建立的客戶發票（租金、管理費、電費、水費各一行，0 元不列） |
 | `collection_state` | 非 stored compute：uninvoiced / draft / unpaid / partial / paid / overdue / cancelled |
 
+- **度數連動**：`write()` 改 prev/curr 後呼叫 `_propagate_meter_reading()`，把讀數往後帶到同租約之後的期次，直到遇到下一筆已抄表（curr ≠ 0）的期次為止；已過帳的期次不動。租約改 `*_start_reading` 也用同一套（`_apply_previous_reading`）。
+- **鎖定與同步**：帳單已過帳時改水電欄位 → `UserError`；帳單是草稿時 `_sync_draft_invoice_utility_lines()` 以產品比對更新／新增／刪除水電行。
+- `@api.constrains`：curr 不可小於 prev（換錶要手動改 prev）。
 - `_get_unpaid_domain()`、`_get_overdue_domain()`：共用的 domain，Telegram 也用。
 - `_cron_create_due_invoices`：`invoice_id = False`、`period_start <= today`、租約 active → `action_create_invoice()`。
 - `_cron_create_overdue_rent_activities`：符合 overdue domain → 建 `mail.mail_activity_data_todo` 活動（摘要「逾期租金待處理」，同人同期次不重複），指派給物件 `manager_id` → 租約建立者 → 目前使用者。
@@ -244,4 +254,6 @@ ir.cron（每分鐘）→ ggandy.telegram.log._cron_poll_updates
 | --- | --- | --- |
 | `product_product_rent` | 房屋租金（GGANDY-RENT） | 房客 Invoice 租金行 |
 | `product_product_management_fee` | 租屋管理費（GGANDY-MGMT-FEE） | 房客 Invoice 管理費行 |
+| `product_product_electricity` | 電費（GGANDY-ELECTRICITY） | 房客 Invoice 電費行（不帶銷項稅） |
+| `product_product_water` | 水費（GGANDY-WATER） | 房客 Invoice 水費行（不帶銷項稅） |
 | `product_product_owner_settlement` | 房東結算款（GGANDY-OWNER-SETTLEMENT） | 房東 Vendor Bill |
