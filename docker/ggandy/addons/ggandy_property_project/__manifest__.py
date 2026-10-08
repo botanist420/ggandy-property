@@ -1,7 +1,7 @@
 {
     "name": "GGAndy 物件整備專案",
     "summary": "包租物件一鍵建立整備專案，追蹤前期銷售、採購與執行進度",
-    "version": "19.0.1.0.2",
+    "version": "19.0.1.1.0",
     "category": "Services/Real Estate",
     "author": "GGAndy",
     "license": "LGPL-3",
@@ -10,6 +10,7 @@
         "sale_project",
         "project_purchase",
         "project_account",
+        "project_purchase_stock",
     ],
     "data": [
         "data/project_preparation_data.xml",

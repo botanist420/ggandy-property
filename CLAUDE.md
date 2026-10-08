@@ -9,7 +9,7 @@
 - 三個模組，都放在 `docker/ggandy/addons/`（掛載到容器 `/mnt/extra-addons`）：
   - `ggandy_property_management`：主模組，depends `base, mail, contacts, account`。
   - `ggandy_property_telegram`：Telegram 管理員 Bot，depends 主模組。
-  - `ggandy_property_project`：包租物件「開始整備」→ 建立整備專案，depends 主模組 + `sale_project, project_purchase, project_account`。主模組刻意不依賴 project。
+  - `ggandy_property_project`：包租物件「開始整備」→ 建立整備專案，depends 主模組 + `sale_project, project_purchase, project_account, project_purchase_stock`。主模組刻意不依賴 project / stock。開始整備時也會建房東空銷售單（已確認）與 `WH/庫存/{物件}/{單位}` 庫存位置。
 - 會計本地化 `l10n_tw` 已安裝在 `ggandy_dev`；開帳單時需要 `sale` / `purchase` 日記帳。
 
 ## 常用指令

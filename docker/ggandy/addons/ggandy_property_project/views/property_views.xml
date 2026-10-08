@@ -16,6 +16,10 @@
                             invisible="management_mode != 'master_lease' or not preparation_project_id"
                             groups="purchase.group_purchase_user"
                             help="開啟新的採購單，專案已帶入這個物件的整備專案，成本會自動記到同名分析帳戶。"/>
+                    <button name="action_sync_stock_locations" string="同步庫存位置" type="object" class="btn-secondary"
+                            invisible="management_mode != 'master_lease' or not preparation_project_id"
+                            groups="ggandy_property_management.group_property_manager"
+                            help="在總倉底下補齊這個物件與各出租單位的庫存位置，已經存在的會直接沿用，不會重複建立。新增出租單位後按一次即可。"/>
                 </header>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
@@ -27,6 +31,11 @@
             <xpath expr="//field[@name='owner_payment_day']" position="after">
                 <field name="preparation_project_id" invisible="not preparation_project_id"
                        groups="project.group_project_user"/>
+                <field name="stock_location_id" invisible="not stock_location_id"
+                       groups="stock.group_stock_multi_locations"/>
+            </xpath>
+            <xpath expr="//field[@name='unit_ids']/list/field[@name='state']" position="after">
+                <field name="stock_location_id" optional="hide" groups="stock.group_stock_multi_locations"/>
             </xpath>
         </field>
     </record>

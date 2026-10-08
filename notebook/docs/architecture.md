@@ -1,6 +1,6 @@
 # GGAndy 系統架構與資料模型
 
-> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.2.0、`ggandy_property_telegram` 19.0.1.0.2、`ggandy_property_project` 19.0.1.0.2）。
+> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.2.0、`ggandy_property_telegram` 19.0.1.0.2、`ggandy_property_project` 19.0.1.1.0）。
 > 程式有改動時請同步更新本文件。
 
 ## 1. 模型關係圖
@@ -244,13 +244,17 @@ ir.cron（每分鐘）→ ggandy.telegram.log._cron_poll_updates
 
 ## 4. 整備專案模組（`ggandy_property_project`）
 
-depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`project_account`。不新增模型，只 inherit `ggandy.property`。
+depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`project_account`、`project_purchase_stock`（帶入 `stock`；主模組不依賴庫存）。不新增模型，只 inherit `ggandy.property`、`ggandy.property.unit`、`res.config.settings`。
 
 | 欄位 / 方法 | 說明 |
 | --- | --- |
 | `preparation_project_id` | 整備專案，`copy=False`、readonly；`models.Constraint unique(preparation_project_id)` |
 | `preparation_task_count` | 專案 `open_task_count`（compute_sudo），給智慧按鈕 |
 | `action_start_preparation()` | 冪等：已有專案就直接開啟。檢查 manager 群組、`management_mode == master_lease`、`owner_id` → 以 sudo 從範本建立專案 → 補建分析帳戶 → 回寫物件 |
+| `stock_location_id`（物件、出租單位） | 對應的 `stock.location`，`copy=False`、readonly、`ondelete=set null` |
+| `_ensure_preparation_sale_order(project)` | 找 `project_id`＋`partner_id = owner_id`＋未取消的銷售單；沒有就 sudo 建空單並 `action_confirm()` |
+| `_ensure_stock_locations()` | 冪等。公司第一個倉庫的 `lot_stock_id` → `{物件名稱}` → 每個 active 單位 `{單位名稱}`；已連結就跳過，否則同上層同名的 internal 位置沿用，再沒有才建立；回傳（新建數, 沿用數） |
+| `action_sync_stock_locations()` | 包租且已有整備專案；manager 才可按；呼叫 `_ensure_stock_locations()` 並跳通知 |
 | `action_view_preparation_project()` | 回傳專案的 `action_view_tasks()` |
 | `action_create_preparation_purchase()` | 包租且已有整備專案才可用；開新的 `purchase.order` form，context `default_project_id` = 整備專案（與 Odoo `project_purchase` 的 `action_open_project_purchase_orders` 同做法） |
 
@@ -261,6 +265,8 @@ depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`
        範本不存在 → project.project.create(只帶 7 個預設階段)
   → project.account_id 為空 → project._create_analytic_account()   # account_id copy=False，範本複製不會帶
   → property.preparation_project_id = project
+  → _ensure_preparation_sale_order(project)    # 空銷售單，已確認（重新開立發票成本需要 state = sale）
+  → _ensure_stock_locations()                  # WH/庫存/{物件}/{單位}
 
 sale.order / purchase.order 的 project_id = 整備專案
   → 明細 _compute_analytic_distribution 帶入 project._get_analytic_distribution()
@@ -269,6 +275,8 @@ sale.order / purchase.order 的 project_id = 整備專案
 
 - `data/project_preparation_data.xml` 為 `noupdate="1"`：範本專案先建，任務階段再用 `project_ids` 掛到範本上（沒有專案的階段會被 `project.task.type._default_user_id` 當成個人階段），最後是 12 個範本任務。
 - 使用者在 UI 改範本任務，升級模組不會覆蓋。
+- 單位改名不會改位置名稱；封存的單位不建位置；刪除單位不刪位置（位置可能有庫存）。
+- 廠商帳單「重新開立發票成本」轉到銷售單的明細（`is_expense`）若是商品類，`sale_stock` 會照常產生交貨單；目前由使用者手動取消（從交貨單轉單的流程 Odoo 有 `skip_procurement`，帳單流程沒有）。
 
 ## 5. 排程總表
 
