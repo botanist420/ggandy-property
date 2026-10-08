@@ -1,6 +1,6 @@
 # GGAndy 系統架構與資料模型
 
-> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.0.0、`ggandy_property_telegram` 19.0.1.0.1、`ggandy_property_project` 19.0.1.0.0）。
+> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.2.0、`ggandy_property_telegram` 19.0.1.0.2、`ggandy_property_project` 19.0.1.0.1）。
 > 程式有改動時請同步更新本文件。
 
 ## 1. 模型關係圖
@@ -177,6 +177,7 @@ net_cash_flow    = collected + deposit − owner_paid − purchase_cost − empl
 
 ### Google Sheet 匯入（TransientModel）
 
+- 精靈開啟時的 `sheet_url` 預設值由 `ggandy.google.sheet.import.mixin._default_sheet_url()` 讀系統參數 `ggandy_property_management.property_sheet_url` / `contact_sheet_url`，留空退回程式內的 `DEFAULT_*_SHEET_URL`。
 - `ggandy.google.sheet.property.import.wizard`：Google Sheet URL → `/export?format=csv&gid=...` → `pandas.read_csv(dtype=str)`。
   - 必要欄位：`編號`、`案件名稱`；選填：`經營模式`（包租／代管／混合）、`房東`、`地址`、`管理人員`、`匯款日期`（取第一組數字，1–31）、`出租單位`（以 `,`／`，`／`、` 分隔）。標題會先 strip。
   - Upsert 鍵：`ir.model.data`，`module=ggandy_property_management`、`name=google_sheet_property_<編號slug>_<sha1(編號|案件名稱)[:10]>`。
@@ -211,6 +212,19 @@ max_owner_rent         = (N×R×o×T − I) / (N×T)
 ```
 
 - 免租裝潢期不付房東、也沒有收入，所以不影響總賺賠，只影響回本月數與年化報酬率。
+
+### 設定頁（`res.config.settings`）
+
+主模組建立 `<app name="ggandy_property_management" string="包租代管">`（view `res_config_settings_view_form_ggandy`，action `action_ggandy_settings`，選單「整合工具 → 設定」），區塊順序：
+
+| 區塊 | 來源模組 | 內容 |
+| --- | --- | --- |
+| 擴充模組 `ggandy_modules` | 主模組 | `module_ggandy_property_telegram`、`module_ggandy_property_project`（Odoo 原生 `module_*`：勾選安裝、取消解除安裝） |
+| Telegram Bot | telegram（xpath `ggandy_modules` after） | token / username / polling（`ggandy_property_telegram.*` 系統參數） |
+| 整備專案 | project（xpath `ggandy_google_sheet` before） | `action_open_ggandy_preparation_template()` 開範本任務 |
+| Google Sheet 匯入 `ggandy_google_sheet` | 主模組 | `ggandy_property_sheet_url`、`ggandy_contact_sheet_url`（`ggandy_property_management.*` 系統參數） |
+
+擴充模組新增設定時，繼承 `ggandy_property_management.res_config_settings_view_form_ggandy` 插 block，不要另開 `<app>`。
 
 ## 3. Telegram 模組
 

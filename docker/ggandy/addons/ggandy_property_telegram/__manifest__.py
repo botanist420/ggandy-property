@@ -1,7 +1,7 @@
 {
     "name": "GGAndy Telegram 管理員 Bot",
     "summary": "包租代管老闆的 Odoo 行動指揮中心",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "category": "Services/Real Estate",
     "author": "GGAndy",
     "license": "LGPL-3",

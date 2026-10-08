@@ -65,6 +65,12 @@
               name="整合工具"
               parent="menu_ggandy_root"
               sequence="90"/>
+    <menuitem id="menu_ggandy_settings"
+              name="設定"
+              parent="menu_ggandy_integrations"
+              action="action_ggandy_settings"
+              groups="base.group_system"
+              sequence="1"/>
     <menuitem id="menu_ggandy_import_contacts_from_google_sheet"
               name="從 Google Sheet 匯入聯絡人"
               parent="menu_ggandy_integrations"

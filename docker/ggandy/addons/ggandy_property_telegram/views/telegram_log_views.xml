@@ -87,12 +87,6 @@
               parent="ggandy_property_management.menu_ggandy_root"
               sequence="90"
               groups="ggandy_property_management.group_property_manager"/>
-    <menuitem id="menu_ggandy_telegram_settings"
-              name="Telegram 設定"
-              parent="menu_ggandy_telegram_configuration"
-              action="action_ggandy_telegram_settings"
-              sequence="10"
-              groups="base.group_system"/>
     <menuitem id="menu_ggandy_telegram_log"
               name="訊息紀錄"
               parent="menu_ggandy_telegram_configuration"

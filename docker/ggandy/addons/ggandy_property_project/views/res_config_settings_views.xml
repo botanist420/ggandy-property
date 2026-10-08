@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ggandy_project" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.ggandy.project</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ggandy_property_management.res_config_settings_view_form_ggandy"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ggandy_google_sheet']" position="before">
+                <block title="整備專案" name="ggandy_preparation_settings">
+                    <setting id="ggandy_preparation_template"
+                             string="整備範本"
+                             help="包租物件按「開始整備」時，會複製這個範本的階段與任務。直接修改範本任務，之後新建的整備專案就會套用。">
+                        <button name="action_open_ggandy_preparation_template" type="object"
+                                string="編輯整備範本" class="btn-link" icon="oi-arrow-right"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

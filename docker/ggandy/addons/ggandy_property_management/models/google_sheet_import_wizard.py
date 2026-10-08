@@ -3,7 +3,7 @@ import html
 import re
 from urllib.parse import parse_qs, urlparse
 
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -56,6 +56,11 @@ class GgandyGoogleSheetImportMixin(models.AbstractModel):
         readonly=True,
         help="匯入後顯示新增、更新、略過與前 80 筆訊息。若看到略過，先看是不是必填欄位空白。",
     )
+
+    @api.model
+    def _default_sheet_url(self, param_key, fallback):
+        """設定頁有填就用設定頁的連結，留空則沿用程式內建的預設連結。"""
+        return self.env["ir.config_parameter"].sudo().get_param(param_key) or fallback
 
     def _read_google_sheet_csv(self, sheet_url):
         try:
@@ -143,7 +148,9 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
     sheet_url = fields.Char(
         string="Google Sheet URL",
         required=True,
-        default=DEFAULT_PROPERTY_SHEET_URL,
+        default=lambda self: self._default_sheet_url(
+            "ggandy_property_management.property_sheet_url", DEFAULT_PROPERTY_SHEET_URL
+        ),
         help="貼上要匯入的 Google Sheet 連結（網址要包含 gid，才會讀到正確的分頁）。"
         "系統會轉成 CSV 讀取；若讀不到，請先確認共用設定是「知道連結的任何人都能檢視」。",
     )
@@ -432,7 +439,9 @@ class GgandyGoogleSheetContactImportWizard(models.TransientModel):
     sheet_url = fields.Char(
         string="Google Sheet URL",
         required=True,
-        default=DEFAULT_CONTACT_SHEET_URL,
+        default=lambda self: self._default_sheet_url(
+            "ggandy_property_management.contact_sheet_url", DEFAULT_CONTACT_SHEET_URL
+        ),
         help="貼上聯絡人 Google Sheet 的連結（網址要包含 gid，才會讀到正確的分頁）。"
         "系統會轉成 CSV 讀取；若讀不到，請先確認共用設定是「知道連結的任何人都能檢視」。",
     )

@@ -5,7 +5,7 @@
 ## 專案概要
 
 - GGAndy 包租代管公司的 Odoo **19.0** Community 客製化模組（Docker 開發環境）。
-- 使用者是台灣團隊：UI 字串、欄位 `string`、`help`、錯誤訊息、註解、commit 訊息都用**繁體中文**；程式識別字（model、field、method）用英文。
+- 使用者是台灣團隊：UI 字串、欄位 `string`、`help`、錯誤訊息、註解都用**繁體中文**；commit 訊息用**英文小寫**；程式識別字（model、field、method）用英文。
 - 三個模組，都放在 `docker/ggandy/addons/`（掛載到容器 `/mnt/extra-addons`）：
   - `ggandy_property_management`：主模組，depends `base, mail, contacts, account`。
   - `ggandy_property_telegram`：Telegram 管理員 Bot，depends 主模組。
@@ -61,6 +61,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每單位 × 每月一列**，金額全是非 stored compute |
 | `ggandy.google.sheet.*.import.wizard` | `models/google_sheet_import_wizard.py` | TransientModel；物件／聯絡人匯入（pandas 讀 CSV export），共用 `ggandy.google.sheet.import.mixin` |
 | `ggandy.master.lease.profit.wizard` | `models/master_lease_profit_wizard.py` | TransientModel；包租獲利試算，純 compute 不寫資料，僅 manager |
+| `res.config.settings`（inherit） | `models/res_config_settings.py` | 「包租代管」設定 app：擴充模組 `module_*` 勾選、Google Sheet 預設連結；擴充模組的設定 block 都插進這個 app，不另開 app |
 | `res.partner`（inherit） | `models/res_partner.py` | `is_ggandy_owner / tenant / vendor` 身分旗標 |
 | `account.move`（inherit） | `models/account_move.py` | `ggandy_lease_id`、`ggandy_owner_contract_id`、`ggandy_expense_*`、`ggandy_settlement_period_*` |
 | `ir.attachment`（inherit） | `models/ir_attachment.py` | `ggandy_request_date` 給維修照片排序 |
@@ -68,7 +69,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 
 整備專案模組：`ggandy.property`（inherit）加 `preparation_project_id` 與 `action_start_preparation()`；專案從 `data/project_preparation_data.xml` 的「整備範本」（`is_template`）以 `action_create_from_template` 複製，`account_id` 不會被複製，要另外 `_create_analytic_account()`。銷售單／採購單選了 `project_id` 就會自動帶分析分配。
 
-Telegram 模組：`ggandy.telegram.log`（`models/telegram_log.py`，指令處理與 cron 都在這）、`res.users` 綁定欄位、`res.config.settings`（token 存 `ir.config_parameter`，key 前綴 `ggandy_property_telegram.`）、`services/telegram_service.py`（純 `requests` 的 Bot API client）。
+Telegram 模組：`ggandy.telegram.log`（`models/telegram_log.py`，指令處理與 cron 都在這）、`res.users` 綁定欄位、`res.config.settings`（設定 block 插在主模組的包租代管設定 app；token 存 `ir.config_parameter`，key 前綴 `ggandy_property_telegram.`）、`services/telegram_service.py`（純 `requests` 的 Bot API client）。
 
 ### 自動化（全在 `data/*_cron.xml`，`noupdate="1"`）
 
@@ -119,7 +120,7 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 - `docker/ggandy/config/odoo.conf` 被 git 追蹤，但本機版本含真的 `admin_passwd`；**不要 commit 這個檔案的密碼變更**。`config/ggandy.env` 已被 gitignore。
 - Telegram Bot token 只存在資料庫 `ir.config_parameter`，不要寫進程式碼、文件或 log。
 - 不要執行 `docker compose down -v`、不要 drop `ggandy_dev`。
-- Commit 訊息格式沿用既有風格：`feature: ...`、`update: ...`、`fix: ...`、`add: ...`。
+- Commit 訊息用英文小寫、一行為主，格式沿用既有風格：`feature: ...`、`update: ...`、`fix: ...`、`add: ...`（例如 `feature: ggandy project module for managing pre-lease`）。
 - `notebook/` 是學習 / 研究用：文件（`notebook/docs/`）、代辦（`notebook/TODO.md`）、Odoo shell 練習腳本（`notebook/scripts/`，`test.py` 被 gitignore）。**不使用 Jupyter**，`notebook/` 也刻意不掛載進容器：腳本一律用 `docker exec -i ... odoo shell ... < notebook/scripts/xxx.py` 從主機餵進去。
 - `scripts/ggandy_common.sql` 是常用查詢集；新增欄位或模型後，若有常用查詢需求可順手補上。
 - 完成功能後，若行為有變，同步更新 `README.md`、`notebook/docs/architecture.md`，並把完成的項目從 `notebook/TODO.md` 勾掉。

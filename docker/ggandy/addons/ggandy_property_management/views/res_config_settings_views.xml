@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ggandy" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.ggandy</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="包租代管" data-string="包租代管" name="ggandy_property_management" groups="base.group_system">
+                    <block title="擴充模組" name="ggandy_modules">
+                        <setting id="ggandy_module_telegram"
+                                 help="用 Telegram 私訊查詢營運狀態、逾期租金、即將到期租約，並每天推播逾期摘要。">
+                            <field name="module_ggandy_property_telegram"/>
+                            <div class="text-muted mt8" invisible="not module_ggandy_property_telegram">
+                                取消勾選並儲存會解除安裝，Bot 紀錄與使用者綁定會一併刪除。
+                            </div>
+                        </setting>
+                        <setting id="ggandy_module_project"
+                                 help="包租物件一鍵「開始整備」，建立整備專案追蹤前期銷售、採購與進度（會一併安裝專案、銷售、採購）。">
+                            <field name="module_ggandy_property_project"/>
+                            <div class="text-muted mt8" invisible="not module_ggandy_property_project">
+                                取消勾選並儲存會解除安裝，物件與整備專案的連結會被移除（專案本身保留）。
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Google Sheet 匯入" name="ggandy_google_sheet">
+                        <setting id="ggandy_property_sheet_url"
+                                 help="「從 Google Sheet 匯入物件」預先帶入的連結，網址要包含 gid。留空使用內建連結。">
+                            <field name="ggandy_property_sheet_url" placeholder="https://docs.google.com/spreadsheets/d/...?gid=..."/>
+                        </setting>
+                        <setting id="ggandy_contact_sheet_url"
+                                 help="「從 Google Sheet 匯入聯絡人」預先帶入的連結，網址要包含 gid。留空使用內建連結。">
+                            <field name="ggandy_contact_sheet_url" placeholder="https://docs.google.com/spreadsheets/d/...?gid=..."/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_ggandy_settings" model="ir.actions.act_window">
+        <field name="name">設定</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="context">{'module': 'ggandy_property_management', 'bin_size': False}</field>
+    </record>
+</odoo>
