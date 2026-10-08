@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- 整備範本：按「開始整備」時會複製這個專案（含階段與任務）。可直接在專案 App 修改範本內容。 -->
+    <record id="project_preparation_template" model="project.project">
+        <field name="name">整備範本</field>
+        <field name="is_template" eval="True"/>
+        <field name="allow_billable" eval="True"/>
+        <field name="description" type="html">
+            <p>包租物件前期整備的範本。從物件按「開始整備」會複製此範本的階段與任務。</p>
+        </field>
+    </record>
+
+    <!-- 任務階段：先建範本專案再掛上，避免變成個人階段 -->
+    <record id="task_stage_preparation_evaluate" model="project.task.type">
+        <field name="name">評估簽約</field>
+        <field name="sequence">10</field>
+        <field name="user_id" eval="False"/>
+        <field name="project_ids" eval="[(4, ref('project_preparation_template'))]"/>
+    </record>
+    <record id="task_stage_preparation_plan" model="project.task.type">
+        <field name="name">規劃預算</field>
+        <field name="sequence">20</field>
+        <field name="user_id" eval="False"/>
+        <field name="project_ids" eval="[(4, ref('project_preparation_template'))]"/>
+    </record>
+    <record id="task_stage_preparation_purchase" model="project.task.type">
+        <field name="name">採購發包</field>
+        <field name="sequence">30</field>
+        <field name="user_id" eval="False"/>
+        <field name="project_ids" eval="[(4, ref('project_preparation_template'))]"/>
+    </record>
+    <record id="task_stage_preparation_construction" model="project.task.type">
+        <field name="name">施工驗收</field>
+        <field name="sequence">40</field>
+        <field name="user_id" eval="False"/>
+        <field name="project_ids" eval="[(4, ref('project_preparation_template'))]"/>
+    </record>
+    <record id="task_stage_preparation_listing" model="project.task.type">
+        <field name="name">上架招租</field>
+        <field name="sequence">50</field>
+        <field name="user_id" eval="False"/>
+        <field name="project_ids" eval="[(4, ref('project_preparation_template'))]"/>
+    </record>
+    <record id="task_stage_preparation_done" model="project.task.type">
+        <field name="name">整備完成</field>
+        <field name="sequence">60</field>
+        <field name="fold" eval="True"/>
+        <field name="user_id" eval="False"/>
+        <field name="project_ids" eval="[(4, ref('project_preparation_template'))]"/>
+    </record>
+    <record id="task_stage_preparation_cancel" model="project.task.type">
+        <field name="name">已取消</field>
+        <field name="sequence">70</field>
+        <field name="fold" eval="True"/>
+        <field name="user_id" eval="False"/>
+        <field name="project_ids" eval="[(4, ref('project_preparation_template'))]"/>
+    </record>
+
+    <!-- 範本任務 -->
+    <!-- 1. 評估簽約 -->
+    <record id="task_preparation_site_survey" model="project.task">
+        <field name="name">物件現場勘查</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_evaluate"/>
+        <field name="sequence">10</field>
+        <field name="description" type="html">
+            <p>到現場確認屋況、格局、管線與周邊環境，拍照記錄並寫在任務留言。</p>
+        </field>
+    </record>
+    <record id="task_preparation_profit_estimate" model="project.task">
+        <field name="name">包租獲利試算</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_evaluate"/>
+        <field name="sequence">20</field>
+        <field name="description" type="html">
+            <p>用「包租獲利試算」估算租金差、整備成本與回本期，確認值得簽約。</p>
+        </field>
+    </record>
+    <record id="task_preparation_owner_contract" model="project.task">
+        <field name="name">簽訂房東合約</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_evaluate"/>
+        <field name="sequence">30</field>
+        <field name="description" type="html">
+            <p>在物件的「房東合約」建立包租合約並設為生效。</p>
+        </field>
+    </record>
+
+    <!-- 2. 規劃預算 -->
+    <record id="task_preparation_layout_plan" model="project.task">
+        <field name="name">格局與裝修規劃</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_plan"/>
+        <field name="sequence">10</field>
+        <field name="description" type="html">
+            <p>決定隔間、房間數與裝修風格，格局圖可附在任務附件。</p>
+        </field>
+    </record>
+    <record id="task_preparation_contractor_quote" model="project.task">
+        <field name="name">取得工班報價</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_plan"/>
+        <field name="sequence">20</field>
+        <field name="description" type="html">
+            <p>向工班索取報價並比價。確定的報價可在「採購」建立詢價單，<strong>專案欄選這個整備專案</strong>。</p>
+        </field>
+    </record>
+    <record id="task_preparation_budget_confirm" model="project.task">
+        <field name="name">確認整備預算與房東分攤</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_plan"/>
+        <field name="sequence">30</field>
+        <field name="description" type="html">
+            <p>確認總預算。若有費用要向房東收取，在「銷售」建立報價單給房東，<strong>專案欄選這個整備專案</strong>，收入才會算進專案。</p>
+        </field>
+    </record>
+
+    <!-- 3. 採購發包 -->
+    <record id="task_preparation_construction_po" model="project.task">
+        <field name="name">工程發包採購單</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_purchase"/>
+        <field name="sequence">10</field>
+        <field name="description" type="html">
+            <p>確認工班報價後建立採購單，<strong>專案欄選這個整備專案</strong>，成本會自動進到分析帳戶。</p>
+        </field>
+    </record>
+    <record id="task_preparation_furniture_po" model="project.task">
+        <field name="name">家具家電採購單</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_purchase"/>
+        <field name="sequence">20</field>
+        <field name="description" type="html">
+            <p>列出各房間需要的家具家電並建立採購單，<strong>專案欄選這個整備專案</strong>。</p>
+        </field>
+    </record>
+
+    <!-- 4. 施工驗收 -->
+    <record id="task_preparation_construction_progress" model="project.task">
+        <field name="name">施工進度追蹤</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_construction"/>
+        <field name="sequence">10</field>
+        <field name="description" type="html">
+            <p>定期到場確認進度，進度照片與問題記錄在任務留言。</p>
+        </field>
+    </record>
+    <record id="task_preparation_acceptance" model="project.task">
+        <field name="name">完工驗收與點交</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_construction"/>
+        <field name="sequence">20</field>
+        <field name="description" type="html">
+            <p>逐項驗收工程與家具家電，確認無誤後再登錄廠商帳單付款。</p>
+        </field>
+    </record>
+
+    <!-- 5. 上架招租 -->
+    <record id="task_preparation_units_photo" model="project.task">
+        <field name="name">拍照並建立出租單位</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_listing"/>
+        <field name="sequence">10</field>
+        <field name="description" type="html">
+            <p>在物件建立各出租單位（房間）與租金，並拍攝上架照片。</p>
+        </field>
+    </record>
+    <record id="task_preparation_listing" model="project.task">
+        <field name="name">刊登招租</field>
+        <field name="project_id" ref="project_preparation_template"/>
+        <field name="stage_id" ref="task_stage_preparation_listing"/>
+        <field name="sequence">20</field>
+        <field name="description" type="html">
+            <p>上架租屋平台開始招租，第一份租約生效後即可把整備專案收尾。</p>
+        </field>
+    </record>
+</odoo>

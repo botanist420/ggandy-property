@@ -6,9 +6,10 @@
 
 - GGAndy 包租代管公司的 Odoo **19.0** Community 客製化模組（Docker 開發環境）。
 - 使用者是台灣團隊：UI 字串、欄位 `string`、`help`、錯誤訊息、註解、commit 訊息都用**繁體中文**；程式識別字（model、field、method）用英文。
-- 兩個模組，都放在 `docker/ggandy/addons/`（掛載到容器 `/mnt/extra-addons`）：
+- 三個模組，都放在 `docker/ggandy/addons/`（掛載到容器 `/mnt/extra-addons`）：
   - `ggandy_property_management`：主模組，depends `base, mail, contacts, account`。
   - `ggandy_property_telegram`：Telegram 管理員 Bot，depends 主模組。
+  - `ggandy_property_project`：包租物件「開始整備」→ 建立整備專案，depends 主模組 + `sale_project, project_purchase, project_account`。主模組刻意不依賴 project。
 - 會計本地化 `l10n_tw` 已安裝在 `ggandy_dev`；開帳單時需要 `sale` / `purchase` 日記帳。
 
 ## 常用指令
@@ -25,6 +26,7 @@ docker exec ggandy_odoo19_web sh -c 'odoo -c /etc/odoo/odoo.conf -d ggandy_dev \
   --db_host="$HOST" --db_port="$PORT" --db_user="$POSTGRES_USER" --db_password="$POSTGRES_PASSWORD" \
   -u ggandy_property_management --stop-after-init --no-http'
 docker restart ggandy_odoo19_web
+# 改到其他模組就把 -u 換成該模組（例如 ggandy_property_project），可用逗號一次多個
 # 只改 method 內的 Python 邏輯 → 只要 docker restart ggandy_odoo19_web
 
 # Odoo shell（stdin 餵 script；預設不 commit，要保存需 env.cr.commit()）
@@ -63,6 +65,8 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `account.move`（inherit） | `models/account_move.py` | `ggandy_lease_id`、`ggandy_owner_contract_id`、`ggandy_expense_*`、`ggandy_settlement_period_*` |
 | `ir.attachment`（inherit） | `models/ir_attachment.py` | `ggandy_request_date` 給維修照片排序 |
 | `report.ggandy_property_management.report_lease_contract` | `report/lease_contract_report.py` | 房客租約 PDF 的資料準備（出租人判斷、民國日期）；範本與 action 在同目錄 `.xml` |
+
+整備專案模組：`ggandy.property`（inherit）加 `preparation_project_id` 與 `action_start_preparation()`；專案從 `data/project_preparation_data.xml` 的「整備範本」（`is_template`）以 `action_create_from_template` 複製，`account_id` 不會被複製，要另外 `_create_analytic_account()`。銷售單／採購單選了 `project_id` 就會自動帶分析分配。
 
 Telegram 模組：`ggandy.telegram.log`（`models/telegram_log.py`，指令處理與 cron 都在這）、`res.users` 綁定欄位、`res.config.settings`（token 存 `ir.config_parameter`，key 前綴 `ggandy_property_telegram.`）、`services/telegram_service.py`（純 `requests` 的 Bot API client）。
 

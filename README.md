@@ -8,6 +8,7 @@ GGAndy 是給包租代管公司使用的 Odoo 19 客製化 ERP。它把「房東
 - 自訂模組：
   - `ggandy_property_management`：包租代管主模組
   - `ggandy_property_telegram`：Telegram 管理員 Bot
+  - `ggandy_property_project`：包租物件整備專案（串接 Odoo 專案、銷售、採購與分析會計）
 
 ---
 
@@ -170,6 +171,18 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 
 ---
 
+## 包租物件整備專案
+
+`ggandy_property_project` 用 Odoo 原生「專案」追蹤包租物件從簽約到上架前的整備期，並讓這段期間的銷售與採購能被專案與會計分析。
+
+1. 經營模式為「包租」且已設定主要房東的物件，form 上方會出現「開始整備」按鈕（僅包租代管管理員）。
+2. 按下後自動建立 `整備-{物件名稱}` 專案：勾選可計費、客戶為主要房東，並建立同名分析帳戶（分析計畫「專案」）。每個物件只能建立一次，之後按鈕改為「整備專案」智慧按鈕（顯示未完成任務數）。
+3. 專案階段與任務複製自「整備範本」專案（專案 App 的範本，可直接在畫面上修改任務內容）：
+   評估簽約 → 規劃預算 → 採購發包 → 施工驗收 → 上架招租 → 整備完成／已取消。
+4. 向房東收費開**報價單**、工班與家具家電開**採購單**時，在「專案」欄選這個整備專案：明細會自動帶入分析帳戶，帳單也跟著帶，專案的「獲利能力」面板與會計分析報表就能看到收入與成本。
+
+---
+
 ## 整合工具
 
 選單「包租代管 → 整合工具」：
@@ -211,9 +224,12 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 │       │   ├── report/                ← PDF 報表（房客租約）
 │       │   ├── data/                  ← 編號規則、產品、排程
 │       │   └── security/
-│       └── ggandy_property_telegram/
-│           ├── models/                ← Bot 紀錄與指令處理、使用者綁定、設定
-│           └── services/              ← Telegram Bot API client
+│       ├── ggandy_property_telegram/
+│       │   ├── models/                ← Bot 紀錄與指令處理、使用者綁定、設定
+│       │   └── services/              ← Telegram Bot API client
+│       └── ggandy_property_project/
+│           ├── models/                ← 物件「開始整備」與整備專案連結
+│           └── data/                  ← 整備範本專案、階段與任務
 ├── scripts/
 │   ├── ggandy_common.sql              ← 常用 SQL 查詢（pgAdmin / psql）
 │   └── google_res_partner.py          ← Google Sheet / CSV 匯入聯絡人（XML-RPC，舊版；已由 Odoo 內的匯入精靈取代）
@@ -246,7 +262,7 @@ cp docker/ggandy/config/ggandy.env.example docker/ggandy/config/ggandy.env
 docker compose -f docker/ggandy/docker-compose.yml up -d
 ```
 
-開啟 <http://localhost:1025> 建立資料庫後，到 Apps 安裝「GGAndy 包租代管」與「GGAndy Telegram 管理員 Bot」。開立帳單前請確認公司國家為台灣且已安裝會計本地化（需要銷售／採購日記帳）。
+開啟 <http://localhost:1025> 建立資料庫後，到 Apps 安裝「GGAndy 包租代管」、「GGAndy Telegram 管理員 Bot」與「GGAndy 物件整備專案」（會一併安裝專案、銷售、採購模組）。開立帳單前請確認公司國家為台灣且已安裝會計本地化（需要銷售／採購日記帳）。
 
 ### 更新模組
 
@@ -258,6 +274,8 @@ docker exec ggandy_odoo19_web sh -c 'odoo -c /etc/odoo/odoo.conf -d ggandy_dev \
   -u ggandy_property_management --stop-after-init --no-http'
 docker restart ggandy_odoo19_web
 ```
+
+改到其他模組時，把 `-u` 換成對應模組名稱（例如 `-u ggandy_property_project`，可用逗號一次升級多個）。
 
 更多開發指令（Odoo shell、SQL、除錯方式）請看 [notebook/docs/dev_workflow.md](notebook/docs/dev_workflow.md)；資料模型與計算邏輯請看 [notebook/docs/architecture.md](notebook/docs/architecture.md)。
 

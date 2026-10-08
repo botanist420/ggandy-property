@@ -1,6 +1,6 @@
 # GGAndy 系統架構與資料模型
 
-> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.0.0、`ggandy_property_telegram` 19.0.1.0.1）。
+> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.0.0、`ggandy_property_telegram` 19.0.1.0.1、`ggandy_property_project` 19.0.1.0.0）。
 > 程式有改動時請同步更新本文件。
 
 ## 1. 模型關係圖
@@ -228,7 +228,34 @@ ir.cron（每分鐘）→ ggandy.telegram.log._cron_poll_updates
 
 `ir.config_parameter` keys（前綴 `ggandy_property_telegram.`）：`bot_token`、`bot_username`、`polling_enabled`、`update_offset`、`overdue_digest_sent_date`。
 
-## 4. 排程總表
+## 4. 整備專案模組（`ggandy_property_project`）
+
+depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`project_account`。不新增模型，只 inherit `ggandy.property`。
+
+| 欄位 / 方法 | 說明 |
+| --- | --- |
+| `preparation_project_id` | 整備專案，`copy=False`、readonly；`models.Constraint unique(preparation_project_id)` |
+| `preparation_task_count` | 專案 `open_task_count`（compute_sudo），給智慧按鈕 |
+| `action_start_preparation()` | 冪等：已有專案就直接開啟。檢查 manager 群組、`management_mode == master_lease`、`owner_id` → 以 sudo 從範本建立專案 → 補建分析帳戶 → 回寫物件 |
+| `action_view_preparation_project()` | 回傳專案的 `action_view_tasks()` |
+
+```text
+物件「開始整備」
+  → env.ref("ggandy_property_project.project_preparation_template")
+       is_template → action_create_from_template({name: 整備-{物件}, partner_id: 房東, allow_billable, company_id, user_id: 管理人員, date_start})
+       範本不存在 → project.project.create(只帶 7 個預設階段)
+  → project.account_id 為空 → project._create_analytic_account()   # account_id copy=False，範本複製不會帶
+  → property.preparation_project_id = project
+
+sale.order / purchase.order 的 project_id = 整備專案
+  → 明細 _compute_analytic_distribution 帶入 project._get_analytic_distribution()
+  → 帳單明細帶分析 → 專案獲利能力 / 分析報表
+```
+
+- `data/project_preparation_data.xml` 為 `noupdate="1"`：範本專案先建，任務階段再用 `project_ids` 掛到範本上（沒有專案的階段會被 `project.task.type._default_user_id` 當成個人階段），最後是 12 個範本任務。
+- 使用者在 UI 改範本任務，升級模組不會覆蓋。
+
+## 5. 排程總表
 
 | Cron 名稱 | Model.method | 頻率 |
 | --- | --- | --- |
@@ -241,7 +268,7 @@ ir.cron（每分鐘）→ ggandy.telegram.log._cron_poll_updates
 
 `odoo.conf`：`workers = 0`、`max_cron_threads = 1`，所有 cron 共用一條 thread。
 
-## 5. 編號規則與產品
+## 6. 編號規則與產品
 
 | Sequence code | 前綴 | 例 |
 | --- | --- | --- |

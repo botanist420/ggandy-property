@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_property_form_preparation" model="ir.ui.view">
+        <field name="name">ggandy.property.form.preparation</field>
+        <field name="model">ggandy.property</field>
+        <field name="inherit_id" ref="ggandy_property_management.view_ggandy_property_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <field name="preparation_project_id" invisible="1"/>
+                    <button name="action_start_preparation" string="開始整備" type="object" class="btn-primary"
+                            invisible="management_mode != 'master_lease' or preparation_project_id"
+                            groups="ggandy_property_management.group_property_manager"
+                            help="建立「整備-物件名稱」專案（可計費、客戶為主要房東、同名分析帳戶），並帶入整備階段與任務。每個物件只能建立一次。"/>
+                </header>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_preparation_project" type="object" class="oe_stat_button" icon="fa-tasks"
+                        invisible="not preparation_project_id" groups="project.group_project_user">
+                    <field name="preparation_task_count" widget="statinfo" string="整備專案"/>
+                </button>
+            </xpath>
+            <xpath expr="//field[@name='owner_payment_day']" position="after">
+                <field name="preparation_project_id" invisible="not preparation_project_id"
+                       groups="project.group_project_user"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_ggandy_property_search_preparation" model="ir.ui.view">
+        <field name="name">ggandy.property.search.preparation</field>
+        <field name="model">ggandy.property</field>
+        <field name="inherit_id" ref="ggandy_property_management.view_ggandy_property_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='agency']" position="after">
+                <filter name="has_preparation_project" string="整備中" domain="[('preparation_project_id', '!=', False)]"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
