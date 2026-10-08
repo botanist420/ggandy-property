@@ -84,6 +84,25 @@ class GgandyProperty(models.Model):
         self.message_post(body=f"已建立整備專案「{project.name}」。")
         return self.action_view_preparation_project()
 
+    def action_create_preparation_purchase(self):
+        self.ensure_one()
+        if self.management_mode != "master_lease":
+            raise UserError("只有經營模式為「包租」的物件才能建立整備採購。")
+        if not self.preparation_project_id:
+            raise UserError("這個物件還沒有整備專案，請先按「開始整備」。")
+        return {
+            "type": "ir.actions.act_window",
+            "name": "整備採購",
+            "res_model": "purchase.order",
+            "view_mode": "form",
+            "views": [[False, "form"]],
+            "target": "current",
+            "context": {
+                "default_project_id": self.preparation_project_id.id,
+                "default_company_id": self.company_id.id,
+            },
+        }
+
     def action_view_preparation_project(self):
         self.ensure_one()
         if not self.preparation_project_id:

@@ -12,6 +12,10 @@
                             invisible="management_mode != 'master_lease' or preparation_project_id"
                             groups="ggandy_property_management.group_property_manager"
                             help="建立「整備-物件名稱」專案（可計費、客戶為主要房東、同名分析帳戶），並帶入整備階段與任務。每個物件只能建立一次。"/>
+                    <button name="action_create_preparation_purchase" string="整備採購" type="object" class="btn-secondary"
+                            invisible="management_mode != 'master_lease' or not preparation_project_id"
+                            groups="purchase.group_purchase_user"
+                            help="開啟新的採購單，專案已帶入這個物件的整備專案，成本會自動記到同名分析帳戶。"/>
                 </header>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">

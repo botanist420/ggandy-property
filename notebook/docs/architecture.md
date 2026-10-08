@@ -1,6 +1,6 @@
 # GGAndy 系統架構與資料模型
 
-> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.2.0、`ggandy_property_telegram` 19.0.1.0.2、`ggandy_property_project` 19.0.1.0.1）。
+> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.2.0、`ggandy_property_telegram` 19.0.1.0.2、`ggandy_property_project` 19.0.1.0.2）。
 > 程式有改動時請同步更新本文件。
 
 ## 1. 模型關係圖
@@ -252,6 +252,7 @@ depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`
 | `preparation_task_count` | 專案 `open_task_count`（compute_sudo），給智慧按鈕 |
 | `action_start_preparation()` | 冪等：已有專案就直接開啟。檢查 manager 群組、`management_mode == master_lease`、`owner_id` → 以 sudo 從範本建立專案 → 補建分析帳戶 → 回寫物件 |
 | `action_view_preparation_project()` | 回傳專案的 `action_view_tasks()` |
+| `action_create_preparation_purchase()` | 包租且已有整備專案才可用；開新的 `purchase.order` form，context `default_project_id` = 整備專案（與 Odoo `project_purchase` 的 `action_open_project_purchase_orders` 同做法） |
 
 ```text
 物件「開始整備」
