@@ -8,6 +8,7 @@
 | [docs/architecture.md](docs/architecture.md) | 資料模型關係、狀態流程、計算公式、排程、編號規則 |
 | [docs/dev_workflow.md](docs/dev_workflow.md) | Docker 環境、升級模組、Odoo shell、SQL、除錯、練習腳本執行方式 |
 | `scripts/orm_playground.py` | Odoo ORM 入門：從物件 → 單位 → 租約 → 期次走一遍資料關係（純查詢） |
+| `scripts/reset_property_tenants.py` | 把測試物件（預設 PROP/2026/0134）清回無房客狀態，方便重複演示租約與抄表匯入；預設試跑，`COMMIT=1` 才寫入 |
 | `scripts/check_user_online.py` | 用 Odoo shell 查某使用者的登入、在線狀態與裝置（`TARGET_LOGIN` 環境變數指定帳號） |
 | `scripts/test.py` | 個人 ORM 練習 scratch（已 gitignore） |
 

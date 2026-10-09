@@ -1,6 +1,7 @@
 from . import account_move
 from . import accounting_overview
 from . import google_sheet_import_wizard
+from . import google_sheet_lease_import_wizard
 from . import ir_attachment
 from . import lease
 from . import maintenance_request

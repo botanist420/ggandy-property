@@ -32,6 +32,24 @@
                                  help="「從 Google Sheet 匯入聯絡人」預先帶入的連結，網址要包含 gid。留空使用內建連結。">
                             <field name="ggandy_contact_sheet_url" placeholder="https://docs.google.com/spreadsheets/d/...?gid=..."/>
                         </setting>
+                        <setting id="ggandy_lease_meter_sheet_urls"
+                                 string="租約與抄表預設連結"
+                                 help="「從 Google Sheet 匯入租約與抄表」三個分頁預先帶入的連結，網址要包含 gid。留空就不預先帶入。">
+                            <div class="content-group">
+                                <div class="row mt8">
+                                    <label for="ggandy_lease_sheet_url" class="col-lg-3 o_light_label"/>
+                                    <field name="ggandy_lease_sheet_url" placeholder="https://docs.google.com/spreadsheets/d/...?gid=..."/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="ggandy_meter_sheet_url" class="col-lg-3 o_light_label"/>
+                                    <field name="ggandy_meter_sheet_url" placeholder="https://docs.google.com/spreadsheets/d/...?gid=..."/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="ggandy_adjustment_sheet_url" class="col-lg-3 o_light_label"/>
+                                    <field name="ggandy_adjustment_sheet_url" placeholder="https://docs.google.com/spreadsheets/d/...?gid=..."/>
+                                </div>
+                            </div>
+                        </setting>
                     </block>
                 </app>
             </xpath>

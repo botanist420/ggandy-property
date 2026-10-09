@@ -1,6 +1,6 @@
 # GGAndy 系統架構與資料模型
 
-> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.2.0、`ggandy_property_telegram` 19.0.1.0.2、`ggandy_property_project` 19.0.1.1.0）。
+> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.3.0、`ggandy_property_telegram` 19.0.1.0.2、`ggandy_property_project` 19.0.1.1.0）。
 > 程式有改動時請同步更新本文件。
 
 ## 1. 模型關係圖
@@ -191,6 +191,14 @@ net_cash_flow    = collected + deposit − owner_paid − purchase_cost − empl
   - 寫入：留空不覆蓋。
   - 身分旗標：`TRUE/1/y/yes/v/是/✓` → 設 True；`FALSE/0/n/no/否/空白` → 不變更；其他值 → 訊息提醒。只加不減，避免把物件／合約在用的房東身分拿掉。
 - 外部腳本 `scripts/google_res_partner.py`（舊版，已由上面的精靈取代）：XML-RPC 匯入聯絡人，依 ref → email → mobile → phone → name 找既有聯絡人。注意它會把 FALSE 寫回身分旗標，且 Odoo 19 沒有 `mobile` 欄位，手機會被略過。
+
+- `ggandy.google.sheet.lease.import.wizard`（`models/google_sheet_lease_import_wizard.py`）：三個 URL 欄位（`lease_sheet_url` / `meter_sheet_url` / `adjustment_sheet_url`，預設值讀系統參數 `ggandy_property_management.lease_sheet_url` / `meter_sheet_url` / `adjustment_sheet_url`），依序處理：
+  - **房間租約**：`物件編號 → ggandy.property.code`、`房號 → unit.name`。先 `_write_changed(unit, 水電設定)`（只寫有變的欄位，避免 `_sync_utility_settings_to_schedules` 把期次上的調整蓋回預設），再以 `unit_id + start_date + state != cancelled` 找租約：沒有就建立草稿；草稿就更新有變的欄位（月租變了會重算未開帳期次的租金、入住度數變了會改第一期上期度數）；非草稿只警告不改。最後 `_generate_rent_schedule()` 補期次（草稿租約也會產生）。房客：電話（共用聯絡人精靈的 `_partner_ids_by_phone_digits`）→ 名稱，多筆就略過並警告。
+  - **抄表度數**：依（物件、房號、月份）排序後寫入，`READING_TO_BILL_MONTH_OFFSET = 1`：M 月讀數 → M+1 月期次的 `*_curr_reading`，靠期次 `write` 的 `_propagate_meter_reading` 往後帶上期度數。非依度數計費、已過帳、讀數倒退 → 警告略過。
+  - **帳單調整**：找該月期次，寫 `rent_amount`、`water_fixed_fee`（僅固定水費）、`note`；已有帳單就不改。`電費（核對用）` 只和 `electricity_amount` 比對。
+  - 最後 `_check_suspicious_electricity`：期次電費 > 月租就警告（抓入住度數填 0 這種錯）。
+  - **預覽**：在 `cr.savepoint()` 裡跑完整流程 → `flush_all()` → 丟 `_PreviewRollback` 還原 → `invalidate_all()`；預覽建立的租約用 `（預覽）…` 名稱，不取正式編號。每列寫入也包 savepoint，單列失敗只記警告。
+- 測試資料重置：`notebook/scripts/reset_property_tenants.py`（預設 `PROP/2026/0134`、只刪 `demo-` 開頭房客，`COMMIT=1` 才寫入）。
 
 ### 包租獲利試算（TransientModel）
 

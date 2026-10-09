@@ -22,3 +22,18 @@ class ResConfigSettings(models.TransientModel):
         config_parameter="ggandy_property_management.contact_sheet_url",
         help="打開「從 Google Sheet 匯入聯絡人」時預先帶入的連結。留空就使用系統內建的連結。",
     )
+    ggandy_lease_sheet_url = fields.Char(
+        string="房間租約分頁",
+        config_parameter="ggandy_property_management.lease_sheet_url",
+        help="打開「從 Google Sheet 匯入租約與抄表」時，「房間租約」預先帶入的連結。",
+    )
+    ggandy_meter_sheet_url = fields.Char(
+        string="抄表度數分頁",
+        config_parameter="ggandy_property_management.meter_sheet_url",
+        help="打開「從 Google Sheet 匯入租約與抄表」時，「抄表度數」預先帶入的連結。",
+    )
+    ggandy_adjustment_sheet_url = fields.Char(
+        string="帳單調整分頁",
+        config_parameter="ggandy_property_management.adjustment_sheet_url",
+        help="打開「從 Google Sheet 匯入租約與抄表」時，「帳單調整」預先帶入的連結。",
+    )

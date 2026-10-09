@@ -60,6 +60,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `ggandy.maintenance.request` | `models/maintenance_request.py` | 報修單 |
 | `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每單位 × 每月一列**，金額全是非 stored compute |
 | `ggandy.google.sheet.*.import.wizard` | `models/google_sheet_import_wizard.py` | TransientModel；物件／聯絡人匯入（pandas 讀 CSV export），共用 `ggandy.google.sheet.import.mixin` |
+| `ggandy.google.sheet.lease.import.wizard` | `models/google_sheet_lease_import_wizard.py` | TransientModel；租約與抄表匯入（房間租約／抄表度數／帳單調整三分頁），有預覽（savepoint 還原），租約一律建草稿 |
 | `ggandy.master.lease.profit.wizard` | `models/master_lease_profit_wizard.py` | TransientModel；包租獲利試算，純 compute 不寫資料，僅 manager |
 | `res.config.settings`（inherit） | `models/res_config_settings.py` | 「包租代管」設定 app：擴充模組 `module_*` 勾選、Google Sheet 預設連結；擴充模組的設定 block 都插進這個 app，不另開 app |
 | `res.partner`（inherit） | `models/res_partner.py` | `is_ggandy_owner / tenant / vendor` 身分旗標 |

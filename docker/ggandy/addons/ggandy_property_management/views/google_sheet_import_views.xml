@@ -226,4 +226,93 @@
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
+
+    <record id="view_google_sheet_lease_import_wizard_form" model="ir.ui.view">
+        <field name="name">ggandy.google.sheet.lease.import.wizard.form</field>
+        <field name="model">ggandy.google.sheet.lease.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="從 Google Sheet 匯入租約與抄表">
+                <div class="alert alert-info mb-3" role="alert" invisible="result_html">
+                    <p class="mb-2">
+                        一份 Google Sheet 分成<strong>三個分頁</strong>，每個分頁第一列放標題（名稱要一字不差，順序不拘），
+                        <strong>一列一筆資料</strong>，不要合併儲存格或放總計列。三個分頁可以只填需要的。
+                    </p>
+                    <table class="table table-sm table-bordered bg-white mb-2">
+                        <thead>
+                            <tr>
+                                <th class="text-nowrap">分頁</th>
+                                <th>標題（<span class="text-danger">*</span> 必填）</th>
+                                <th>做什麼</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="text-nowrap"><strong>房間租約</strong></td>
+                                <td>
+                                    物件編號<span class="text-danger">*</span>、房號<span class="text-danger">*</span>、房客<span class="text-danger">*</span>、房客電話、
+                                    起租日<span class="text-danger">*</span>、到期日<span class="text-danger">*</span>、月租<span class="text-danger">*</span>、押金、繳租日、
+                                    電費方式<span class="text-danger">*</span>、每度電價、固定電費、入住電錶度數、
+                                    水費方式<span class="text-danger">*</span>、每度水價、固定水費、入住水錶度數
+                                </td>
+                                <td>一間房一列。更新出租單位的水電設定，建立或更新<strong>草稿租約</strong>並產生租金期次。
+                                    以「房號＋起租日」辨識同一份租約；房客先比電話、再比名稱，找不到就新增。</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><strong>抄表度數</strong></td>
+                                <td>物件編號<span class="text-danger">*</span>、房號<span class="text-danger">*</span>、抄表月份<span class="text-danger">*</span>、電錶度數、水錶度數</td>
+                                <td>每間房每月一列，填<strong>該月月底</strong>的讀數。
+                                    <code>2026-09</code> 的讀數會寫進 <strong>10 月期次</strong>的本期度數（下個月帳單收上個月水電）。</td>
+                            </tr>
+                            <tr>
+                                <td class="text-nowrap"><strong>帳單調整</strong></td>
+                                <td>物件編號<span class="text-danger">*</span>、房號<span class="text-danger">*</span>、帳單月份<span class="text-danger">*</span>、租金、水費、電費（核對用）、備註</td>
+                                <td>只放例外月份。租金、水費留空就沿用租約；填 <code>0</code> 代表這期不收。
+                                    電費（核對用）不會寫入，只和系統依度數算出的電費比對。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <ul class="mb-0 small">
+                        <li>方式欄位填：<code>依度數計費</code>、<code>每月固定金額</code>、<code>含在租金內</code>、<code>房客自繳</code>。</li>
+                        <li>日期填 <code>2026-05-01</code>，月份填 <code>2026-05</code>；數字可以有千分位逗號。</li>
+                        <li>建議先按<strong>預覽</strong>：會完整跑一次並列出新增、更新與警告，但不會寫入。</li>
+                        <li>租約匯入後是<strong>草稿</strong>，不會開帳單；確認無誤後再到租約按「生效」。重複匯入只會更新，不會重複建立。</li>
+                    </ul>
+                </div>
+                <group string="資料來源（網址要包含 gid=，共用設定需為「知道連結的任何人都能檢視」）">
+                    <field name="lease_sheet_url" widget="url"
+                           placeholder="https://docs.google.com/spreadsheets/d/.../edit?gid=..."/>
+                    <field name="meter_sheet_url" widget="url"
+                           placeholder="https://docs.google.com/spreadsheets/d/.../edit?gid=..."/>
+                    <field name="adjustment_sheet_url" widget="url"
+                           placeholder="https://docs.google.com/spreadsheets/d/.../edit?gid=..."/>
+                </group>
+                <div invisible="not result_html">
+                    <separator string="預覽結果" invisible="last_run_mode != 'preview'"/>
+                    <separator string="匯入結果" invisible="last_run_mode != 'import'"/>
+                    <field name="last_run_mode" invisible="1"/>
+                    <field name="result_html" nolabel="1"/>
+                </div>
+                <footer>
+                    <button name="action_preview" type="object" string="預覽" class="btn-primary"
+                            invisible="last_run_mode == 'preview'"/>
+                    <button name="action_preview" type="object" string="重新預覽" class="btn-secondary"
+                            invisible="last_run_mode != 'preview'"/>
+                    <button name="action_import" type="object" string="匯入"
+                            class="btn-primary" invisible="last_run_mode != 'preview'"
+                            confirm="確定要寫入嗎？會建立／更新草稿租約、租金期次與抄表度數。"/>
+                    <button name="action_import" type="object" string="不預覽直接匯入"
+                            class="btn-secondary" invisible="last_run_mode == 'preview'"
+                            confirm="確定要不預覽直接寫入嗎？"/>
+                    <button string="關閉" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_google_sheet_lease_import_wizard" model="ir.actions.act_window">
+        <field name="name">從 Google Sheet 匯入租約與抄表</field>
+        <field name="res_model">ggandy.google.sheet.lease.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
 </odoo>

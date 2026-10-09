@@ -81,6 +81,11 @@
               parent="menu_ggandy_integrations"
               action="action_google_sheet_property_import_wizard"
               sequence="20"/>
+    <menuitem id="menu_ggandy_import_leases_from_google_sheet"
+              name="從 Google Sheet 匯入租約與抄表"
+              parent="menu_ggandy_integrations"
+              action="action_google_sheet_lease_import_wizard"
+              sequence="25"/>
     <menuitem id="menu_ggandy_master_lease_profit_wizard"
               name="包租獲利試算"
               parent="menu_ggandy_integrations"
