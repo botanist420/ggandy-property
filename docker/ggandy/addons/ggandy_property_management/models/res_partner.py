@@ -17,6 +17,28 @@ class ResPartner(models.Model):
         help="標記此聯絡人是 GGAndy 維修廠商。報修單選廠商時會用它篩選。",
     )
 
+    # 房客基本資料：印在租約 PDF 開頭的承租人欄位。身分證號沿用「稅號」(vat)、
+    # 行動電話沿用「電話」(phone)、公司職稱沿用「職位」(function)。
+    ggandy_birthday = fields.Date(string="出生年月日")
+    ggandy_registered_address = fields.Char(
+        string="戶籍地址",
+        help="印在租約上的戶籍地址，也是合約通知、催告的送達地址。留空時合約會改印聯絡人地址。",
+    )
+    ggandy_registered_phone = fields.Char(string="戶籍電話")
+    ggandy_employer_name = fields.Char(
+        string="公司／學校名稱",
+        help="房客任職的公司；學生請填學校名稱，職稱填在上方「職位」（例如：學生）。",
+    )
+    ggandy_employer_address = fields.Char(string="公司／學校地址")
+    ggandy_employer_phone = fields.Char(string="公司／學校電話")
+    ggandy_emergency_contact_ids = fields.One2many(
+        "ggandy.tenant.emergency.contact",
+        "partner_id",
+        string="緊急聯絡人",
+        groups="ggandy_property_management.group_property_user",
+        help="租約 PDF 會印出前兩位緊急聯絡人。房客失聯時，合約約定會先聯繫這裡的人。",
+    )
+
     ggandy_owned_property_ids = fields.One2many(
         "ggandy.property",
         "owner_id",
@@ -123,3 +145,31 @@ class ResPartner(models.Model):
             "domain": [("vendor_id", "=", self.id)],
             "context": {"default_vendor_id": self.id},
         }
+
+
+class GgandyTenantEmergencyContact(models.Model):
+    _name = "ggandy.tenant.emergency.contact"
+    _description = "房客緊急聯絡人"
+    _order = "partner_id, sequence, id"
+
+    partner_id = fields.Many2one(
+        "res.partner",
+        string="房客",
+        required=True,
+        ondelete="cascade",
+        index=True,
+    )
+    sequence = fields.Integer(string="排序", default=10)
+    name = fields.Char(string="姓名", required=True)
+    relationship = fields.Char(string="關係", help="和房客的關係，例如：母女、父子、配偶、朋友。")
+    phone = fields.Char(string="電話")
+    address = fields.Char(string="地址")
+
+
+class ResPartnerBank(models.Model):
+    _inherit = "res.partner.bank"
+
+    ggandy_branch_name = fields.Char(
+        string="分行",
+        help="印在租約繳款資訊的分行名稱，例如：大安。",
+    )

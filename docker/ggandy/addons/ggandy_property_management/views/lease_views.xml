@@ -110,6 +110,13 @@
                             <field name="water_start_reading" invisible="water_billing_type != 'metered'"/>
                         </group>
                     </group>
+                    <group>
+                        <group string="合約資訊" name="contract_info">
+                            <field name="sign_date"/>
+                            <field name="lessor_id" placeholder="留空＝依管理模式自動判斷"/>
+                            <field name="payment_bank_id" placeholder="留空＝收款方的第一個銀行帳戶"/>
+                        </group>
+                    </group>
                     <notebook>
                         <page string="租金期次" name="rent_schedule">
                             <div class="alert alert-info" role="alert" invisible="not auto_generate_schedule">

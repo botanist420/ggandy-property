@@ -27,30 +27,9 @@
         <field name="binding_type">report</field>
     </record>
 
-    <!-- 立契約書人簽章欄：需要 role（甲方／乙方…）與 party（res.partner） -->
-    <template id="report_lease_contract_party">
-        <table class="table table-sm table-bordered align-middle mb-3" style="font-size: 13px;">
-            <tr>
-                <th style="width: 22%;" t-out="role"/>
-                <td style="width: 38%;" t-out="party.name"/>
-                <th style="width: 14%;">簽章</th>
-                <td style="width: 26%; height: 56px;"/>
-            </tr>
-            <tr>
-                <th>身分證字號／統一編號</th>
-                <td colspan="3" t-out="party.vat or ''"/>
-            </tr>
-            <tr>
-                <th>通訊地址</th>
-                <td colspan="3" t-out="partner_address(party)"/>
-            </tr>
-            <tr>
-                <th>電話</th>
-                <td t-out="party.phone or ''"/>
-                <th>電子郵件</th>
-                <td t-out="party.email or ''"/>
-            </tr>
-        </table>
+    <!-- 條文中「乙方簽名＿＿ 年 月 日」的確認簽名列，日期用租約的簽約日 -->
+    <template id="report_lease_contract_tenant_sign">
+        <p class="ggc-sign">乙方簽名 <span class="ggc-blank" style="width: 150px;"/>　<t t-out="roc_date(doc.sign_date)"/></p>
     </template>
 
     <template id="report_lease_contract">
@@ -58,96 +37,236 @@
             <t t-foreach="docs" t-as="doc">
                 <t t-set="lessor" t-value="parties[doc.id]['lessor']"/>
                 <t t-set="agent" t-value="parties[doc.id]['agent']"/>
-                <t t-set="currency" t-value="doc.currency_id"/>
+                <t t-set="bank" t-value="parties[doc.id]['bank']"/>
+                <t t-set="tenant" t-value="doc.tenant_id"/>
+                <t t-set="unit" t-value="doc.unit_id"/>
                 <t t-call="web.basic_layout">
-                    <div class="page" style="font-family: 'Noto Serif CJK TC', serif; font-size: 14px; line-height: 1.9;">
-                        <h2 class="text-center mb-1" style="letter-spacing: 6px;">房屋租賃契約書</h2>
-                        <p class="text-end text-muted mb-4" style="font-size: 12px;">租約編號：<t t-out="doc.name"/></p>
+                    <div class="page ggc">
+                        <style>
+                            .ggc { font-family: 'Noto Serif CJK TC', 'Noto Sans CJK TC', serif; font-size: 13px; line-height: 1.85; color: #000; }
+                            .ggc h2 { font-size: 24px; font-weight: bold; letter-spacing: 12px; text-align: center; margin: 0 0 18px; }
+                            .ggc .ggc-room { float: right; font-size: 20px; font-weight: bold; border: 1px solid #000; padding: 0 10px; }
+                            .ggc h5 { font-size: 14px; font-weight: bold; margin: 14px 0 2px; }
+                            .ggc p { margin: 0; }
+                            .ggc .ggc-item { padding-left: 2em; text-indent: -2em; margin: 0; }
+                            .ggc .ggc-fill { border-bottom: 1px solid #000; padding: 0 6px; font-weight: bold; }
+                            .ggc .ggc-blank { display: inline-block; border-bottom: 1px solid #000; height: 1.2em; vertical-align: bottom; }
+                            .ggc .ggc-sign { text-align: right; margin: 4px 0 6px; }
+                            .ggc table.ggc-info { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 10px; }
+                            .ggc table.ggc-info td { padding: 3px 4px 1px; vertical-align: bottom; }
+                            .ggc table.ggc-info td.lbl { font-weight: bold; white-space: nowrap; }
+                            .ggc table.ggc-info td.val { border-bottom: 1px solid #000; }
+                            .ggc table.ggc-equip { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 6px 0; text-align: center; }
+                            .ggc table.ggc-equip td, .ggc table.ggc-equip th { border: 1px solid #000; padding: 2px; font-size: 12px; line-height: 1.4; }
+                            .ggc table.ggc-equip th { width: 9%; }
+                            .ggc .ggc-box { border: 1px solid #000; padding: 10px 14px; }
+                            .ggc .ggc-date { font-size: 18px; letter-spacing: 6px; text-align: center; margin-top: 40px; }
+                        </style>
 
-                        <p class="mb-1">立契約書人</p>
-                        <p class="mb-1">出租人：<strong t-out="lessor.name"/>（以下簡稱甲方）</p>
-                        <p class="mb-1">承租人：<strong t-out="doc.tenant_id.name"/>（以下簡稱乙方）<t t-if="doc.co_tenant_ids">，共同承租人：<t t-out="'、'.join(doc.co_tenant_ids.mapped('name'))"/></t></p>
-                        <p t-if="agent" class="mb-1">租賃住宅代管業者：<strong t-out="agent.name"/>（以下簡稱丙方）</p>
-                        <p class="mt-3">茲為房屋租賃事宜，雙方同意訂立本契約，條款如下：</p>
+                        <!-- ===== 第 1 頁：當事人與租金 ===== -->
+                        <span class="ggc-room" t-out="unit.name"/>
+                        <h2>房屋租賃契約</h2>
 
-                        <div class="mt-4" style="page-break-inside: avoid;">
-                            <h5>第一條　租賃標的</h5>
-                            <p class="mb-1">（一）物件名稱：<t t-out="doc.property_id.name"/></p>
-                            <p class="mb-1">（二）房屋地址：<t t-out="doc.property_id.address_display or '＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿'"/></p>
-                            <p>（三）出租單位：<t t-out="unit_description(doc.unit_id)"/></p>
-                        </div>
-
-                        <div class="mt-4" style="page-break-inside: avoid;">
-                            <h5>第二條　租賃期間</h5>
-                            <p>自 <t t-out="roc_date(doc.start_date)"/> 起，至 <t t-out="roc_date(doc.end_date)"/> 止。</p>
-                        </div>
-
-                        <div class="mt-4" style="page-break-inside: avoid;">
-                            <h5>第三條　租金</h5>
-                            <p class="mb-1">（一）每月租金 <strong t-out="format_amount(doc.rent_amount, currency)"/>，乙方應於每月 <strong t-out="doc.rent_due_day"/> 日前支付；當月無該日者，以當月最後一日為準。</p>
-                            <p t-if="doc.management_fee" class="mb-1">（二）每月管理費 <strong t-out="format_amount(doc.management_fee, currency)"/>，與租金一併支付。</p>
-                            <p>（<t t-out="'三' if doc.management_fee else '二'"/>）支付方式：依<t t-out="'丙方' if agent else '甲方'"/>指定之帳戶或方式支付。</p>
-                        </div>
-
-                        <div class="mt-4" style="page-break-inside: avoid;">
-                            <h5>第四條　押金</h5>
-                            <p t-if="doc.deposit_amount">乙方應於簽約時支付押金 <strong t-out="format_amount(doc.deposit_amount, currency)"/>。租期屆滿或契約終止，乙方返還房屋並結清應付費用後，甲方應無息返還押金；如有應付未付之費用，得自押金中扣抵。</p>
-                            <p t-else="">本租約不收取押金。</p>
-                        </div>
-
-                        <div class="mt-4" style="page-break-inside: avoid;">
-                            <h5>第五條　使用限制</h5>
-                            <p>乙方應以居住使用為限，不得違法使用或存放危險物品；未經甲方書面同意，不得將房屋全部或一部轉租、出借或以其他方式供他人使用。</p>
-                        </div>
-
-                        <div class="mt-4" style="page-break-inside: avoid;">
-                            <h5>第六條　修繕</h5>
-                            <p>房屋或附屬設備損壞時，乙方應即通知<t t-out="'丙方' if agent else '甲方'"/>；除因乙方故意或過失所致者外，修繕費用由甲方負擔。</p>
-                        </div>
-
-                        <div class="mt-4" style="page-break-inside: avoid;">
-                            <h5>第七條　提前終止</h5>
-                            <p>任一方於租期內欲提前終止租約，應於一個月前以書面通知他方，並依特約事項辦理。</p>
-                        </div>
-
-                        <div class="mt-4" style="page-break-inside: avoid;">
-                            <h5>第八條　返還房屋</h5>
-                            <p>租期屆滿或契約終止時，乙方應將房屋回復原狀（通常使用之自然耗損除外）並遷出返還甲方。</p>
-                        </div>
-
-                        <div class="mt-4" style="page-break-inside: avoid;">
-                            <h5>第九條　特約事項</h5>
-                            <div t-if="not is_html_empty(doc.note)" t-out="doc.note"/>
-                            <p t-else="">無。</p>
-                        </div>
-
-                        <div class="mt-4" style="page-break-inside: avoid;">
-                            <h5>第十條　其他</h5>
-                            <p>本契約未約定事項，依民法及租賃住宅市場發展及管理條例等相關法令辦理。本契約一式<t t-out="'三' if agent else '二'"/>份，由立契約書人各執一份為憑。</p>
-                        </div>
-
-                        <div style="page-break-inside: avoid;">
-                            <h5 class="mt-5 mb-3">立契約書人</h5>
-                            <t t-call="ggandy_property_management.report_lease_contract_party">
-                                <t t-set="role" t-value="'甲方（出租人）'"/>
-                                <t t-set="party" t-value="lessor"/>
+                        <table class="ggc-info">
+                            <colgroup>
+                                <col style="width: 14%;"/>
+                                <col style="width: 24%;"/>
+                                <col style="width: 13%;"/>
+                                <col style="width: 19%;"/>
+                                <col style="width: 13%;"/>
+                                <col style="width: 17%;"/>
+                            </colgroup>
+                            <tr>
+                                <td class="lbl">房屋出租人：</td>
+                                <td class="val" colspan="3" t-out="lessor.name"/>
+                                <td colspan="2">（以下簡稱甲方）</td>
+                            </tr>
+                            <tr t-if="agent">
+                                <td class="lbl">代管業者：</td>
+                                <td class="val" colspan="3" t-out="agent.name"/>
+                                <td colspan="2">（以下簡稱丙方）</td>
+                            </tr>
+                            <tr>
+                                <td class="lbl">承　租　人：</td>
+                                <td class="val" colspan="3" t-out="tenant.name"/>
+                                <td colspan="2">（以下簡稱乙方）</td>
+                            </tr>
+                            <tr t-if="doc.co_tenant_ids">
+                                <td class="lbl">共同承租人：</td>
+                                <td class="val" colspan="5" t-out="'、'.join(doc.co_tenant_ids.mapped('name'))"/>
+                            </tr>
+                            <tr>
+                                <td class="lbl">身份證號：</td>
+                                <td class="val" t-out="tenant.vat or nbsp"/>
+                                <td class="lbl">出生年月日：</td>
+                                <td class="val" colspan="3"><t t-if="tenant.ggandy_birthday">民國 <t t-out="roc_date(tenant.ggandy_birthday)"/></t><t t-else="" t-out="nbsp"/></td>
+                            </tr>
+                            <tr>
+                                <td class="lbl">行動電話：</td>
+                                <td class="val" t-out="tenant.phone or nbsp"/>
+                                <td class="lbl">E-mail：</td>
+                                <td class="val" colspan="3" t-out="tenant.email or nbsp"/>
+                            </tr>
+                            <tr>
+                                <td class="lbl">戶籍地址：</td>
+                                <td class="val" colspan="3" t-out="tenant.ggandy_registered_address or partner_address(tenant) or nbsp"/>
+                                <td class="lbl">戶籍電話：</td>
+                                <td class="val" t-out="tenant.ggandy_registered_phone or nbsp"/>
+                            </tr>
+                            <tr>
+                                <td class="lbl">公司名稱：</td>
+                                <td class="val" colspan="3" t-out="tenant.ggandy_employer_name or nbsp"/>
+                                <td class="lbl">職稱：</td>
+                                <td class="val" t-out="tenant.function or nbsp"/>
+                            </tr>
+                            <tr>
+                                <td class="lbl">公司地址：</td>
+                                <td class="val" colspan="5" t-out="tenant.ggandy_employer_address or nbsp"/>
+                            </tr>
+                            <tr>
+                                <td class="lbl">公司電話：</td>
+                                <td class="val" t-out="tenant.ggandy_employer_phone or nbsp"/>
+                                <td colspan="4"/>
+                            </tr>
+                            <t t-foreach="emergency_contacts(tenant)" t-as="contact">
+                                <tr>
+                                    <td class="lbl">聯絡人<t t-out="contact_index + 1"/>姓名：</td>
+                                    <td class="val" t-out="contact and contact.name or nbsp"/>
+                                    <td class="lbl">電話：</td>
+                                    <td class="val" t-out="contact and contact.phone or nbsp"/>
+                                    <td class="lbl">關係：</td>
+                                    <td class="val" t-out="contact and contact.relationship or nbsp"/>
+                                </tr>
+                                <tr>
+                                    <td class="lbl">聯絡人<t t-out="contact_index + 1"/>地址：</td>
+                                    <td class="val" colspan="5" t-out="contact and contact.address or nbsp"/>
+                                </tr>
                             </t>
-                            <t t-call="ggandy_property_management.report_lease_contract_party">
-                                <t t-set="role" t-value="'乙方（承租人）'"/>
-                                <t t-set="party" t-value="doc.tenant_id"/>
+                        </table>
+
+                        <p>因房屋租賃情事，訂立本租約，雙方同意之條件如下：</p>
+
+                        <h5>第一條：</h5>
+                        <t t-set="start" t-value="roc_parts(doc.start_date)"/>
+                        <t t-set="end" t-value="roc_parts(doc.end_date)"/>
+                        <p>租期：自民國 <span class="ggc-fill" t-out="start[0]"/> 年 <span class="ggc-fill" t-out="start[1]"/> 月 <span class="ggc-fill" t-out="start[2]"/> 日起至 <span class="ggc-fill" t-out="end[0]"/> 年 <span class="ggc-fill" t-out="end[1]"/> 月 <span class="ggc-fill" t-out="end[2]"/> 日止，共計 <span class="ggc-fill" t-out="lease_duration(doc)"/>。</p>
+                        <p>地址範圍：<span class="ggc-fill" t-out="premises(unit)"/>　房號：<span class="ggc-fill" t-out="unit.name"/> 之室內（不含公共空間及外牆）。</p>
+
+                        <h5>第二條：</h5>
+                        <p>租金、履約保證金及繳款方式：</p>
+                        <p class="ggc-item">1、每月租金新台幣 <span class="ggc-fill" t-out="amount(doc.rent_amount)"/> 元整，每月 <span class="ggc-fill" t-out="doc.rent_due_day"/> 日以前繳納<t t-if="doc.management_fee">；另每月管理費新台幣 <span class="ggc-fill" t-out="amount(doc.management_fee)"/> 元整，與租金一併繳納</t>。</p>
+                        <p class="ggc-item">2、履約保證金為新台幣 <span class="ggc-fill" t-out="amount(doc.deposit_amount)"/> 元整，作為乙方確實履約之保證，若乙方違約，甲方得沒入之，至乙方積欠之租金、水電費、瓦斯費、管理費、清潔費等則不包含在履約保證金內，甲方得另行請求乙方支付。</p>
+                        <t t-call="ggandy_property_management.report_lease_contract_tenant_sign"/>
+                        <t t-set="utility" t-value="utility_terms(doc)"/>
+                        <p class="ggc-item">3、<t t-out="utility[0]"/><br/><t t-out="utility[1]"/></p>
+                        <p class="ggc-item">4、每月應繳（<t t-out="'租金＋管理費' if doc.management_fee else '租金'"/>）共 <span class="ggc-fill" t-out="amount(doc.rent_amount + doc.management_fee)"/> 元。</p>
+                        <p style="padding-left: 2em;">繳款帳號：<span class="ggc-fill" t-out="bank.acc_number or '　　　　　　　　　　'"/></p>
+                        <p style="padding-left: 2em;">ATM 轉帳 或 匯款
+                            <span class="ggc-fill" t-out="bank.bank_id.name or '　　　　'"/><t t-if="'銀行' not in (bank.bank_id.name or '')"> 銀行</t>
+                            <span class="ggc-fill" t-out="bank.ggandy_branch_name or '　　　　'"/><t t-if="'分行' not in (bank.ggandy_branch_name or '')"> 分行</t>
+                            　戶名：<span class="ggc-fill" t-out="bank.acc_holder_name or bank.partner_id.name or '　　　　'"/>
+                        </p>
+
+                        <!-- ===== 第 2 頁：租金、設備、使用限制 ===== -->
+                        <div style="page-break-before: always;"/>
+                        <h5>第三條：</h5>
+                        <p>關於租金、履約保證金、租期、相關費用及設備之規定：</p>
+                        <p class="ggc-item">1、拖欠租金超過 7 天，經甲方催告限期改正或繳納仍不改正或支付時以違約論，不待期限屆滿，甲方得終止租約。</p>
+                        <t t-call="ggandy_property_management.report_lease_contract_tenant_sign"/>
+                        <p class="ggc-item">2、履約保證金由乙方於簽約時交付甲方並不得抵扣租金，期滿乙方依約遷還房屋時，由甲方檢視無誤後在一週內退還。</p>
+                        <p class="ggc-item">3、房屋租期未滿，雙方擬終止本租約時，應得他方同意，並應預先於終止前一個月以書面通知對方。</p>
+                        <p class="ggc-item">4、甲方如將房屋轉讓他人，在租期、租金不變的原則下乙方應配合重新簽約。</p>
+                        <p class="ggc-item">5、租賃期滿前 1 個月甲方會以電話或簡訊告知，若乙方未續約或未告知甲方不再續住，乙方應於約滿時立即遷讓並結清欠費。</p>
+                        <p class="ggc-item">6、每戶皆有獨立繳款帳號，第二期以後之租金一律採銀行轉帳或匯款繳納。</p>
+                        <p class="ggc-item">7、房屋之稅捐由甲方負擔。</p>
+                        <p class="ggc-item">8、房屋內部之家俱、家電由甲方基本提供，乙方於入住時依照下表清點使用，遷出時由甲方收回清點，設備之折舊、天然損壞由甲方負擔，乙方如有人為疏失造成損毀則依約賠償，如下表列：</p>
+                        <table class="ggc-equip">
+                            <t t-foreach="equipment_rows(unit)" t-as="row">
+                                <tr>
+                                    <th>設備</th>
+                                    <td t-foreach="row" t-as="item" t-out="item and item.name or ''"/>
+                                </tr>
+                                <tr>
+                                    <th>單價</th>
+                                    <td t-foreach="row" t-as="item"><t t-if="item"><t t-if="item.description"><t t-out="item.description"/><br/></t><t t-out="amount(item.price)"/></t></td>
+                                </tr>
+                                <tr>
+                                    <th>數量</th>
+                                    <td t-foreach="row" t-as="item"><t t-if="item" t-out="item.quantity or 'X'"/></td>
+                                </tr>
                             </t>
-                            <t t-foreach="doc.co_tenant_ids" t-as="co_tenant">
-                                <t t-call="ggandy_property_management.report_lease_contract_party">
-                                    <t t-set="role" t-value="'共同承租人'"/>
-                                    <t t-set="party" t-value="co_tenant"/>
-                                </t>
-                            </t>
-                            <t t-if="agent" t-call="ggandy_property_management.report_lease_contract_party">
-                                <t t-set="role" t-value="'丙方（代管業者）'"/>
-                                <t t-set="party" t-value="agent"/>
-                            </t>
-                            <p class="text-center mt-5" style="letter-spacing: 4px;">中華民國　　　　年　　　　月　　　　日</p>
+                        </table>
+                        <t t-call="ggandy_property_management.report_lease_contract_tenant_sign"/>
+
+                        <h5>第四條：使用租賃物之限制：</h5>
+                        <p class="ggc-item">1、本房屋係供住家之用，不得為登記戶籍、營利使用。未經甲方同意，乙方不得將房屋全部或一部轉租、出借、頂讓或以其他變相方法由他人使用房屋或與他人共居使用房屋，如違以違約論。</p>
+                        <p class="ggc-item">2、乙方於租賃期滿應即將房屋騰空遷讓交還，不得向甲方請求遷移、裝潢或任何費用。租賃之房間應用於正常用途，如有違反法令使用，或存放危險物品，甲方得隨時終止本租約，乙方以違約論並即日遷出不得異議。</p>
+                        <p class="ggc-item">3、房屋有改裝之必要，乙方取得甲方書面之同意後得自行裝設，但不得損害原有建築結構、危害公共安全或違反相關法令，乙方於交還房屋時並應負責回復原狀。</p>
+                        <p class="ggc-item">4、乙方應以善良管理人之注意使用房屋，除因天災地變等不可抗力之情形外，因乙方之故意或過失致房屋毀損，應負損害賠償之責。房屋因自然之損壞有修繕必要時，由甲方負責修繕。</p>
+                        <p class="ggc-item">5、甲方於刊登廣告及帶看時均表明房間內及公共空間全面禁菸，若違反是違約甲方有權利終止租約。</p>
+
+                        <!-- ===== 第 3 頁：違約、管理規定、其他 ===== -->
+                        <div style="page-break-before: always;"/>
+                        <h5>第五條：違約處罰：</h5>
+                        <p class="ggc-item">1、乙方於合約內退租，押金將沒收 1 個月。</p>
+                        <p class="ggc-item">2、乙方發生本租約所稱違約之情事者，甲方得隨時終止租約，除不退還當月租金外，甲方並得沒收履約保證金不予退還，乙方不得異議，另相關電費、使用過家俱設備之折損費等乙方亦必須賠償。甲方得進入屋內清理、換鎖。</p>
+                        <p class="ggc-item">3、若房間噪音或生活作息影響到其他房客或鄰居屢勸 3 次不聽也不改，經證實也屬違約，將退租且沒收押金 1 個月。</p>
+                        <p class="ggc-item">4、甲方於刊登廣告及帶看時均表明房間內及公共空間全面禁菸，若違反是違約甲方有權利終止租約。</p>
+
+                        <h5>第六條：租賃管理規定：</h5>
+                        <p class="ggc-item">1、甲方禁止乙方養寵物，不聽者以違約論，甲方得隨時終止本租約，並不退履約保證金，但需結算水費及其他費用。</p>
+                        <p class="ggc-item">2、房間牆壁不可釘釘子，如有黏貼物品而損壞依約賠償。網路設備為基本需求提供，若乙方因個人因素需要提升須自行負擔費用，嚴禁私接分享器。燈泡、蓮蓬頭等耗損器材由甲方保固一個月，超過一個月由乙方負擔。</p>
+                        <p class="ggc-item">3、乙方遷出時如遺留傢俱物視為放棄，並聽由甲方處理，室內如有髒亂清潔清理費用由乙方負擔。</p>
+                        <p class="ggc-item">4、乙方應遵守租賃房屋之管理規約，有修繕必要時必須配合進屋維修不得異議，違者以違約論。</p>
+                        <p class="ggc-item">5、甲方基於租賃關係之管理及安全維護，為審核乙方於承租所提供資料之正確性，得蒐集、採用或向警察機關提供乙方個人資料，但不得侵害或洩漏乙方個人資料或其隱私。</p>
+                        <p class="ggc-item">6、甲方於催收 2 日內每日 5 通電話 2 封簡訊（包含 LINE 通訊軟體）連絡乙方未果，乙方所留之連絡人也無回應，基於安全考量下，甲方會派人至現場了解並管制電源輸出，必要時得報警並入內察看是否有意外發生。</p>
+                        <p class="ggc-item">7、公共空間除經甲方同意外不得放置物品，違者以廢棄物論處；垃圾亂放者收費 500 元。</p>
+                        <p class="ggc-item">8、因乙方遲繳或違反合約規定，導致甲方催收或為處置衍生之費用由乙方負擔。</p>
+                        <p class="ggc-item">9、乙方若有吸毒、拉 K、轟趴、聚眾喧嘩、聚賭、存放危險違法之物品等行為，違反社會善良風俗，甲方得以報警處理並視同乙方違約。</p>
+                        <p class="ggc-item">10、維護居住安全，承租人應善盡自我管理責任，不得於租賃物內有自傷、輕生或其他危害自身或他人安全之行為。如有違反，致租賃物毀損、價值減損或衍生相關責任，承租人應自行承擔並負賠償義務。</p>
+
+                        <h5>第七條：其他特約事項：</h5>
+                        <p class="ggc-item">1、甲、乙雙方就本租約有關履約事項之通知、催告送達或為任何意思表示，均以本租約所載之地址為準，若有送達不到或退件者，悉以第一次郵寄日期為合法送達日期，雙方均無異議。</p>
+                        <p class="ggc-item">2、乙方若有違約情事，至損害甲方之權益時願聽從甲方因此涉訟，所繳納之訴訟費、律師費用，均應由乙方負責賠償。</p>
+                        <t t-if="not is_html_empty(doc.note)">
+                            <p class="ggc-item">3、其他約定：</p>
+                            <div style="padding-left: 2em;" t-out="doc.note"/>
+                        </t>
+
+                        <h5>第八條：應受強制執行之事項：</h5>
+                        <p>乙方如不於租賃期滿時交還租賃物、並不履約給付租金、家俱設備損壞賠償金或違約時不履行違約金，經催告後逕受強制執行。</p>
+                        <h5>第九條：</h5>
+                        <p>本租約條款未詳盡規定或未妥善事項，得由甲乙雙方依法令、習慣洽商協議訂定後實施。</p>
+                        <h5>第十條：法院管轄：</h5>
+                        <p>本租約若發生訴訟，雙方同意以臺灣臺北地方法院為第一審管轄法院。</p>
+
+                        <!-- ===== 第 4 頁：清潔標準與簽名 ===== -->
+                        <div style="page-break-before: always;"/>
+                        <h5>《清潔標準》</h5>
+                        <div class="ggc-box">
+                            <p>退租後，房客應將個人物品清空，配備恢復原狀，房客若無清潔打掃，房東會請專業人員清潔，清潔費 8,000 元（不包含垃圾及私人物品丟棄，此項要另外收費 3,000 元）。若污損狀況嚴重無法回復原狀，牆面污損破壞（一面牆 10,000 元），則依附件配備相關金額求償，若有其他未盡事宜，乙方同意甲方以實際處理費用收取。（金額或條文按個人情況調整）</p>
+                            <p class="mt-2">清潔標準：</p>
+                            <p>一、類別：</p>
+                            <p class="ggc-item">（1）硬體：地板、牆壁、玻璃磚牆、窗戶、天花板</p>
+                            <p class="ggc-item">（2）家電：電視、冰箱、冷氣及其濾網、熱水器、燈具</p>
+                            <p class="ggc-item">（3）家具：沙發、茶几、書桌、衣櫃</p>
+                            <p class="ggc-item">（4）衛浴：洗手台、鏡台、馬桶、浴缸、層架、水龍頭</p>
+                            <p class="ggc-item">（5）家飾：床包、保潔墊、窗簾</p>
+                            <p>二、清潔注意事項：</p>
+                            <p style="padding-left: 2em;">一般：使用一般清潔用品即可去除。（例如：掃把、拖把、抹布、刷子）</p>
+                            <p>三、清潔驗收標準：</p>
+                            <p class="ggc-item">（1）眼看不見垃圾、污點、蜘蛛網</p>
+                            <p class="ggc-item">（2）鼻聞沒有異味（寵物、食物、煙味⋯等）</p>
                         </div>
+
+                        <div style="margin-top: 40px; line-height: 3;">
+                            <p>甲方簽名：<span class="ggc-fill" t-out="lessor.name"/></p>
+                            <p t-if="agent">丙方簽名：<span class="ggc-fill" t-out="agent.name"/></p>
+                            <p>乙方簽名：<span class="ggc-blank" style="width: 200px;"/></p>
+                            <p t-foreach="doc.co_tenant_ids" t-as="co_tenant">共同承租人（<t t-out="co_tenant.name"/>）簽名：<span class="ggc-blank" style="width: 200px;"/></p>
+                        </div>
+                        <t t-set="signed" t-value="roc_parts(doc.sign_date)"/>
+                        <p class="ggc-date">中華民國 <span class="ggc-fill" t-out="signed[0]"/> 年 <span class="ggc-fill" t-out="signed[1]"/> 月 <span class="ggc-fill" t-out="signed[2]"/> 日</p>
                     </div>
                 </t>
             </t>
