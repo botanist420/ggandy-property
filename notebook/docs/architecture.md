@@ -58,7 +58,6 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `state` | vacant / reserved / occupied / maintenance / inactive |
 | `layout_photo_ids` | compute：本單位 chatter 上的 `image/*` 附件 |
 | `maintenance_photo_ids` | compute：本單位所有報修單（含封存）的 `image/*` 附件，依 `ggandy_request_date` desc |
-| `equipment_ids` | `ggandy.property.unit.equipment`（設備、規格說明、賠償單價、數量；數量 0 = 未提供），印在租約 PDF 第三條的點交表 |
 
 `_refresh_from_active_leases()`：只在 `vacant` / `occupied` 狀態下，依是否有 active 租約自動切換。
 
@@ -110,24 +109,23 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 > 例：9/25 起租、月租 31,000 → 第一期 9/25–9/30 = 31,000 × 6/30 = 6,200。
 > 規則只影響新產生的期次；改版前已建立的期次維持原金額。
 
-合約欄位：`sign_date`（簽約日）、`lessor_id`（出租人（甲方），留空 = 依管理模式判斷）、`payment_bank_id`（繳款帳戶，`res.partner.bank`），只給租約 PDF 用，不影響帳單。
-
 `contract_document_ids`：非 stored compute，抓 `res_model = ggandy.lease`、`res_id = 本租約` 的所有 `ir.attachment`（不限圖片），一次 search 後依 `res_id` 分配；未儲存的新租約為空。
 
 #### 租約 PDF（`report/lease_contract_report.*`）
 
 - `ir.actions.report` `action_report_ggandy_lease_contract`（qweb-pdf，綁在租約的「列印」選單，表單 header 也有按鈕），紙張用自訂的 `paperformat_ggandy_lease_contract`（A4、四邊 18mm，因為 `web.basic_layout` 沒有頁首）。
-- 範本是公司正式的「房屋租賃契約」（2026-10-09 依 R2 紙本合約改寫，取代原本的簡單版），固定四頁：①當事人資料＋第一、二條（租期、地址範圍、租金押金、水電、繳款帳戶）②第三、四條（含設備點交表）③第五～十條 ④《清潔標準》＋簽名與簽約日。條文是固定文字寫在 QWeb 裡，只有底線處依資料帶入。
+- 範本是公司正式的「房屋租賃契約」（2026-10-09 依 R2 紙本合約改寫，取代原本的簡單版），固定四頁：①當事人資料＋第一、二條（租期、地址範圍、租金押金、水電、繳款帳戶）②第三、四條（含設備點交表）③第五～十條 ④《清潔標準》＋簽名與日期。條文是固定文字寫在 QWeb 裡。
+- **不為合約新增欄位**：只帶系統裡既有的資料，其餘印空白底線讓房客／現場手寫（承租人的出生日、戶籍、公司、緊急聯絡人、分行、簽名日期、設備數量）。之後要記錄哪些欄位再另外討論。
 - 資料由 AbstractModel `report.ggandy_property_management.report_lease_contract` 的 `_get_report_values` 準備：
-  - 出租人判斷（`_get_contract_parties`）：租約有填 `lessor_id`（出租人（甲方））就用它；否則找該物件在租約開始日有效的 active 房東合約 → 用 `contract_type`，找不到就用物件 `management_mode`。`master_lease` → 出租人 = 公司 partner、沒有丙方；其他（代管 / 混合）→ 出租人 = 物件 `owner_id`、丙方 = 公司 partner。
-  - 繳款帳戶：租約 `payment_bank_id`；沒填就用收款方（有丙方用丙方，否則出租人）的第一個 `bank_ids`。分行印 `res.partner.bank.ggandy_branch_name`。
-  - 承租人資料：身分證號 = `vat`、行動電話 = `phone`、職稱 = `function`，其餘是 res.partner 的 `ggandy_birthday`、`ggandy_registered_address`（空白時改印聯絡人地址）、`ggandy_registered_phone`、`ggandy_employer_*`；緊急聯絡人取 `ggandy_emergency_contact_ids` 前兩位，不足補空白列。
+  - 出租人判斷（`_get_contract_parties`）：找該物件在租約開始日有效的 active 房東合約 → 用 `contract_type`，找不到就用物件 `management_mode`。`master_lease` → 出租人 = 公司 partner、沒有丙方；其他（代管 / 混合）→ 出租人 = 物件 `owner_id`、丙方 = 公司 partner。
+  - 繳款帳戶：收款方（有丙方用丙方，否則出租人）的第一個 `bank_ids`；分行留空手寫。
+  - 承租人資料：只印聯絡人既有的姓名、`vat`（身分證號）、`phone`（行動電話）、`email`，其餘欄位與兩位緊急聯絡人都印空白。
   - 地址範圍（`_format_premises`）= 物件縣市＋區＋street（已出現在 street 裡的不重複）＋單位樓層（`12F` → `12 樓`）。
   - 水電文字（`_get_utility_terms`）依出租單位的計費方式產生：metered 印每度單價與租約入住度數、fixed 印每月固定金額、included／tenant_paid 各有一句，未設定印空白底線。
-  - 設備點交表（`_get_equipment_rows`）：出租單位 `equipment_ids` 每 8 個一列（設備／單價／數量三行），數量 0 印「X」；沒有設備時印一列空白表格讓現場手寫。
-  - `sign_date`（簽約日）印在條文中三處「乙方簽名＿＿ 年 月 日」與最後一頁；空白時印空格。「合約備註」印在第七條第 3 點。
+  - 設備點交表：`EQUIPMENT_ROWS` 常數（合約範本的設備與賠償單價，每列 8 個），數量留空點交時手寫。
+  - 條文中三處「乙方簽名＿＿ 年 月 日」與最後一頁日期都留空。「合約備註」印在第七條第 3 點。
 - 字型用容器內的 `Noto Serif CJK TC`；分頁用 `page-break-before` 對齊紙本四頁。
-- wkhtmltopdf（舊版 WebKit）的坑：資料表格的 td 不要加 `word-wrap: break-word`，colspan 裡的長文字會被算成兩行高、文字浮在底線上方；空白欄位一律印 `nbsp`。
+- wkhtmltopdf（舊版 WebKit）的坑：資料表格的 td 不要加 `word-wrap: break-word`，colspan 裡的長文字會被算成兩行高、文字浮在底線上方；手寫欄位印 `nbsp` 讓底線列高度一致。
 - 只下載、不自動存附件（範本沒設 `attachment`），避免每按一次就在 chatter 多一份。
 - 預覽：可以在 Odoo shell 建一筆租約後 `env["ir.actions.report"]._render_qweb_pdf("ggandy_property_management.report_lease_contract", ids)` 寫檔再 `env.cr.rollback()`，不會留下資料（shell 用 `--no-http` 會有 wkhtmltopdf network warning，不影響 inline 樣式）。
 

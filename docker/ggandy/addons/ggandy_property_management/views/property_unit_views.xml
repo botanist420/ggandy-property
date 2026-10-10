@@ -116,21 +116,6 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="設備清單" name="equipment">
-                            <div class="text-muted mb-2">
-                                出租方提供的家具家電與賠償單價，會印在租約 PDF 第三條的點交表；數量填 0 代表沒有提供，合約上印「X」。
-                            </div>
-                            <field name="equipment_ids" nolabel="1">
-                                <list editable="bottom">
-                                    <field name="sequence" widget="handle"/>
-                                    <field name="name"/>
-                                    <field name="description"/>
-                                    <field name="price"/>
-                                    <field name="quantity"/>
-                                    <field name="currency_id" column_invisible="True"/>
-                                </list>
-                            </field>
-                        </page>
                         <page string="維修紀錄" name="maintenance_history">
                             <field name="maintenance_request_ids" readonly="1">
                                 <list default_order="request_date desc, id desc">

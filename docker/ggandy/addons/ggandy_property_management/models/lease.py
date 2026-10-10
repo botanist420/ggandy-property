@@ -165,25 +165,6 @@ class GgandyLease(models.Model):
         compute="_compute_counts",
         help="這份租約相關的報修單數量。若突然變多，建議回頭檢查設備或居住狀況。",
     )
-    sign_date = fields.Date(
-        string="簽約日",
-        tracking=True,
-        help="印在租約 PDF 乙方簽名旁與最後一頁的日期。留空時合約會印空白日期，方便現場手寫。",
-    )
-    lessor_id = fields.Many2one(
-        "res.partner",
-        string="出租人（甲方）",
-        tracking=True,
-        help="合約上的甲方。留空時依物件的管理模式自動判斷：包租由公司當出租人（轉租）；"
-        "代管由房東當出租人、公司列為代管業者。若實際以負責人個人名義簽約，請在這裡指定。",
-    )
-    payment_bank_id = fields.Many2one(
-        "res.partner.bank",
-        string="繳款帳戶",
-        tracking=True,
-        help="印在合約第二條的租金繳款帳戶。每戶有獨立帳號（例如虛擬帳號）時請在這裡指定；"
-        "留空時使用收款方（代管時為公司、其餘為出租人）聯絡人上的第一個銀行帳戶。",
-    )
     note = fields.Html(string="合約備註")
     contract_document_ids = fields.Many2many(
         "ir.attachment",

@@ -5,8 +5,14 @@ from dateutil.relativedelta import relativedelta
 from odoo import api, models
 from odoo.tools import is_html_empty
 
-# 設備點交表每列放幾個設備（合約範本是 8 欄）。
-EQUIPMENT_COLUMNS = 8
+# 設備點交表：公司合約範本的設備與賠償單價，數量留空在點交時手寫。
+# 每列 8 個設備，不足的補空白格讓現場追加。
+EQUIPMENT_ROWS = [
+    [("冷氣", "", 25000), ("冰箱", "雙門", 10000), ("電視", "", 10000), ("電視櫃", "", 2000),
+     ("衣櫥", "", 4500), ("床墊", "", 4000), ("床架", "", 2000), ("書桌", "", 3000)],
+    [("椅子", "", 600), ("冷氣遙控器", "", 1000), ("電視遙控器", "", 1000), ("鑰匙", "", 500),
+     ("磁卡", "", 500), ("洗衣機", "", 8000), False, False],
+]
 
 
 class ReportGgandyLeaseContract(models.AbstractModel):
@@ -25,19 +31,17 @@ class ReportGgandyLeaseContract(models.AbstractModel):
             "roc_parts": self._get_roc_parts,
             "lease_duration": self._format_lease_duration,
             "amount": self._format_amount,
-            "partner_address": self._format_partner_address,
             "premises": self._format_premises,
             "utility_terms": self._get_utility_terms,
-            "emergency_contacts": self._get_emergency_contacts,
-            "equipment_rows": self._get_equipment_rows,
+            "equipment_rows": EQUIPMENT_ROWS,
             "is_html_empty": is_html_empty,
-            # 空白欄位印不換行空白：wkhtmltopdf 遇到空的 td 會把同列文字往上推。
+            # 留給房客手寫的欄位印不換行空白，底線列才有固定高度。
             "nbsp": "\u00a0",
         }
 
     def _get_contract_parties(self, lease):
         """包租時公司是出租人（轉租）；代管時房東是出租人，公司列為代管業者。
-        租約上指定了出租人（甲方）時以它為準；繳款帳戶沒指定時用收款方的第一個銀行帳戶。"""
+        繳款帳戶用收款方（有代管業者用代管業者，否則出租人）的第一個銀行帳戶，沒有就留空手寫。"""
         owner_contract = self.env["ggandy.owner.contract"].search(
             [
                 ("property_id", "=", lease.property_id.id),
@@ -53,12 +57,11 @@ class ReportGgandyLeaseContract(models.AbstractModel):
             lessor, agent = company_partner, False
         else:
             lessor, agent = lease.property_id.owner_id, company_partner
-        lessor = lease.lessor_id or lessor
         payee = agent or lessor
         return {
             "lessor": lessor,
             "agent": agent,
-            "bank": lease.payment_bank_id or payee.bank_ids[:1],
+            "bank": payee.bank_ids[:1],
         }
 
     @api.model
@@ -89,11 +92,6 @@ class ReportGgandyLeaseContract(models.AbstractModel):
     @api.model
     def _format_amount(self, value):
         return f"{value:,.0f}"
-
-    @api.model
-    def _format_partner_address(self, partner):
-        parts = [partner.zip, partner.state_id.name, partner.city, partner.street, partner.street2]
-        return " ".join(part for part in parts if part)
 
     @api.model
     def _format_premises(self, unit):
@@ -138,22 +136,3 @@ class ReportGgandyLeaseContract(models.AbstractModel):
             "tenant_paid": "水費由乙方自行向自來水公司繳納。",
         }.get(unit.water_billing_type, "水費計算方式：＿＿＿＿＿＿＿＿＿＿＿＿。")
         return electricity, water
-
-    @api.model
-    def _get_emergency_contacts(self, partner):
-        """合約固定印兩位聯絡人，不足的補空白列讓房客手寫。"""
-        contacts = list(partner.sudo().ggandy_emergency_contact_ids[:2])
-        return contacts + [False] * (2 - len(contacts))
-
-    @api.model
-    def _get_equipment_rows(self, unit):
-        """把設備切成每列 8 個；沒有設備時給一列空白表格讓現場手寫。"""
-        equipment = list(unit.equipment_ids)
-        if not equipment:
-            return [[False] * EQUIPMENT_COLUMNS]
-        rows = [
-            equipment[index:index + EQUIPMENT_COLUMNS]
-            for index in range(0, len(equipment), EQUIPMENT_COLUMNS)
-        ]
-        rows[-1] += [False] * (EQUIPMENT_COLUMNS - len(rows[-1]))
-        return rows

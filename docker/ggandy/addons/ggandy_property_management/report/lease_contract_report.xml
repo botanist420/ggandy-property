@@ -27,9 +27,9 @@
         <field name="binding_type">report</field>
     </record>
 
-    <!-- 條文中「乙方簽名＿＿ 年 月 日」的確認簽名列，日期用租約的簽約日 -->
+    <!-- 條文中「乙方簽名＿＿ 年 月 日」的確認簽名列，簽名與日期都留空現場手寫 -->
     <template id="report_lease_contract_tenant_sign">
-        <p class="ggc-sign">乙方簽名 <span class="ggc-blank" style="width: 150px;"/>　<t t-out="roc_date(doc.sign_date)"/></p>
+        <p class="ggc-sign">乙方簽名 <span class="ggc-blank" style="width: 150px;"/>　<t t-out="roc_date(False)"/></p>
     </template>
 
     <template id="report_lease_contract">
@@ -99,7 +99,7 @@
                                 <td class="lbl">身份證號：</td>
                                 <td class="val" t-out="tenant.vat or nbsp"/>
                                 <td class="lbl">出生年月日：</td>
-                                <td class="val" colspan="3"><t t-if="tenant.ggandy_birthday">民國 <t t-out="roc_date(tenant.ggandy_birthday)"/></t><t t-else="" t-out="nbsp"/></td>
+                                <td class="val" colspan="3" t-out="nbsp"/>
                             </tr>
                             <tr>
                                 <td class="lbl">行動電話：</td>
@@ -109,37 +109,37 @@
                             </tr>
                             <tr>
                                 <td class="lbl">戶籍地址：</td>
-                                <td class="val" colspan="3" t-out="tenant.ggandy_registered_address or partner_address(tenant) or nbsp"/>
+                                <td class="val" colspan="3" t-out="nbsp"/>
                                 <td class="lbl">戶籍電話：</td>
-                                <td class="val" t-out="tenant.ggandy_registered_phone or nbsp"/>
+                                <td class="val" t-out="nbsp"/>
                             </tr>
                             <tr>
                                 <td class="lbl">公司名稱：</td>
-                                <td class="val" colspan="3" t-out="tenant.ggandy_employer_name or nbsp"/>
+                                <td class="val" colspan="3" t-out="nbsp"/>
                                 <td class="lbl">職稱：</td>
-                                <td class="val" t-out="tenant.function or nbsp"/>
+                                <td class="val" t-out="nbsp"/>
                             </tr>
                             <tr>
                                 <td class="lbl">公司地址：</td>
-                                <td class="val" colspan="5" t-out="tenant.ggandy_employer_address or nbsp"/>
+                                <td class="val" colspan="5" t-out="nbsp"/>
                             </tr>
                             <tr>
                                 <td class="lbl">公司電話：</td>
-                                <td class="val" t-out="tenant.ggandy_employer_phone or nbsp"/>
+                                <td class="val" t-out="nbsp"/>
                                 <td colspan="4"/>
                             </tr>
-                            <t t-foreach="emergency_contacts(tenant)" t-as="contact">
+                            <t t-foreach="range(2)" t-as="contact">
                                 <tr>
                                     <td class="lbl">聯絡人<t t-out="contact_index + 1"/>姓名：</td>
-                                    <td class="val" t-out="contact and contact.name or nbsp"/>
+                                    <td class="val" t-out="nbsp"/>
                                     <td class="lbl">電話：</td>
-                                    <td class="val" t-out="contact and contact.phone or nbsp"/>
+                                    <td class="val" t-out="nbsp"/>
                                     <td class="lbl">關係：</td>
-                                    <td class="val" t-out="contact and contact.relationship or nbsp"/>
+                                    <td class="val" t-out="nbsp"/>
                                 </tr>
                                 <tr>
                                     <td class="lbl">聯絡人<t t-out="contact_index + 1"/>地址：</td>
-                                    <td class="val" colspan="5" t-out="contact and contact.address or nbsp"/>
+                                    <td class="val" colspan="5" t-out="nbsp"/>
                                 </tr>
                             </t>
                         </table>
@@ -163,7 +163,7 @@
                         <p style="padding-left: 2em;">繳款帳號：<span class="ggc-fill" t-out="bank.acc_number or '　　　　　　　　　　'"/></p>
                         <p style="padding-left: 2em;">ATM 轉帳 或 匯款
                             <span class="ggc-fill" t-out="bank.bank_id.name or '　　　　'"/><t t-if="'銀行' not in (bank.bank_id.name or '')"> 銀行</t>
-                            <span class="ggc-fill" t-out="bank.ggandy_branch_name or '　　　　'"/><t t-if="'分行' not in (bank.ggandy_branch_name or '')"> 分行</t>
+                            <span class="ggc-blank" style="width: 60px;"/> 分行
                             　戶名：<span class="ggc-fill" t-out="bank.acc_holder_name or bank.partner_id.name or '　　　　'"/>
                         </p>
 
@@ -181,18 +181,18 @@
                         <p class="ggc-item">7、房屋之稅捐由甲方負擔。</p>
                         <p class="ggc-item">8、房屋內部之家俱、家電由甲方基本提供，乙方於入住時依照下表清點使用，遷出時由甲方收回清點，設備之折舊、天然損壞由甲方負擔，乙方如有人為疏失造成損毀則依約賠償，如下表列：</p>
                         <table class="ggc-equip">
-                            <t t-foreach="equipment_rows(unit)" t-as="row">
+                            <t t-foreach="equipment_rows" t-as="row">
                                 <tr>
                                     <th>設備</th>
-                                    <td t-foreach="row" t-as="item" t-out="item and item.name or ''"/>
+                                    <td t-foreach="row" t-as="item" t-out="item and item[0] or ''"/>
                                 </tr>
                                 <tr>
                                     <th>單價</th>
-                                    <td t-foreach="row" t-as="item"><t t-if="item"><t t-if="item.description"><t t-out="item.description"/><br/></t><t t-out="amount(item.price)"/></t></td>
+                                    <td t-foreach="row" t-as="item"><t t-if="item"><t t-if="item[1]"><t t-out="item[1]"/><br/></t><t t-out="amount(item[2])"/></t></td>
                                 </tr>
                                 <tr>
                                     <th>數量</th>
-                                    <td t-foreach="row" t-as="item"><t t-if="item" t-out="item.quantity or 'X'"/></td>
+                                    <td t-foreach="row" t-as="item"/>
                                 </tr>
                             </t>
                         </table>
@@ -265,8 +265,7 @@
                             <p>乙方簽名：<span class="ggc-blank" style="width: 200px;"/></p>
                             <p t-foreach="doc.co_tenant_ids" t-as="co_tenant">共同承租人（<t t-out="co_tenant.name"/>）簽名：<span class="ggc-blank" style="width: 200px;"/></p>
                         </div>
-                        <t t-set="signed" t-value="roc_parts(doc.sign_date)"/>
-                        <p class="ggc-date">中華民國 <span class="ggc-fill" t-out="signed[0]"/> 年 <span class="ggc-fill" t-out="signed[1]"/> 月 <span class="ggc-fill" t-out="signed[2]"/> 日</p>
+                        <p class="ggc-date">中華民國 <span class="ggc-blank" style="width: 70px;"/> 年 <span class="ggc-blank" style="width: 50px;"/> 月 <span class="ggc-blank" style="width: 50px;"/> 日</p>
                     </div>
                 </t>
             </t>

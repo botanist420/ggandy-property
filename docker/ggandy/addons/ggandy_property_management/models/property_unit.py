@@ -170,13 +170,6 @@ class GgandyPropertyUnit(models.Model):
         help="這個單位的報修紀錄數量。數字偏高時可以回頭看是不是設備該保養了。",
     )
     note = fields.Html(string="單位備註")
-    equipment_ids = fields.One2many(
-        "ggandy.property.unit.equipment",
-        "unit_id",
-        string="設備清單",
-        copy=True,
-        help="房內由出租方提供的家具家電與賠償單價，會印在租約 PDF 第三條的點交表。數量填 0 代表沒有提供，合約上會印「X」。",
-    )
     layout_photo_ids = fields.Many2many(
         "ir.attachment",
         string="格局照片",
@@ -343,39 +336,3 @@ class GgandyPropertyUnit(models.Model):
                 "default_unit_id": self.id,
             },
         }
-
-
-class GgandyPropertyUnitEquipment(models.Model):
-    _name = "ggandy.property.unit.equipment"
-    _description = "出租單位設備"
-    _order = "unit_id, sequence, id"
-
-    unit_id = fields.Many2one(
-        "ggandy.property.unit",
-        string="出租單位",
-        required=True,
-        ondelete="cascade",
-        index=True,
-    )
-    sequence = fields.Integer(string="排序", default=10)
-    name = fields.Char(string="設備", required=True)
-    description = fields.Char(
-        string="規格說明",
-        help="印在單價前面的補充說明，例如冰箱的「雙門」。",
-    )
-    price = fields.Monetary(
-        string="賠償單價",
-        help="房客人為損壞時的賠償金額，會印在租約 PDF 的設備表。",
-    )
-    quantity = fields.Integer(
-        string="數量",
-        default=1,
-        help="點交時房內的數量。填 0 代表這個單位沒有提供，合約上會印「X」。",
-    )
-    currency_id = fields.Many2one(related="unit_id.currency_id")
-
-    @api.constrains("price", "quantity")
-    def _check_price_quantity(self):
-        for record in self:
-            if record.price < 0 or record.quantity < 0:
-                raise ValidationError("設備的賠償單價與數量不可小於零。")

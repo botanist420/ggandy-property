@@ -29,46 +29,8 @@
                     <group string="說明">
                         <p class="text-muted">同一位聯絡人可以同時具有房東、房客與維修廠商身分。</p>
                     </group>
-                    <div invisible="not is_ggandy_tenant">
-                        <div class="text-muted mb-2">
-                            以下資料會印在房客租約 PDF 的承租人欄位；身分證號請填在「稅號」，行動電話填「電話」，公司職稱填「職位」。
-                        </div>
-                        <group>
-                            <group string="承租人資料">
-                                <field name="ggandy_birthday"/>
-                                <field name="ggandy_registered_address"/>
-                                <field name="ggandy_registered_phone"/>
-                            </group>
-                            <group string="公司／學校">
-                                <field name="ggandy_employer_name"/>
-                                <field name="ggandy_employer_address"/>
-                                <field name="ggandy_employer_phone"/>
-                            </group>
-                        </group>
-                        <separator string="緊急聯絡人"/>
-                        <field name="ggandy_emergency_contact_ids" nolabel="1">
-                            <list editable="bottom">
-                                <field name="sequence" widget="handle"/>
-                                <field name="name"/>
-                                <field name="relationship"/>
-                                <field name="phone"/>
-                                <field name="address"/>
-                            </list>
-                        </field>
-                    </div>
                 </page>
             </notebook>
-        </field>
-    </record>
-
-    <record id="view_partner_bank_form_ggandy_property" model="ir.ui.view">
-        <field name="name">res.partner.bank.form.ggandy.property</field>
-        <field name="model">res.partner.bank</field>
-        <field name="inherit_id" ref="base.view_partner_bank_form"/>
-        <field name="arch" type="xml">
-            <field name="bank_id" position="after">
-                <field name="ggandy_branch_name"/>
-            </field>
         </field>
     </record>
 
