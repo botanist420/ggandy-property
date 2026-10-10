@@ -59,18 +59,19 @@ class GgandyLease(models.Model):
     )
     tenant_id = fields.Many2one(
         "res.partner",
-        string="主承租人／帳單對象",
+        string="房客",
         required=True,
         ondelete="restrict",
         tracking=True,
-        help="租金帳單會開給這位聯絡人。共同承租人可以記錄在下方，但收款對象以主承租人為準。",
+        help="租金帳單會開給這位房客。其他一起住的人可以記在「共同居住人」，但收款對象以這位房客為準。",
     )
     co_tenant_ids = fields.Many2many(
         "res.partner",
         "ggandy_lease_co_tenant_rel",
         "lease_id",
         "partner_id",
-        string="共同承租人／居住人",
+        string="共同居住人",
+        help="和房客一起住的人，只做記錄；租金帳單仍開給房客。",
     )
     start_date = fields.Date(
         string="租期開始",

@@ -87,7 +87,6 @@
                             <field name="contract_type" widget="radio" readonly="state != 'draft'"/>
                             <field name="property_id" readonly="state != 'draft'"/>
                             <field name="owner_id" context="{'default_is_ggandy_owner': True}" readonly="state != 'draft'"/>
-                            <field name="co_owner_ids" widget="many2many_tags" invisible="not co_owner_ids"/>
                             <field name="manager_id" widget="many2one_avatar_user"/>
                         </group>
                         <group string="合約期間">

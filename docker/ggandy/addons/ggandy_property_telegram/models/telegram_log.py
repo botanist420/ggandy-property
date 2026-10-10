@@ -454,7 +454,7 @@ class GgandyTelegramLog(models.Model):
             f"  房客：{tenant.name}" + (f"｜{contact}" if contact else "｜（未填電話）"),
         ]
         if lease.co_tenant_ids:
-            lines.append("  共同承租：" + "、".join(lease.co_tenant_ids.mapped("name")))
+            lines.append("  共同居住人：" + "、".join(lease.co_tenant_ids.mapped("name")))
         lines += [
             f"  租期：{lease.start_date} ～ {lease.end_date}（{days_text}）",
             f"  月租：{currency}{lease.rent_amount:,.0f}｜押金：{currency}{lease.deposit_amount:,.0f}",

@@ -34,9 +34,6 @@
                 <field name="stock_location_id" invisible="not stock_location_id"
                        groups="stock.group_stock_multi_locations"/>
             </xpath>
-            <xpath expr="//field[@name='unit_ids']/list/field[@name='state']" position="after">
-                <field name="stock_location_id" optional="hide" groups="stock.group_stock_multi_locations"/>
-            </xpath>
         </field>
     </record>
 

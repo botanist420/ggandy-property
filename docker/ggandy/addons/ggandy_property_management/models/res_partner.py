@@ -25,7 +25,7 @@ class ResPartner(models.Model):
     ggandy_lease_ids = fields.One2many(
         "ggandy.lease",
         "tenant_id",
-        string="主承租租約",
+        string="房客租約",
     )
     ggandy_owner_contract_ids = fields.One2many(
         "ggandy.owner.contract",
@@ -40,15 +40,15 @@ class ResPartner(models.Model):
 
     ggandy_property_count = fields.Integer(
         compute="_compute_ggandy_counts",
-        help="此聯絡人作為主要房東或共同屋主的物件數量。主要與共同都會列入計算。",
+        help="此聯絡人作為房東的物件數量。",
     )
     ggandy_lease_count = fields.Integer(
         compute="_compute_ggandy_counts",
-        help="此聯絡人作為主承租人或共同承租人的租約數量。它是關係總覽，不代表每份都還在住。",
+        help="此聯絡人作為房客或共同居住人的租約數量。它是關係總覽，不代表每份都還在住。",
     )
     ggandy_owner_contract_count = fields.Integer(
         compute="_compute_ggandy_counts",
-        help="此聯絡人作為簽約房東的合約數量。共同屋主不會算在這格，因為主要結算對象要看合約。",
+        help="此聯絡人作為簽約房東的合約數量。",
     )
     ggandy_maintenance_count = fields.Integer(
         compute="_compute_ggandy_counts",
@@ -68,7 +68,7 @@ class ResPartner(models.Model):
         Maintenance = self.env["ggandy.maintenance.request"]
         for partner in self:
             partner.ggandy_property_count = Property.search_count(
-                ["|", ("owner_id", "=", partner.id), ("co_owner_ids", "in", partner.id)]
+                [("owner_id", "=", partner.id)]
             )
             partner.ggandy_lease_count = Lease.search_count(
                 ["|", ("tenant_id", "=", partner.id), ("co_tenant_ids", "in", partner.id)]
@@ -87,7 +87,7 @@ class ResPartner(models.Model):
             "name": "持有物件",
             "res_model": "ggandy.property",
             "view_mode": "list,form",
-            "domain": ["|", ("owner_id", "=", self.id), ("co_owner_ids", "in", self.id)],
+            "domain": [("owner_id", "=", self.id)],
             "context": {"default_owner_id": self.id},
         }
 

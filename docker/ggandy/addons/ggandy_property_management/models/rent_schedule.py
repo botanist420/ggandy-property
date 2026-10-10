@@ -85,6 +85,12 @@ class GgandyRentSchedule(models.Model):
         tracking=True,
         help="這一期租金涵蓋的最後一天。最後一期遇到月中退租時，會停在租約結束日。",
     )
+    period_month = fields.Char(
+        string="月份",
+        compute="_compute_period_month",
+        store=True,
+        help="這一期所屬的月份（計費開始日的年-月），電表維護分頁用它來顯示與排序。",
+    )
     due_date = fields.Date(
         string="繳款期限",
         required=True,
@@ -260,6 +266,11 @@ class GgandyRentSchedule(models.Model):
         for record in self:
             period = record.period_start.strftime("%Y-%m") if record.period_start else ""
             record.name = f"{record.lease_id.name or ''} / {period}".strip(" / ")
+
+    @api.depends("period_start")
+    def _compute_period_month(self):
+        for record in self:
+            record.period_month = record.period_start.strftime("%Y-%m") if record.period_start else False
 
     @api.depends(
         "electricity_billing_type",
@@ -468,7 +479,7 @@ class GgandyRentSchedule(models.Model):
         if self.total_amount <= 0:
             raise UserError("應收合計必須大於零。")
         if not self.tenant_id:
-            raise UserError("租約必須設定主承租人。")
+            raise UserError("租約必須設定房客。")
 
         sale_journal = self.env["account.journal"].search(
             [

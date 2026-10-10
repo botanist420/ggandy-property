@@ -37,7 +37,7 @@
                 <field name="electricity_billing_type" optional="hide"/>
                 <field name="electricity_rate" optional="hide"/>
                 <field name="water_billing_type" optional="hide"/>
-                <field name="water_fixed_fee" optional="hide"/>
+                <field name="water_fixed_fee" string="水費" optional="hide"/>
                 <field name="currency_id" column_invisible="True"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'occupied'"
@@ -113,6 +113,23 @@
                                     <field name="rent_amount"/>
                                     <field name="currency_id" column_invisible="True"/>
                                     <field name="state" widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="電表維護" name="meter_readings">
+                            <div class="text-muted mb-2">
+                                只列出電費依度數計費的租金期次。填好抄表度數後，會自動帶到下一期的上期度數，草稿帳單的電費也會一起更新；帳單已過帳的月份不能再改。
+                            </div>
+                            <field name="meter_schedule_ids" nolabel="1">
+                                <list editable="bottom" create="0" delete="0" default_order="unit_id, period_start">
+                                    <field name="period_month"/>
+                                    <field name="tenant_id" optional="hide"/>
+                                    <field name="electricity_prev_reading" string="上期度數" optional="show"/>
+                                    <field name="electricity_curr_reading" string="抄表度數" readonly="invoice_state == 'posted'"/>
+                                    <field name="electricity_usage" optional="show"/>
+                                    <field name="electricity_amount"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                    <field name="invoice_state" column_invisible="True"/>
                                 </list>
                             </field>
                         </page>

@@ -62,20 +62,17 @@ order by p.name nulls last, p.id;
 
 
 -- 04. 查房東清單與名下物件數、房東合約數。
--- 主要房東看 ggandy_property.owner_id；共同屋主看 ggandy_property_co_owner_rel。
+-- 物件房東看 ggandy_property.owner_id。
 select
     owner.id,
     owner.name as 房東,
     owner.phone as 電話,
     owner.email as email,
-    count(distinct property.id) as 主要持有物件數,
-    count(distinct co_owned.property_id) as 共同持有物件數,
+    count(distinct property.id) as 持有物件數,
     count(distinct contract.id) as 房東合約數
 from res_partner owner
 left join ggandy_property property
     on property.owner_id = owner.id
-left join ggandy_property_co_owner_rel co_owned
-    on co_owned.partner_id = owner.id
 left join ggandy_owner_contract contract
     on contract.owner_id = owner.id
 where coalesce(owner.is_ggandy_owner, false)
@@ -84,14 +81,14 @@ order by owner.name nulls last, owner.id;
 
 
 -- 05. 查房客清單與租約數。
--- 主承租人看 ggandy_lease.tenant_id；共同承租人看 ggandy_lease_co_tenant_rel。
+-- 房客看 ggandy_lease.tenant_id；共同居住人看 ggandy_lease_co_tenant_rel。
 select
     tenant.id,
     tenant.name as 房客,
     tenant.phone as 電話,
     tenant.email as email,
-    count(distinct lease.id) as 主承租租約數,
-    count(distinct co_lease.lease_id) as 共同承租租約數
+    count(distinct lease.id) as 房客租約數,
+    count(distinct co_lease.lease_id) as 共同居住租約數
 from res_partner tenant
 left join ggandy_lease lease
     on lease.tenant_id = tenant.id
@@ -119,16 +116,15 @@ where p.name ilike '%Rosy%'
 order by p.name nulls last, p.id;
 
 
--- 07. 查物件總覽：物件、主要房東、管理模式、單位數、地址。
+-- 07. 查物件總覽：物件、房東、管理模式、單位數、地址。
 select
     property.id,
     property.code as 物件編號,
     property.name as 物件名稱,
-    owner.name as 主要房東,
+    owner.name as 房東,
     case property.management_mode
         when 'master_lease' then '包租'
         when 'agency' then '代管'
-        when 'mixed' then '混合'
         else property.management_mode
     end as 經營模式,
     case property.property_type
@@ -154,22 +150,27 @@ group by property.id, owner.name, state.name
 order by property.code, property.name;
 
 
--- 08. 查物件與共同屋主。
--- 一個物件若有多位共同屋主，會用逗號串在同一格。
+-- 08. 查電表度數（同出租單位表單的「電表維護」分頁；物件表單只顯示本月）。
+-- 只列電費依度數計費、租約未取消的期次；把物件編號換成你要查的物件。
 select
     property.code as 物件編號,
-    property.name as 物件名稱,
-    owner.name as 主要房東,
-    string_agg(co_owner.name, ', ' order by co_owner.name) as 共同屋主
-from ggandy_property property
-join res_partner owner
-    on owner.id = property.owner_id
-left join ggandy_property_co_owner_rel rel
-    on rel.property_id = property.id
-left join res_partner co_owner
-    on co_owner.id = rel.partner_id
-group by property.id, owner.name
-order by property.code, property.name;
+    unit.name as 房號,
+    schedule.period_month as 月份,
+    schedule.electricity_prev_reading as 上期度數,
+    schedule.electricity_curr_reading as 本期度數,
+    schedule.electricity_usage as 用電度數,
+    schedule.electricity_amount as 電費
+from ggandy_rent_schedule schedule
+join ggandy_lease lease
+    on lease.id = schedule.lease_id
+join ggandy_property property
+    on property.id = schedule.property_id
+join ggandy_property_unit unit
+    on unit.id = schedule.unit_id
+where schedule.electricity_billing_type = 'metered'
+  and lease.state <> 'cancelled'
+  and property.code = 'PROP/2026/0134'
+order by unit.name, schedule.period_start;
 
 
 -- 09. 查出租單位總覽。
@@ -221,7 +222,7 @@ where unit.state = 'vacant'
 order by property.code, unit.floor, unit.name;
 
 
--- 11. 查租約總覽：物件、單位、主承租人、租期、租金。
+-- 11. 查租約總覽：物件、單位、房客、租期、租金。
 select
     lease.id,
     lease.name as 租約編號,
@@ -236,7 +237,7 @@ select
     property.code as 物件編號,
     property.name as 物件名稱,
     unit.name as 單位,
-    tenant.name as 主承租人,
+    tenant.name as 房客,
     tenant.phone as 房客電話,
     lease.start_date as 租期開始,
     lease.end_date as 租期結束,
@@ -260,7 +261,7 @@ select
     property.code as 物件編號,
     property.name as 物件名稱,
     unit.name as 單位,
-    tenant.name as 主承租人,
+    tenant.name as 房客,
     tenant.phone as 房客電話,
     tenant.email as 房客email,
     lease.name as 租約編號,
@@ -279,14 +280,14 @@ where lease.state = 'active'
 order by property.code, unit.name, lease.start_date desc;
 
 
--- 13. 查租約與共同承租人。
--- 一筆租約若有多位共同承租人，會用逗號串在同一格。
+-- 13. 查租約與共同居住人。
+-- 一筆租約若有多位共同居住人，會用逗號串在同一格。
 select
     lease.name as 租約編號,
     property.name as 物件名稱,
     unit.name as 單位,
-    tenant.name as 主承租人,
-    string_agg(co_tenant.name, ', ' order by co_tenant.name) as 共同承租人
+    tenant.name as 房客,
+    string_agg(co_tenant.name, ', ' order by co_tenant.name) as 共同居住人
 from ggandy_lease lease
 join ggandy_property property
     on property.id = lease.property_id

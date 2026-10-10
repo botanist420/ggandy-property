@@ -43,13 +43,12 @@ class GgandyProperty(models.Model):
         [
             ("master_lease", "包租"),
             ("agency", "代管"),
-            ("mixed", "混合"),
         ],
         string="經營模式",
         required=True,
         default="agency",
         tracking=True,
-        help="包租是公司向房東承租後再出租；代管是替房東管理並結算；混合則適合一個物件內有不同玩法。這格會影響房東合約預設值。",
+        help="包租是公司向房東承租後再出租；代管是替房東管理並結算。這格會影響房東合約預設值。",
     )
 
     owner_payment_day = fields.Integer(
@@ -60,19 +59,12 @@ class GgandyProperty(models.Model):
 
     owner_id = fields.Many2one(
         "res.partner",
-        string="主要房東",
+        string="房東",
         domain=[("is_ggandy_owner", "=", True)],
         ondelete="restrict",
         tracking=True,
-        help="此物件的主要房東。房東合約預設會帶入這位；共同屋主可另外記錄。"
+        help="此物件的房東。房東合約預設會帶入這位。"
         "還不確定房東是誰可以先留空，但產生租約 PDF、建立房東合約前記得補上。",
-    )
-    co_owner_ids = fields.Many2many(
-        "res.partner",
-        "ggandy_property_co_owner_rel",
-        "property_id",
-        "partner_id",
-        string="共同屋主",
     )
     manager_id = fields.Many2one(
         "res.users",
@@ -85,7 +77,14 @@ class GgandyProperty(models.Model):
 
     street = fields.Char(string="地址")
     street2 = fields.Char(string="地址第二行")
-    city = fields.Char(string="鄉鎮市區")
+    city = fields.Char(string="鄉鎮市區名稱")
+    city_id = fields.Many2one(
+        "res.city",
+        string="鄉鎮市區",
+        ondelete="restrict",
+        tracking=True,
+        help="先選縣市，這裡就只會列出該縣市的鄉鎮市區；選好後會自動帶入郵遞區號。",
+    )
     state_id = fields.Many2one("res.country.state", string="縣市", ondelete="restrict")
     zip = fields.Char(string="郵遞區號")
     country_id = fields.Many2one(
@@ -131,6 +130,20 @@ class GgandyProperty(models.Model):
         "ggandy.owner.contract", "property_id", string="房東合約"
     )
     lease_ids = fields.One2many("ggandy.lease", "property_id", string="租約")
+    current_schedule_ids = fields.One2many(
+        "ggandy.rent.schedule",
+        "property_id",
+        string="當期帳單",
+        domain=lambda self: self._get_current_schedule_domain(),
+        help="此物件所有房間本月的租金期次，只供檢視；要建立帳單或修改金額請到租金期次或租約。",
+    )
+    current_meter_schedule_ids = fields.One2many(
+        "ggandy.rent.schedule",
+        "property_id",
+        string="電表維護",
+        domain=lambda self: self._get_current_meter_schedule_domain(),
+        help="此物件本月、電費依度數計費的租金期次。在這裡填抄表度數，跟租約裡的租金期次是同一筆資料；過去月份請到出租單位的電表維護分頁查看。",
+    )
     maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request", "property_id", string="報修單"
     )
@@ -160,15 +173,37 @@ class GgandyProperty(models.Model):
                 ) or "New"
         records = super().create(vals_list)
         records.mapped("owner_id").write({"is_ggandy_owner": True})
-        records.mapped("co_owner_ids").write({"is_ggandy_owner": True})
         return records
 
     def write(self, values):
         result = super().write(values)
-        if "owner_id" in values or "co_owner_ids" in values:
+        if "owner_id" in values:
             self.mapped("owner_id").write({"is_ggandy_owner": True})
-            self.mapped("co_owner_ids").write({"is_ggandy_owner": True})
         return result
+
+    @api.model
+    def _get_current_schedule_domain(self):
+        # callable domain：每次讀取時才算本月，跨月後不用重啟就會換成新月份。
+        return [
+            ("lease_id.state", "!=", "cancelled"),
+            ("period_month", "=", fields.Date.context_today(self).strftime("%Y-%m")),
+        ]
+
+    @api.model
+    def _get_current_meter_schedule_domain(self):
+        return self._get_current_schedule_domain() + [("electricity_billing_type", "=", "metered")]
+
+    @api.onchange("city_id")
+    def _onchange_city_id(self):
+        if self.city_id:
+            self.city = self.city_id.name
+            self.zip = self.city_id.zipcode
+            self.state_id = self.city_id.state_id
+
+    @api.onchange("state_id")
+    def _onchange_state_id(self):
+        if self.city_id and self.city_id.state_id != self.state_id:
+            self.city_id = False
 
     @api.depends("street", "street2", "city", "state_id", "zip", "country_id")
     def _compute_address_display(self):
@@ -220,9 +255,7 @@ class GgandyProperty(models.Model):
                 "default_property_id": self.id,
                 "default_owner_id": self.owner_id.id,
                 "default_company_id": self.company_id.id,
-                "default_contract_type": self.management_mode
-                if self.management_mode in ("master_lease", "agency")
-                else "agency",
+                "default_contract_type": self.management_mode,
             },
         }
 

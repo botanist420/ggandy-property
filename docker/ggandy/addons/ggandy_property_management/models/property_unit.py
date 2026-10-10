@@ -100,6 +100,7 @@ class GgandyPropertyUnit(models.Model):
     electricity_billing_type = fields.Selection(
         ELECTRICITY_BILLING_TYPES,
         string="電費計費方式",
+        default="metered",
         tracking=True,
         help="這個單位的電費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度電價；"
         "每月固定金額＝不看度數、每月收固定電費；含在租金內＝不另外收；房客自繳台電＝獨立電錶、帳單直接寄給房客。"
@@ -123,6 +124,7 @@ class GgandyPropertyUnit(models.Model):
     water_billing_type = fields.Selection(
         WATER_BILLING_TYPES,
         string="水費計費方式",
+        default="fixed",
         tracking=True,
         help="這個單位的水費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度水價；"
         "每月固定金額＝不看度數、每月收固定水費；含在租金內＝不另外收；房客自繳水公司＝獨立水錶、帳單直接寄給房客。"
@@ -158,6 +160,13 @@ class GgandyPropertyUnit(models.Model):
         help="目前出租狀態。租約生效或退回時，系統會嘗試自動調整空房／已出租；維修中、停用等特殊狀態則尊重你手動判斷。",
     )
     lease_ids = fields.One2many("ggandy.lease", "unit_id", string="租約紀錄")
+    meter_schedule_ids = fields.One2many(
+        "ggandy.rent.schedule",
+        "unit_id",
+        string="電表維護",
+        domain=[("electricity_billing_type", "=", "metered"), ("lease_id.state", "!=", "cancelled")],
+        help="這個單位電費依度數計費的租金期次，涵蓋每份租約開始到結束的月份。在這裡填抄表度數，跟租約裡的租金期次是同一筆資料。",
+    )
     maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request", "unit_id", string="報修紀錄"
     )

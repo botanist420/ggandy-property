@@ -1,6 +1,6 @@
 # GGAndy 系統架構與資料模型
 
-> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.3.0、`ggandy_property_telegram` 19.0.1.0.2、`ggandy_property_project` 19.0.1.1.0）。
+> 對應程式碼版本：2026-10（`ggandy_property_management` 19.0.1.5.0、`ggandy_property_telegram` 19.0.1.0.2、`ggandy_property_project` 19.0.1.1.0）。
 > 程式有改動時請同步更新本文件。
 
 ## 1. 模型關係圖
@@ -9,7 +9,7 @@
                          res.partner
           (is_ggandy_owner / is_ggandy_tenant / is_ggandy_vendor)
              ▲ owner_id          ▲ tenant_id            ▲ vendor_id
-             │ co_owner_ids(M2M) │ co_tenant_ids(M2M)   │
+             │                   │ co_tenant_ids(M2M)   │
              │                   │                      │
 ggandy.owner.contract ──property_id──► ggandy.property ◄──property_id── ggandy.maintenance.request
    │ vendor_bill_ids                    │ unit_ids                          │ unit_id / lease_id
@@ -37,12 +37,14 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | --- | --- |
 | `code` | `PROP/%(year)s/0001`，create 時取號 |
 | `property_type` | building / apartment / house / suite / commercial / other |
-| `management_mode` | master_lease（包租）/ agency（代管）/ mixed（混合） |
-| `owner_id` | 主要房東，domain `is_ggandy_owner = True`，`ondelete=restrict` |
-| `co_owner_ids` | 共同屋主（`ggandy_property_co_owner_rel`） |
+| `management_mode` | master_lease（包租）/ agency（代管）（2026-10 取消 mixed） |
+| `owner_id` | 房東，domain `is_ggandy_owner = True`，`ondelete=restrict`（2026-10 取消共同屋主 `co_owner_ids`，舊 rel table `ggandy_property_co_owner_rel` 留在 DB 但不再使用） |
 | `manager_id` | 內部管理人員，逾期活動優先指派給他 |
 | `owner_payment_day` | 匯款給房東的日期（1–31，0 = 未設定），房東合約 create / onchange 時預設帶入 |
 | `acquisition_date` / `management_end_date` | 房東合約生效時回寫 |
+| `state_id` / `city_id` / `zip` / `city` | 地址：`city_id` 是 `res.city`（台灣資料來自 `l10n_tw` 的 `data/res.city.csv`，所以 depends `l10n_tw`），view domain 限定 `state_id`；onchange `city_id` 帶入 `city`（區名 Char）、`zip`、`state_id`，onchange `state_id` 時不符的 `city_id` 清空。`city` Char 保留給 `address_display`、租約 PDF `_format_premises` 用 |
+| `current_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `property_id`），callable domain `_get_current_schedule_domain()`：租約非 cancelled、`period_month` = 本月（每次讀取時計算）；表單「當期帳單」分頁 `readonly="1"`、`default_order="unit_id"`，只供檢視 |
+| `current_meter_schedule_ids` | 同上再加電費 metered（`_get_current_meter_schedule_domain()`）；表單「電表維護」分頁 `default_order="unit_id"`（照出租單位 `_order`），直接編輯期次的 `electricity_curr_reading`，連動走期次 `write()` |
 
 ### ggandy.property.unit（出租單位）
 
@@ -51,11 +53,12 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `unit_type` | suite / room / whole / shop / office / parking / other |
 | `monthly_rent` | 參考月租：租約預設值，也是帳務總表房東應付的**分攤權重** |
 | `deposit_months` | 押金月數（預設 2） |
-| `electricity_billing_type` / `water_billing_type` | metered（依度數）/ fixed（每月固定）/ included（含租金）/ tenant_paid（房客自繳）；空白 = 未設定，無預設值 |
+| `electricity_billing_type` / `water_billing_type` | metered（依度數）/ fixed（每月固定）/ included（含租金）/ tenant_paid（房客自繳）；預設電費 metered、水費 fixed，空白 = 未設定 |
 | `electricity_rate` / `water_rate` | 每度單價（Float, digits (10,2)，不用 Monetary 以免被幣別小數位四捨五入）；費用 = (本月度數 − 上月度數) × 單價 |
 | `electricity_fixed_fee` / `water_fixed_fee` | 每月固定水電費（Monetary） |
 | `electricity_meter_ref` / `water_meter_ref` | 電錶／水錶編號或位置 |
 | `state` | vacant / reserved / occupied / maintenance / inactive |
+| `meter_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `unit_id`），domain 電費 metered 且租約非 cancelled，不限月份；期次本來就依租約起訖拆月，所以列出的就是租約期間的所有月份 |
 | `layout_photo_ids` | compute：本單位 chatter 上的 `image/*` 附件 |
 | `maintenance_photo_ids` | compute：本單位所有報修單（含封存）的 `image/*` 附件，依 `ggandy_request_date` desc |
 
@@ -117,7 +120,7 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 - 範本是公司正式的「房屋租賃契約」（2026-10-09 依 R2 紙本合約改寫，取代原本的簡單版），固定四頁：①當事人資料＋第一、二條（租期、地址範圍、租金押金、水電、繳款帳戶）②第三、四條（含設備點交表）③第五～十條 ④《清潔標準》＋簽名與日期。條文是固定文字寫在 QWeb 裡。
 - **不為合約新增欄位**：只帶系統裡既有的資料，其餘印空白底線讓房客／現場手寫（承租人的出生日、戶籍、公司、緊急聯絡人、分行、簽名日期、設備數量）。之後要記錄哪些欄位再另外討論。
 - 資料由 AbstractModel `report.ggandy_property_management.report_lease_contract` 的 `_get_report_values` 準備：
-  - 出租人判斷（`_get_contract_parties`）：找該物件在租約開始日有效的 active 房東合約 → 用 `contract_type`，找不到就用物件 `management_mode`。`master_lease` → 出租人 = 公司 partner、沒有丙方；其他（代管 / 混合）→ 出租人 = 物件 `owner_id`、丙方 = 公司 partner。
+  - 出租人判斷（`_get_contract_parties`）：找該物件在租約開始日有效的 active 房東合約 → 用 `contract_type`，找不到就用物件 `management_mode`。`master_lease` → 出租人 = 公司 partner、沒有丙方；其他（代管）→ 出租人 = 物件 `owner_id`、丙方 = 公司 partner。
   - 繳款帳戶：收款方（有丙方用丙方，否則出租人）的第一個 `bank_ids`；分行留空手寫。
   - 承租人資料：只印聯絡人既有的姓名、`vat`（身分證號）、`phone`（行動電話）、`email`，其餘欄位與兩位緊急聯絡人都印空白。
   - 地址範圍（`_format_premises`）= 物件縣市＋區＋street（已出現在 street 裡的不重複）＋單位樓層（`12F` → `12 樓`）。
@@ -136,6 +139,7 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 | `{electricity,water}_billing_type` / `_rate` / `_fixed_fee` | 建期次時從出租單位**快照**（固定費按日比例）；單位 `write()` 改這些設定時，`_sync_utility_settings_to_schedules()` 會更新租約 draft/active、帳單未過帳的期次 |
 | `{electricity,water}_prev_reading` / `_curr_reading` | 上期／本期度數（Float digits (12,1)）。第一期 prev = 租約 `*_start_reading`，之後 = 前一期的 curr（沒抄就沿用前一期的 prev） |
 | `{electricity,water}_usage` / `_amount` | stored compute：metered = (curr − prev) × rate 四捨五入到元（curr 為 0 視為未抄、金額 0）；fixed = fixed_fee；其他 = 0 |
+| `period_month` | stored compute：`period_start` 的 `YYYY-MM`，電表維護分頁顯示月份用 |
 | `meter_reading_pending` | stored compute：任一項 metered 且 curr 為 0（「待抄表」篩選用） |
 | `total_amount` | stored compute = `rent_amount + management_fee + electricity_amount + water_amount` |
 | `invoice_id` | 建立的客戶發票（租金、管理費、電費、水費各一行，0 元不列） |
@@ -188,7 +192,7 @@ net_cash_flow    = collected + deposit − owner_paid − purchase_cost − empl
 
 - 精靈開啟時的 `sheet_url` 預設值由 `ggandy.google.sheet.import.mixin._default_sheet_url()` 讀系統參數 `ggandy_property_management.property_sheet_url` / `contact_sheet_url`，留空退回程式內的 `DEFAULT_*_SHEET_URL`。
 - `ggandy.google.sheet.property.import.wizard`：Google Sheet URL → `/export?format=csv&gid=...` → `pandas.read_csv(dtype=str)`。
-  - 必要欄位：`編號`、`案件名稱`；選填：`經營模式`（包租／代管／混合）、`房東`、`地址`、`管理人員`、`匯款日期`（取第一組數字，1–31）、`出租單位`（以 `,`／`，`／`、` 分隔）。標題會先 strip。
+  - 必要欄位：`編號`、`案件名稱`；選填：`經營模式`（包租／代管）、`房東`、`地址`、`管理人員`、`匯款日期`（取第一組數字，1–31）、`出租單位`（以 `,`／`，`／`、` 分隔）。標題會先 strip。
   - Upsert 鍵：`ir.model.data`，`module=ggandy_property_management`、`name=google_sheet_property_<編號slug>_<sha1(編號|案件名稱)[:10]>`。
   - 更新時一律覆寫 name、note；其他欄位**只有 Sheet 有值才寫入**。新建時經營模式留空用 wizard 的 `management_mode`，房東／管理人員留空就真的留空（`ggandy.property.owner_id` 已非必填）。
   - 房東：`res.partner` 依 `name =` 比對，同名優先 `is_ggandy_owner`；找不到且 `create_missing_owner` 時自動建立（`is_ggandy_owner=True`）。
@@ -260,6 +264,8 @@ ir.cron（每分鐘）→ ggandy.telegram.log._cron_poll_updates
 `ir.config_parameter` keys（前綴 `ggandy_property_telegram.`）：`bot_token`、`bot_username`、`polling_enabled`、`update_offset`、`overdue_digest_sent_date`。
 
 ## 4. 整備專案模組（`ggandy_property_project`）
+
+> **現況（2026-10-10 與老闆討論）**：庫存與採購現階段不是主力，目前這套架構（整備專案、採購帶分析帳戶、`WH/庫存/{物件}/{單位}` 庫存位置）先維持、夠用，之後視情況再往下開發。庫存位置只在背景記錄：開始整備時照常建立，物件管理資訊仍顯示、「同步庫存位置」按鈕保留，但物件 form 的出租單位分頁已不顯示庫存位置欄位。
 
 depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`project_account`、`project_purchase_stock`（帶入 `stock`；主模組不依賴庫存）。不新增模型，只 inherit `ggandy.property`、`ggandy.property.unit`、`res.config.settings`。
 

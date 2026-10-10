@@ -15,7 +15,7 @@
                 <separator/>
                 <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
                 <group>
-                    <filter name="group_owner" string="主要房東" context="{'group_by': 'owner_id'}"/>
+                    <filter name="group_owner" string="房東" context="{'group_by': 'owner_id'}"/>
                     <filter name="group_manager" string="管理人員" context="{'group_by': 'manager_id'}"/>
                     <filter name="group_mode" string="經營模式" context="{'group_by': 'management_mode'}"/>
                 </group>
@@ -36,6 +36,7 @@
                 <field name="owner_id"/>
                 <field name="address_display" optional="show"/>
                 <field name="manager_id" widget="many2one_avatar_user" optional="show"/>
+                <field name="owner_payment_day" optional="show"/>
                 <field name="unit_count" string="單位數" optional="show"/>
                 <field name="company_id" groups="base.group_multi_company" optional="hide"/>
             </list>
@@ -74,14 +75,13 @@
                             <field name="management_mode" widget="radio"/>
                             <field name="property_type"/>
                             <field name="owner_id" context="{'default_is_ggandy_owner': True}"/>
-                            <field name="co_owner_ids" widget="many2many_tags" context="{'default_is_ggandy_owner': True}"/>
                             <field name="manager_id" widget="many2one_avatar_user"/>
                             <field name="owner_payment_day"/>
                         </group>
                         <group string="地址">
-                            <field name="zip"/>
                             <field name="state_id" domain="[('country_id', '=', country_id)]"/>
-                            <field name="city"/>
+                            <field name="city_id" domain="[('state_id', '=', state_id)]" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="zip"/>
                             <field name="street" placeholder="路、街、段、巷、弄、號"/>
                             <field name="street2"/>
                             <field name="country_id"/>
@@ -102,13 +102,54 @@
                                     <field name="name"/>
                                     <field name="unit_type"/>
                                     <field name="floor"/>
-                                    <field name="area"/>
+                                    <field name="area" optional="hide"/>
                                     <field name="monthly_rent" widget="monetary"/>
                                     <field name="currency_id" column_invisible="True"/>
                                     <field name="state" widget="badge"
                                            decoration-success="state == 'occupied'"
                                            decoration-warning="state == 'maintenance'"
                                            decoration-info="state == 'reserved'"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="當期帳單" name="current_schedules">
+                            <div class="text-muted mb-2">
+                                本月各房間的租金期次，只供檢視。要建立帳單或修改金額，請到租金期次或租約。
+                            </div>
+                            <field name="current_schedule_ids" readonly="1" nolabel="1">
+                                <list default_order="unit_id" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
+                                    <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
+                                    <field name="tenant_id"/>
+                                    <field name="due_date"/>
+                                    <field name="rent_amount" sum="租金"/>
+                                    <field name="management_fee" optional="show" sum="管理費"/>
+                                    <field name="electricity_amount" optional="show" sum="電費"/>
+                                    <field name="water_amount" optional="show" sum="水費"/>
+                                    <field name="total_amount" sum="應收合計"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                    <field name="collection_state" widget="badge"
+                                           decoration-danger="collection_state == 'overdue'"
+                                           decoration-success="collection_state == 'paid'"
+                                           decoration-warning="collection_state == 'partial'"/>
+                                    <field name="invoice_id" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="電表維護" name="meter_readings">
+                            <div class="text-muted mb-2">
+                                只列出本月、電費依度數計費的租金期次，過去月份請到出租單位的「電表維護」分頁。填好抄表度數後，會自動帶到下一期的上期度數，草稿帳單的電費也會一起更新；帳單已過帳的月份不能再改。
+                            </div>
+                            <field name="current_meter_schedule_ids" nolabel="1">
+                                <list editable="bottom" create="0" delete="0" default_order="unit_id">
+                                    <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
+                                    <field name="period_month"/>
+                                    <field name="tenant_id" optional="hide"/>
+                                    <field name="electricity_prev_reading" string="上期度數" optional="show"/>
+                                    <field name="electricity_curr_reading" string="抄表度數" readonly="invoice_state == 'posted'"/>
+                                    <field name="electricity_usage" optional="show"/>
+                                    <field name="electricity_amount"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                    <field name="invoice_state" column_invisible="True"/>
                                 </list>
                             </field>
                         </page>

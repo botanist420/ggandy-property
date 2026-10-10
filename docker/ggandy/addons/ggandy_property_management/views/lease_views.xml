@@ -17,7 +17,7 @@
                 <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
                 <group>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
-                    <filter name="group_tenant" string="主承租人" context="{'group_by': 'tenant_id'}"/>
+                    <filter name="group_tenant" string="房客" context="{'group_by': 'tenant_id'}"/>
                     <filter name="group_state" string="狀態" context="{'group_by': 'state'}"/>
                     <filter name="group_end_month" string="到期月份" context="{'group_by': 'end_date:month'}"/>
                 </group>
@@ -56,7 +56,6 @@
             <form string="租約">
                 <header>
                     <button name="action_activate" type="object" string="租約生效" class="btn-primary" invisible="state != 'draft'"/>
-                    <button name="action_generate_schedule" type="object" string="建立租金期次" invisible="state not in ('draft', 'active')"/>
                     <button name="%(action_report_ggandy_lease_contract)d" type="action" string="產生租約 PDF" icon="fa-file-pdf-o" invisible="state not in ('draft', 'active')"/>
                     <button name="action_terminate" type="object" string="提前終止" confirm="確定要提前終止這份租約？" invisible="state != 'active'"/>
                     <button name="action_cancel" type="object" string="取消租約" confirm="確定要取消這份租約？" invisible="state != 'draft'"/>

@@ -66,12 +66,7 @@ class GgandyOwnerContract(models.Model):
         required=True,
         ondelete="restrict",
         tracking=True,
-        help="Vendor Bill 會開給這位房東。若有共同屋主，主要結算對象仍以這格為準。",
-    )
-    co_owner_ids = fields.Many2many(
-        related="property_id.co_owner_ids",
-        string="共同屋主",
-        readonly=True,
+        help="Vendor Bill 會開給這位房東。",
     )
     start_date = fields.Date(
         string="合約開始",

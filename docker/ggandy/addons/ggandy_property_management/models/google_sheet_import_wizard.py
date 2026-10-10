@@ -19,7 +19,6 @@ DEFAULT_CONTACT_SHEET_URL = (
 MANAGEMENT_MODE_SELECTION = [
     ("master_lease", "包租"),
     ("agency", "代管"),
-    ("mixed", "混合"),
 ]
 MANAGEMENT_MODE_BY_LABEL = {label: value for value, label in MANAGEMENT_MODE_SELECTION}
 
@@ -217,7 +216,7 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
             if mode_text and not management_mode:
                 messages.append(
                     f"第 {line_no} 列經營模式「{mode_text}」無法辨識"
-                    "（請填 包租／代管／混合），已當作留空。"
+                    "（請填 包租／代管），已當作留空。"
                 )
             payment_day = self._parse_payment_day(payment_day_text)
             if payment_day_text and not payment_day:
