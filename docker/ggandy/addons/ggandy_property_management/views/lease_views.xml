@@ -200,7 +200,7 @@
     </record>
 
     <record id="action_ggandy_lease" model="ir.actions.act_window">
-        <field name="name">租約</field>
+        <field name="name">房客租約</field>
         <field name="res_model">ggandy.lease</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_ggandy_lease_search"/>
