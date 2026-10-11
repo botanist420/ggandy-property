@@ -21,13 +21,16 @@
             </div>
             <notebook position="inside">
                 <page string="包租代管" name="ggandy_property_management">
+                    <div class="o_ggandy_hint">
+                        <i class="fa fa-info-circle" role="img" title="說明"/>
+                        <div>
+                            <div>同一位聯絡人可以同時是<strong>房東、房客與維修廠商</strong>；建立合約、租約、報修單時會自動勾選。</div>
+                        </div>
+                    </div>
                     <group string="身分類型">
                         <field name="is_ggandy_owner"/>
                         <field name="is_ggandy_tenant"/>
                         <field name="is_ggandy_vendor"/>
-                    </group>
-                    <group string="說明">
-                        <p class="text-muted">同一位聯絡人可以同時具有房東、房客與維修廠商身分。</p>
                     </group>
                 </page>
             </notebook>

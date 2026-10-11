@@ -111,9 +111,12 @@
                     </group>
                     <notebook>
                         <page string="租金期次" name="rent_schedule">
-                            <div class="alert alert-info" role="alert" invisible="not auto_generate_schedule">
-                                每月一期：租金、管理費依租約帶入，水電依出租單位設定帶入（月中入住／退租的那一期按日計算）。
-                                水電依度數計費時，每次抄表後在該期填「本期度數」，系統會算出費用、帶到下一期的上期度數，草稿帳單也會一起更新。
+                            <div class="o_ggandy_hint" invisible="not auto_generate_schedule">
+                                <i class="fa fa-info-circle" role="img" title="說明"/>
+                                <div>
+                                    <div>每月一期：租金、管理費依租約，水電依出租單位設定；月中入住／退租那期按日計算。</div>
+                                    <div>電費依度數計費時，抄表後填<strong>電錶本期</strong>，會自動算電費並帶到下一期。</div>
+                                </div>
                             </div>
                             <field name="schedule_ids" context="{'default_lease_id': id}">
                                 <list editable="bottom" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
@@ -168,8 +171,11 @@
                             <field name="note" placeholder="特殊約定、繳款方式、點交資訊等……"/>
                         </page>
                         <page string="合約文件" name="contract_documents">
-                            <div class="text-muted mb-2">
-                                請用下方 chatter 的迴紋針上傳簽好名的合約、公證書或點交照片，檔案會自動顯示在這裡。
+                            <div class="o_ggandy_hint">
+                                <i class="fa fa-info-circle" role="img" title="說明"/>
+                                <div>
+                                    <div>用下方 chatter 的<strong>迴紋針</strong>上傳簽好的合約、公證書或點交照片，就會自動出現在這裡。</div>
+                                </div>
                             </div>
                             <field name="contract_document_ids" readonly="1" nolabel="1">
                                 <kanban create="0" edit="0">
@@ -179,15 +185,15 @@
                                     <field name="create_date"/>
                                     <field name="create_uid"/>
                                     <templates>
-                                        <t t-name="card">
-                                            <a t-attf-href="/web/content/#{record.id.raw_value}?download=false" target="_blank">
+                                        <t t-name="card" class="o_ggandy_photo_card">
+                                            <a class="o_ggandy_photo_thumb d-flex align-items-center justify-content-center"
+                                               t-attf-href="/web/content/#{record.id.raw_value}?download=false" target="_blank">
                                                 <img t-if="(record.mimetype.raw_value or '').startsWith('image/')"
-                                                     class="img-fluid mb-2" t-attf-src="/web/image/#{record.id.raw_value}/256x256" t-att-alt="record.name.value"/>
-                                                <div t-else="" class="o_image mb-2" t-att-data-mimetype="record.mimetype.raw_value"/>
+                                                     t-attf-src="/web/image/#{record.id.raw_value}/512x384" t-att-alt="record.name.value"/>
+                                                <div t-else="" class="o_image" t-att-data-mimetype="record.mimetype.raw_value"/>
                                             </a>
-                                            <field name="name" class="fw-bold text-break"/>
-                                            <div class="text-muted">上傳時間：<field name="create_date"/></div>
-                                            <div class="text-muted">上傳者：<field name="create_uid"/></div>
+                                            <field name="name" class="fw-bold text-truncate"/>
+                                            <div class="o_ggandy_photo_meta"><field name="create_date"/> · <field name="create_uid"/></div>
                                         </t>
                                     </templates>
                                 </kanban>

@@ -102,6 +102,7 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 
 ## 程式慣例
 
+- 畫面排版（分頁說明列 `o_ggandy_hint`、列表欄寬、照片卡片、wizard 步驟、用字）照 [notebook/docs/ui-guidelines.md](notebook/docs/ui-guidelines.md)。
 - 每個欄位都寫中文 `string`，業務相關欄位寫清楚的中文 `help`（使用者游標停在欄位上會看到，語氣親切、會說明影響範圍）。
 - `_inherit = ["mail.thread", "mail.activity.mixin"]` + 重要欄位 `tracking=True`。
 - 有 `company_id`（預設 `self.env.company`）與 `currency_id`（related `company_id.currency_id`, stored）；金額用 `fields.Monetary`。

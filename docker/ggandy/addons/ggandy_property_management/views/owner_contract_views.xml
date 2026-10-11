@@ -103,7 +103,13 @@
                             <field name="owner_deposit" readonly="state != 'draft'"/>
                         </group>
                         <group>
-                            <p class="text-muted">每月保底租金是管理公司固定支付給房東的租金；房客端租金仍由房客租約管理。</p>
+                            <div class="o_ggandy_hint" colspan="2">
+                                <i class="fa fa-info-circle" role="img" title="說明"/>
+                                <div>
+                                    <div><strong>保底租金</strong>是公司每月固定付給房東的租金。</div>
+                                    <div>房客那邊的租金由各房客租約管理。</div>
+                                </div>
+                            </div>
                         </group>
                     </group>
                     <group string="代管條件" invisible="contract_type != 'agency'">
@@ -113,7 +119,13 @@
                             <field name="fixed_fee" invisible="fee_type != 'fixed'" readonly="state != 'draft'"/>
                         </group>
                         <group>
-                            <p class="text-muted">第一版只記錄代管費約定；房東月結單與實際撥款會在確認金流規則後另行實作。</p>
+                            <div class="o_ggandy_hint" colspan="2">
+                                <i class="fa fa-info-circle" role="img" title="說明"/>
+                                <div>
+                                    <div>目前只記錄<strong>代管費約定</strong>。</div>
+                                    <div>房東月結單與撥款，等金流規則確認後再加入。</div>
+                                </div>
+                            </div>
                         </group>
                     </group>
                     <notebook>

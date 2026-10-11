@@ -8,6 +8,12 @@
             <notebook position="inside">
                 <page string="GGAndy Telegram" name="ggandy_telegram"
                       groups="ggandy_property_management.group_property_manager">
+                    <div class="o_ggandy_hint">
+                        <i class="fa fa-info-circle" role="img" title="說明"/>
+                        <div>
+                            <div>要同時<strong>啟用</strong>、填好 <strong>Telegram User ID</strong>，並具「包租代管／管理員」權限，才能操作 Bot。</div>
+                        </div>
+                    </div>
                     <group>
                         <group string="授權">
                             <field name="telegram_enabled"/>
@@ -21,9 +27,6 @@
                             <field name="telegram_last_seen"/>
                         </group>
                     </group>
-                    <div class="alert alert-info" role="alert">
-                        只有啟用此選項、填入 Telegram User ID，且具有「包租代管／管理員」權限的 Odoo 使用者可以操作 Bot。
-                    </div>
                 </page>
             </notebook>
         </field>

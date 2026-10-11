@@ -2,3 +2,52 @@
 .o_ggandy_icon_tight > i {
     margin-right: 0 !important;
 }
+
+// 分頁說明列：放在分頁最上方，最多兩行，比 alert 輕、不搶列表的視線。
+// 排版規範見 notebook/docs/ui-guidelines.md。
+.o_ggandy_hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid $o-brand-primary;
+    border-radius: 0.25rem;
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+    font-size: 0.875rem;
+    line-height: 1.6;
+
+    > .fa {
+        margin-top: 0.25rem;
+        color: $o-brand-primary;
+    }
+
+    strong {
+        color: var(--bs-body-color);
+        font-weight: 600;
+    }
+}
+
+// 照片／文件卡片：圖片固定比例，下方標題一行截斷、資訊用小字。
+.o_ggandy_photo_card {
+    .o_ggandy_photo_thumb {
+        display: block;
+        aspect-ratio: 4 / 3;
+        margin-bottom: 0.5rem;
+        overflow: hidden;
+        border-radius: 0.25rem;
+        background-color: var(--bs-tertiary-bg);
+
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    }
+
+    .o_ggandy_photo_meta {
+        color: var(--bs-secondary-color);
+        font-size: 0.8125rem;
+    }
+}

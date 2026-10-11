@@ -110,7 +110,7 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="租約紀錄">
+                        <page string="租約紀錄" name="lease_history">
                             <field name="lease_ids" readonly="1">
                                 <list>
                                     <field name="name"/>
@@ -124,9 +124,12 @@
                             </field>
                         </page>
                         <page string="電表維護" name="meter_readings">
-                            <div class="text-muted mb-2">
-                                <p class="mb-1">列出電費依度數計費的租金期次。「電表月份」是這一期帳單收哪個月的電費（例如 10 月帳單收 9 月電費），抄表度數請填該月月底的讀數。</p>
-                                <p class="mb-0">填好後會自動帶到下一期的上期度數，草稿帳單的電費也會一起更新；帳單已過帳就不能再改。</p>
+                            <div class="o_ggandy_hint">
+                                <i class="fa fa-info-circle" role="img" title="說明"/>
+                                <div>
+                                    <div><strong>電表月份</strong>是這期帳單收哪個月的電費，例如 10 月帳單收 9 月電費。</div>
+                                    <div>抄表度數填該月月底讀數，填好會帶到下一期並更新草稿帳單，已過帳不能改。</div>
+                                </div>
                             </div>
                             <field name="meter_schedule_ids" nolabel="1">
                                 <list editable="bottom" create="0" delete="0" default_order="period_start desc">
@@ -144,19 +147,22 @@
                             </field>
                         </page>
                         <page string="格局照片" name="layout_photos">
-                            <div class="text-muted mb-2">
-                                請用下方 chatter 的迴紋針上傳格局照片，圖片會自動顯示在這裡。
+                            <div class="o_ggandy_hint">
+                                <i class="fa fa-info-circle" role="img" title="說明"/>
+                                <div>
+                                    <div>用下方 chatter 的<strong>迴紋針</strong>上傳圖片，就會自動出現在這裡。</div>
+                                </div>
                             </div>
                             <field name="layout_photo_ids" readonly="1" nolabel="1">
                                 <kanban create="0" edit="0">
                                     <field name="id"/>
                                     <field name="name"/>
                                     <templates>
-                                        <t t-name="card">
-                                            <a t-attf-href="/web/image/#{record.id.raw_value}?download=false" target="_blank">
-                                                <img class="img-fluid mb-2" t-attf-src="/web/image/#{record.id.raw_value}/256x256" t-att-alt="record.name.value"/>
+                                        <t t-name="card" class="o_ggandy_photo_card">
+                                            <a class="o_ggandy_photo_thumb" t-attf-href="/web/image/#{record.id.raw_value}?download=false" target="_blank">
+                                                <img t-attf-src="/web/image/#{record.id.raw_value}/512x384" t-att-alt="record.name.value"/>
                                             </a>
-                                            <field name="name" class="fw-bold"/>
+                                            <field name="name" class="fw-bold text-truncate"/>
                                         </t>
                                     </templates>
                                 </kanban>
@@ -180,8 +186,12 @@
                             </field>
                         </page>
                         <page string="維修照片" name="maintenance_photos">
-                            <div class="text-muted mb-2">
-                                維修照片請到該報修單的 chatter 上傳，這裡會彙整這個單位所有報修單的圖片。
+                            <div class="o_ggandy_hint">
+                                <i class="fa fa-info-circle" role="img" title="說明"/>
+                                <div>
+                                    <div>彙整這間房<strong>所有報修單</strong>的照片，依通報時間由新到舊。</div>
+                                    <div>要新增照片，請到該報修單的 chatter 上傳。</div>
+                                </div>
                             </div>
                             <field name="maintenance_photo_ids" readonly="1" nolabel="1">
                                 <kanban create="0" edit="0">
@@ -190,20 +200,20 @@
                                     <field name="res_name"/>
                                     <field name="ggandy_request_date"/>
                                     <templates>
-                                        <t t-name="card">
-                                            <a t-attf-href="/web/image/#{record.id.raw_value}?download=false" target="_blank">
-                                                <img class="img-fluid mb-2" t-attf-src="/web/image/#{record.id.raw_value}/256x256" t-att-alt="record.name.value"/>
+                                        <t t-name="card" class="o_ggandy_photo_card">
+                                            <a class="o_ggandy_photo_thumb" t-attf-href="/web/image/#{record.id.raw_value}?download=false" target="_blank">
+                                                <img t-attf-src="/web/image/#{record.id.raw_value}/512x384" t-att-alt="record.name.value"/>
                                             </a>
-                                            <field name="name" class="fw-bold"/>
-                                            <div class="text-muted">報修單：<field name="res_name"/></div>
-                                            <div class="text-muted">通報時間：<field name="ggandy_request_date"/></div>
+                                            <field name="name" class="fw-bold text-truncate"/>
+                                            <div class="o_ggandy_photo_meta text-truncate"><field name="res_name"/></div>
+                                            <div class="o_ggandy_photo_meta"><field name="ggandy_request_date"/></div>
                                         </t>
                                     </templates>
                                 </kanban>
                             </field>
                         </page>
-                        <page string="備註">
-                            <field name="note"/>
+                        <page string="備註" name="notes">
+                            <field name="note" placeholder="房間設備、鑰匙、注意事項等……"/>
                         </page>
                     </notebook>
                 </sheet>
