@@ -5,8 +5,7 @@
         <field name="model">ggandy.property</field>
         <field name="inherit_id" ref="ggandy_property_management.view_ggandy_property_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//sheet" position="before">
-                <header>
+            <xpath expr="//header" position="inside">
                     <field name="preparation_project_id" invisible="1"/>
                     <button name="action_start_preparation" string="開始整備" type="object" class="btn-primary"
                             invisible="management_mode != 'master_lease' or preparation_project_id"
@@ -20,7 +19,6 @@
                             invisible="management_mode != 'master_lease' or not preparation_project_id"
                             groups="ggandy_property_management.group_property_manager"
                             help="在總倉底下補齊這個物件與各出租單位的庫存位置，已經存在的會直接沿用，不會重複建立。新增出租單位後按一次即可。"/>
-                </header>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_view_preparation_project" type="object" class="oe_stat_button" icon="fa-tasks"

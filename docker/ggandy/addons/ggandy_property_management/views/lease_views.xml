@@ -125,6 +125,8 @@
                                     <field name="invoice_state" column_invisible="True"/>
                                     <field name="electricity_billing_type" column_invisible="True"/>
                                     <field name="water_billing_type" column_invisible="True"/>
+                                    <field name="meter_month" optional="show"
+                                           column_invisible="parent.electricity_billing_type != 'metered'"/>
                                     <field name="electricity_prev_reading" string="電錶上期" optional="show"
                                            column_invisible="parent.electricity_billing_type != 'metered'"
                                            readonly="invoice_state == 'posted' or electricity_billing_type != 'metered'"/>

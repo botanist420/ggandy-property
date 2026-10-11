@@ -1,6 +1,8 @@
 import calendar
 import logging
 
+from dateutil.relativedelta import relativedelta
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import float_round
@@ -21,6 +23,10 @@ UTILITY_INPUT_FIELDS = tuple(
     for kind in UTILITY_KINDS
     for suffix in ("billing_type", "rate", "fixed_fee", "prev_reading", "curr_reading")
 )
+
+
+# M 月底抄的表，算進 M+1 月帳單（例：9 月電表讀數 → 10 月期次的本期度數，10 月帳單收 9 月電費）。
+READING_TO_BILL_MONTH_OFFSET = 1
 
 
 def _format_number(value):
@@ -86,10 +92,17 @@ class GgandyRentSchedule(models.Model):
         help="這一期租金涵蓋的最後一天。最後一期遇到月中退租時，會停在租約結束日。",
     )
     period_month = fields.Char(
-        string="月份",
+        string="帳單月份",
         compute="_compute_period_month",
         store=True,
-        help="這一期所屬的月份（計費開始日的年-月），電表維護分頁用它來顯示與排序。",
+        help="這一期租金所屬的月份（計費開始日的年-月）。物件頁的當期帳單、電表維護分頁用它篩出本月的期次。",
+    )
+    meter_month = fields.Char(
+        string="電表月份",
+        compute="_compute_period_month",
+        store=True,
+        help="這一期帳單收的是哪個月的電費。本期度數就是這個月月底的電錶讀數，"
+        "例如 10 月帳單收 9 月電費（9 月電表 − 8 月電表）。",
     )
     due_date = fields.Date(
         string="繳款期限",
@@ -270,7 +283,27 @@ class GgandyRentSchedule(models.Model):
     @api.depends("period_start")
     def _compute_period_month(self):
         for record in self:
-            record.period_month = record.period_start.strftime("%Y-%m") if record.period_start else False
+            if not record.period_start:
+                record.period_month = record.meter_month = False
+                continue
+            record.period_month = record.period_start.strftime("%Y-%m")
+            meter_date = record.period_start - relativedelta(months=READING_TO_BILL_MONTH_OFFSET)
+            record.meter_month = meter_date.strftime("%Y-%m")
+
+    @api.model
+    def _find_unit_month_schedule(self, unit, month):
+        """month 是該月任一天；回傳這個單位在該月、草稿或生效中租約的租金期次。"""
+        month_start = month.replace(day=1)
+        return self.search(
+            [
+                ("unit_id", "=", unit.id),
+                ("lease_id.state", "in", ("draft", "active")),
+                ("period_start", ">=", month_start),
+                ("period_start", "<", month_start + relativedelta(months=1)),
+            ],
+            order="period_start",
+            limit=1,
+        )
 
     @api.depends(
         "electricity_billing_type",

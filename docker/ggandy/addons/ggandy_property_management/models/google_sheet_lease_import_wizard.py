@@ -8,6 +8,8 @@ from odoo import fields, models
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import float_compare
 
+from .rent_schedule import READING_TO_BILL_MONTH_OFFSET
+
 LEASE_REQUIRED_COLUMNS = ["物件編號", "房號", "房客", "起租日", "到期日", "月租", "電費方式", "水費方式"]
 LEASE_OPTIONAL_COLUMNS = [
     "房客電話", "押金", "繳租日", "每度電價", "固定電費", "入住電錶度數", "每度水價", "固定水費", "入住水錶度數",
@@ -25,8 +27,6 @@ BILLING_TYPE_BY_LABEL = {
     "房客自繳台電": "tenant_paid",
     "房客自繳水公司": "tenant_paid",
 }
-# M 月底抄的表，算進 M+1 月帳單（例：9 月底讀數 → 10 月期次的本期度數）。
-READING_TO_BILL_MONTH_OFFSET = 1
 UTILITY_LABELS = {"electricity": "電", "water": "水"}
 
 
@@ -326,7 +326,7 @@ class GgandyGoogleSheetLeaseImportWizard(models.TransientModel):
                 run["stats"]["reading_skipped"] += 1
                 continue
             bill_month = month + relativedelta(months=READING_TO_BILL_MONTH_OFFSET)
-            schedule = self._find_schedule(unit, bill_month)
+            schedule = self.env["ggandy.rent.schedule"]._find_unit_month_schedule(unit, bill_month)
             if not schedule:
                 run["stats"]["reading_skipped"] += 1
                 run["messages"].append(f"{label}：{bill_month:%Y-%m} 沒有租金期次（租期外），略過。")
@@ -386,7 +386,7 @@ class GgandyGoogleSheetLeaseImportWizard(models.TransientModel):
             note = self._clean_cell(row.get("備註"))
             label = f"{label}（{room} {month:%Y-%m}）"
             unit = self._find_unit(code, room, run, label)
-            schedule = unit and self._find_schedule(unit, month)
+            schedule = unit and self.env["ggandy.rent.schedule"]._find_unit_month_schedule(unit, month)
             if not schedule:
                 run["stats"]["adjust_skipped"] += 1
                 if unit:
@@ -457,20 +457,6 @@ class GgandyGoogleSheetLeaseImportWizard(models.TransientModel):
         if not unit:
             run["warnings"].append(f"{label}：{property_record.name} 沒有房號「{room}」。")
         return unit
-
-    def _find_schedule(self, unit, month):
-        """month 是該月任一天；回傳這個單位在該月、草稿或生效中租約的租金期次。"""
-        month_start = month.replace(day=1)
-        return self.env["ggandy.rent.schedule"].search(
-            [
-                ("unit_id", "=", unit.id),
-                ("lease_id.state", "in", ("draft", "active")),
-                ("period_start", ">=", month_start),
-                ("period_start", "<", month_start + relativedelta(months=1)),
-            ],
-            order="period_start",
-            limit=1,
-        )
 
     def _write_changed(self, record, values):
         """只寫入真的有變的欄位，回傳變更的欄位名稱。

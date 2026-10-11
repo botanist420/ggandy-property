@@ -142,7 +142,8 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 | `{electricity,water}_prev_reading` / `_curr_reading` | 上期／本期度數（Float digits (12,1)）。第一期 prev = 租約 `*_start_reading`，之後 = 前一期的 curr（沒抄就沿用前一期的 prev） |
 | `{electricity,water}_usage` / `_amount` | stored compute：metered = (curr − prev) × rate 四捨五入到元（curr 為 0 視為未抄、金額 0）；fixed = fixed_fee；其他 = 0 |
 | `period_start` / `period_end` / `due_date` | view 層 `readonly="id"`（租約內嵌 list 與期次 form）：已存檔的期次鎖住，新增中的列可填；model 層沒有限制，程式與匯入照常可寫 |
-| `period_month` | stored compute：`period_start` 的 `YYYY-MM`，電表維護分頁顯示月份用 |
+| `period_month` | 「帳單月份」，stored compute：`period_start` 的 `YYYY-MM`；物件的 `_get_current_schedule_domain()` 用它篩本月 |
+| `meter_month` | 「電表月份」，同一個 compute：`period_start − READING_TO_BILL_MONTH_OFFSET` 個月的 `YYYY-MM`。電表維護分頁、租約期次列表、期次 form 顯示它（`period_month` 在電表維護分頁 `optional="hide"`） |
 | `meter_reading_pending` | stored compute：任一項 metered 且 curr 為 0（「待抄表」篩選用） |
 | `total_amount` | stored compute = `rent_amount + management_fee + electricity_amount + water_amount` |
 | `invoice_id` | 建立的客戶發票（租金、管理費、電費、水費各一行，0 元不列） |
@@ -216,7 +217,7 @@ has_*            = 上面數字的 SQL 布林欄位，原生可搜尋
 
 - `ggandy.google.sheet.lease.import.wizard`（`models/google_sheet_lease_import_wizard.py`）：三個 URL 欄位（`lease_sheet_url` / `meter_sheet_url` / `adjustment_sheet_url`，預設值讀系統參數 `ggandy_property_management.lease_sheet_url` / `meter_sheet_url` / `adjustment_sheet_url`），依序處理：
   - **房間租約**：`物件編號 → ggandy.property.code`、`房號 → unit.name`。先 `_write_changed(unit, 水電設定)`（只寫有變的欄位，避免 `_sync_utility_settings_to_schedules` 把期次上的調整蓋回預設），再以 `unit_id + start_date + state != cancelled` 找租約：沒有就建立草稿；草稿就更新有變的欄位（月租變了會重算未開帳期次的租金、入住度數變了會改第一期上期度數）；非草稿只警告不改。最後 `_generate_rent_schedule()` 補期次（草稿租約也會產生）。房客：電話（共用聯絡人精靈的 `_partner_ids_by_phone_digits`）→ 名稱，多筆就略過並警告。
-  - **抄表度數**：依（物件、房號、月份）排序後寫入，`READING_TO_BILL_MONTH_OFFSET = 1`：M 月讀數 → M+1 月期次的 `*_curr_reading`，靠期次 `write` 的 `_propagate_meter_reading` 往後帶上期度數。非依度數計費、已過帳、讀數倒退 → 警告略過。
+  - **抄表度數**：依（物件、房號、月份）排序後寫入，`READING_TO_BILL_MONTH_OFFSET = 1`（定義在 `rent_schedule.py`，與 `meter_month`、快速抄表共用；找期次用 `ggandy.rent.schedule._find_unit_month_schedule(unit, month)`）：M 月讀數 → M+1 月期次的 `*_curr_reading`，靠期次 `write` 的 `_propagate_meter_reading` 往後帶上期度數。非依度數計費、已過帳、讀數倒退 → 警告略過。
   - **帳單調整**：找該月期次，寫 `rent_amount`、`water_fixed_fee`（僅固定水費）、`note`；已有帳單就不改。`電費（核對用）` 只和 `electricity_amount` 比對。
   - 最後 `_check_suspicious_electricity`：期次電費 > 月租就警告（抓入住度數填 0 這種錯）。
   - **預覽**：在 `cr.savepoint()` 裡跑完整流程 → `flush_all()` → 丟 `_PreviewRollback` 還原 → `invalidate_all()`；預覽建立的租約用 `（預覽）…` 名稱，不取正式編號。每列寫入也包 savepoint，單列失敗只記警告。
@@ -224,6 +225,12 @@ has_*            = 上面數字的 SQL 布林欄位，原生可搜尋
 
 ### 包租獲利試算（TransientModel）
 
+- `ggandy.quick.meter.reading.wizard`（`models/quick_meter_reading_wizard.py`）：物件 form `<header>` 的「快速抄表」（`ggandy.property.action_open_quick_meter_reading()`，target new）。主模組物件 form 的 `<header>` 只放這顆按鈕，整備模組用 `//header` position inside 接在後面（快速抄表 → 開始整備 → 整備採購 → 同步庫存位置）。
+  - 兩步驟：`state` edit → `action_preview()`（先跑 `_analyze()`，格數不對直接 `UserError` 留在貼上步驟）→ preview（隱藏貼上欄位、月份唯讀，顯示 `preview_html`）→ `action_apply()`；`action_back()` 回 edit。兩個按鈕都回傳 `_reopen_wizard()`。`write_count` 為 0 時不顯示「確認寫入」。`bill_month_hint` 顯示在月份旁（→ 寫進 N 月帳單）。
+  - `meter_month`：動態 Selection（`_get_meter_month_selection`，本月往回 12 個月），預設本月；帳單月份 = 電表月份 + `READING_TO_BILL_MONTH_OFFSET`。
+  - `_parse_rows()`：房間列只用 tab 切（房號可能含空白），度數列沒有 tab 時也接受空白；去掉房間列開頭的「度數／房間／房號」、度數列開頭非數字的那格（連 A 欄複製）、尾端空白格；兩列格數不同、重複房號、一欄多列 → `UserError`。
+  - `_analyze()`（`preview_html` / `write_count` 與 `action_apply()` 共用）：每格狀態 write / unchanged / skip（空白或 0、非依度數計費）/ error（找不到房號、沒有期次、已過帳、小於上期）。
+  - `action_apply()`：每間 `cr.savepoint()` 寫 `electricity_curr_reading`（走期次 `write()` 的帶上期度數與草稿帳單同步），回傳 `display_notification` + `next: act_window_close`（物件 form 會重新載入）；一間都沒寫且沒有「未變更」時 `UserError`。只處理電錶。
 - `ggandy.master.lease.profit.wizard`（`models/master_lease_profit_wizard.py`），選單只開給 `group_property_manager`。
 - 只有「關閉」按鈕，結果全是非 stored compute，在畫面上即時重算，不會寫入資料庫。`property_id` 只用來帶入 `room_count`（= `unit_count`）。
 - 公式（N=房間數、P=每間付房東、R=每間月租、o=出租率、T=包租月數、F=免租裝潢月數、I=初始投入）：

@@ -9,6 +9,7 @@ from . import master_lease_profit_wizard
 from . import owner_contract
 from . import property
 from . import property_unit
+from . import quick_meter_reading_wizard
 from . import rent_schedule
 from . import res_config_settings
 from . import res_partner

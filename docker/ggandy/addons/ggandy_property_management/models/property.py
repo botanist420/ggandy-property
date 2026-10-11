@@ -232,6 +232,17 @@ class GgandyProperty(models.Model):
             record.lease_count = len(record.lease_ids)
             record.maintenance_count = len(record.maintenance_request_ids)
 
+    def action_open_quick_meter_reading(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "快速抄表",
+            "res_model": "ggandy.quick.meter.reading.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_property_id": self.id},
+        }
+
     def action_view_units(self):
         self.ensure_one()
         return {

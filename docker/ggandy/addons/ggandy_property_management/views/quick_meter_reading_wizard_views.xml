@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_quick_meter_reading_wizard_form" model="ir.ui.view">
+        <field name="name">ggandy.quick.meter.reading.wizard.form</field>
+        <field name="model">ggandy.quick.meter.reading.wizard</field>
+        <field name="arch" type="xml">
+            <form string="快速抄表">
+                <field name="state" invisible="1"/>
+                <field name="write_count" invisible="1"/>
+                <field name="unchanged_count" invisible="1"/>
+                <div class="alert alert-info py-2 mb-3" role="alert" invisible="state != 'edit'">
+                    <ol class="mb-0 ps-3">
+                        <li>選擇<strong>電表月份</strong></li>
+                        <li>從 Google Sheet 複製<strong>房號那一列</strong>，貼到「房間」</li>
+                        <li>複製同月份的<strong>度數那一列</strong>，貼到「抄表度數」，再按「預覽」</li>
+                    </ol>
+                </div>
+                <div class="alert alert-info py-2 mb-3" role="alert" invisible="state != 'preview' or write_count or not unchanged_count">
+                    系統裡已經是這些度數，不需要再寫入。如果數字對但月份不對，請按「返回修改」換電表月份。
+                </div>
+                <div class="alert alert-warning py-2 mb-3" role="alert" invisible="state != 'preview' or write_count or unchanged_count">
+                    沒有可以寫入的度數，請看下方各房間的原因，按「返回修改」調整。
+                </div>
+                <group>
+                    <field name="property_id"/>
+                    <label for="meter_month"/>
+                    <div class="o_row">
+                        <field name="meter_month" readonly="state == 'preview'"/>
+                        <field name="bill_month_hint" class="text-muted" nolabel="1"/>
+                    </div>
+                    <field name="room_text" invisible="state != 'edit'" placeholder="R1　R2　R3　R4 …"/>
+                    <field name="reading_text" invisible="state != 'edit'" placeholder="2,398　9,389　5,789　7,345 …"/>
+                </group>
+                <div class="small text-muted" invisible="state != 'edit'">
+                    千分位逗號會自動去掉，連 A 欄的「度數」「9月」一起複製也可以；度數空白或 0 的房間會略過。
+                </div>
+                <field name="preview_html" nolabel="1" readonly="1" invisible="state != 'preview'"/>
+                <footer>
+                    <button name="action_preview" type="object" string="預覽" class="btn-primary"
+                            invisible="state != 'edit'" data-hotkey="q"/>
+                    <button name="action_apply" type="object" string="確認寫入" class="btn-primary"
+                            invisible="state != 'preview' or not write_count" data-hotkey="q"/>
+                    <button name="action_back" type="object" string="返回修改" class="btn-secondary"
+                            invisible="state != 'preview'" data-hotkey="b"/>
+                    <button string="取消" special="cancel" class="btn-secondary" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

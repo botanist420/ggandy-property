@@ -105,6 +105,7 @@
                         <group string="電費">
                             <field name="electricity_billing_type" readonly="invoice_state == 'posted'"/>
                             <field name="electricity_rate" invisible="electricity_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
+                            <field name="meter_month" invisible="electricity_billing_type != 'metered'"/>
                             <field name="electricity_prev_reading" invisible="electricity_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
                             <field name="electricity_curr_reading" invisible="electricity_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
                             <field name="electricity_usage" invisible="electricity_billing_type != 'metered'"/>
