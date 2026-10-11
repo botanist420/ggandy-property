@@ -100,10 +100,16 @@
                             <field name="unit_ids" context="{'default_property_id': id}">
                                 <list editable="bottom">
                                     <field name="name"/>
-                                    <field name="unit_type"/>
-                                    <field name="floor"/>
+                                    <field name="unit_type" optional="hide"/>
+                                    <field name="floor" optional="hide"/>
                                     <field name="area" optional="hide"/>
                                     <field name="monthly_rent" widget="monetary"/>
+                                    <field name="electricity_billing_type" column_invisible="True"/>
+                                    <field name="electricity_rate" optional="show"
+                                           invisible="electricity_billing_type != 'metered'"/>
+                                    <field name="water_billing_type" column_invisible="True"/>
+                                    <field name="water_fixed_fee" widget="monetary" optional="show"
+                                           invisible="water_billing_type != 'fixed'"/>
                                     <field name="currency_id" column_invisible="True"/>
                                     <field name="state" widget="badge"
                                            decoration-success="state == 'occupied'"

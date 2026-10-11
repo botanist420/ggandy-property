@@ -58,8 +58,9 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `electricity_fixed_fee` / `water_fixed_fee` | 每月固定水電費（Monetary） |
 | `electricity_meter_ref` / `water_meter_ref` | 電錶／水錶編號或位置 |
 | `state` | vacant / reserved / occupied / maintenance / inactive |
-| `meter_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `unit_id`），domain 電費 metered 且租約非 cancelled，不限月份；期次本來就依租約起訖拆月，所以列出的就是租約期間的所有月份 |
+| `meter_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `unit_id`），domain 電費 metered 且租約非 cancelled，不限月份；表單分頁 `default_order="period_start desc"`；期次本來就依租約起訖拆月，所以列出的就是租約期間的所有月份 |
 | `action_open_unit()` / `action_view_current_lease()` | 物件 form 出租單位分頁的「🏠房間」「📄租約帳單」按鈕（`icon` + `o_ggandy_icon_tight`，`static/src/scss/ggandy_backend.scss` 把 Odoo 預設的圖示右邊距拿掉）；租約挑選順序：active → draft → 其他（依 start_date 新到舊）→ cancelled，沒有租約時回傳 `action_view_leases()` |
+| `has_open_lease` / `action_create_lease()` | 有 draft / active 租約（與 `lease_count` 同一個 compute）；表單 header 兩顆「新增房客租約」按鈕依它切換 `btn-primary` / `btn-secondary`，開新 `ggandy.lease` form 並帶 `default_*`（與 `action_view_leases()` 同一組） |
 | `layout_photo_ids` | compute：本單位 chatter 上的 `image/*` 附件 |
 | `maintenance_photo_ids` | compute：本單位所有報修單（含封存）的 `image/*` 附件，依 `ggandy_request_date` desc |
 
@@ -280,7 +281,7 @@ depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`
 | 欄位 / 方法 | 說明 |
 | --- | --- |
 | `preparation_project_id` | 整備專案，`copy=False`、readonly；`models.Constraint unique(preparation_project_id)` |
-| `preparation_task_count` | 專案 `open_task_count`（compute_sudo），給智慧按鈕 |
+| `preparation_progress` | Char，`已完成/全部 (百分比%)`，完成數 = 專案 `task_count - open_task_count`（與 Odoo 專案看板的進度同算法，取消也算完成；compute_sudo），給智慧按鈕（自訂 `o_stat_info`，不用 statinfo widget） |
 | `action_start_preparation()` | 冪等：已有專案就直接開啟。檢查 manager 群組、`management_mode == master_lease`、`owner_id` → 以 sudo 從範本建立專案 → 補建分析帳戶 → 回寫物件 |
 | `stock_location_id`（物件、出租單位） | 對應的 `stock.location`，`copy=False`、readonly、`ondelete=set null` |
 | `_ensure_preparation_sale_order(project)` | 找 `project_id`＋`partner_id = owner_id`＋未取消的銷售單；沒有就 sudo 建空單並 `action_confirm()` |

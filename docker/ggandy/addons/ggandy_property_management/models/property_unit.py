@@ -137,7 +137,7 @@ class GgandyPropertyUnit(models.Model):
         help="依度數計費時，每一度水跟房客收多少元。改動會記錄在下方 chatter。",
     )
     water_fixed_fee = fields.Monetary(
-        string="每月固定水費",
+        string="水費",
         tracking=True,
         help="計費方式選「每月固定金額」時，每個月跟房客收的水費，例如每月 200 元。",
     )
@@ -174,6 +174,11 @@ class GgandyPropertyUnit(models.Model):
         compute="_compute_counts",
         help="這個單位的租約紀錄數量。包含歷史紀錄，不代表目前一定出租中。",
     )
+    has_open_lease = fields.Boolean(
+        string="有進行中租約",
+        compute="_compute_counts",
+        help="這間房是否已有草稿或生效中的房客租約。沒有的話，「新增房客租約」按鈕會以主色提示。",
+    )
     maintenance_count = fields.Integer(
         compute="_compute_counts",
         help="這個單位的報修紀錄數量。數字偏高時可以回頭看是不是設備該保養了。",
@@ -207,10 +212,11 @@ class GgandyPropertyUnit(models.Model):
                 else record.name
             )
 
-    @api.depends("lease_ids", "maintenance_request_ids")
+    @api.depends("lease_ids.state", "maintenance_request_ids")
     def _compute_counts(self):
         for record in self:
             record.lease_count = len(record.lease_ids)
+            record.has_open_lease = any(lease.state in ("draft", "active") for lease in record.lease_ids)
             record.maintenance_count = len(record.maintenance_request_ids)
 
     @api.depends("maintenance_request_ids")
@@ -324,6 +330,22 @@ class GgandyPropertyUnit(models.Model):
             "res_model": "ggandy.lease",
             "view_mode": "list,form",
             "domain": [("unit_id", "=", self.id)],
+            "context": {
+                "default_property_id": self.property_id.id,
+                "default_unit_id": self.id,
+                "default_rent_amount": self.monthly_rent,
+                "default_deposit_amount": self.monthly_rent * self.deposit_months,
+            },
+        }
+
+    def action_create_lease(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "新增房客租約",
+            "res_model": "ggandy.lease",
+            "view_mode": "form",
+            "target": "current",
             "context": {
                 "default_property_id": self.property_id.id,
                 "default_unit_id": self.id,

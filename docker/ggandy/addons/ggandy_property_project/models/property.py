@@ -26,11 +26,11 @@ class GgandyProperty(models.Model):
         help="按下「開始整備」後自動建立的專案。整備期間的報價單、採購單請在「專案」欄選這個專案，"
         "收入與成本就會自動進到同名分析帳戶，方便在專案獲利能力與會計報表裡追蹤。",
     )
-    preparation_task_count = fields.Integer(
-        string="整備任務",
-        compute="_compute_preparation_task_count",
+    preparation_progress = fields.Char(
+        string="整備進度",
+        compute="_compute_preparation_progress",
         compute_sudo=True,
-        help="整備專案中尚未完成的任務數。",
+        help="整備專案已完成（含取消）的任務數／全部任務數，以及完成百分比，例如 4/12 (33%)。",
     )
     stock_location_id = fields.Many2one(
         "stock.location",
@@ -48,9 +48,14 @@ class GgandyProperty(models.Model):
     )
 
     @api.depends("preparation_project_id")
-    def _compute_preparation_task_count(self):
+    def _compute_preparation_progress(self):
         for record in self:
-            record.preparation_task_count = record.preparation_project_id.open_task_count
+            project = record.preparation_project_id
+            total = project.task_count
+            closed = total - project.open_task_count
+            record.preparation_progress = (
+                f"{closed}/{total} ({round(100 * closed / total)}%)" if total else "0/0"
+            )
 
     def action_start_preparation(self):
         self.ensure_one()

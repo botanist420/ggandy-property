@@ -37,7 +37,7 @@
                 <field name="electricity_billing_type" optional="hide"/>
                 <field name="electricity_rate" optional="hide"/>
                 <field name="water_billing_type" optional="hide"/>
-                <field name="water_fixed_fee" string="水費" optional="hide"/>
+                <field name="water_fixed_fee" optional="hide"/>
                 <field name="currency_id" column_invisible="True"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'occupied'"
@@ -55,6 +55,13 @@
         <field name="arch" type="xml">
             <form string="出租單位">
                 <header>
+                    <field name="has_open_lease" invisible="1"/>
+                    <button name="action_create_lease" type="object" string="新增房客租約" class="btn-primary"
+                            invisible="has_open_lease"
+                            help="這間房目前沒有草稿或生效中的租約，按這裡直接建立新租約，月租、押金會自動帶入。"/>
+                    <button name="action_create_lease" type="object" string="新增房客租約" class="btn-secondary"
+                            invisible="not has_open_lease"
+                            help="這間房已有草稿或生效中的租約；續約或預訂下一位房客時仍可在這裡建立新租約。"/>
                     <field name="state" widget="statusbar" statusbar_visible="vacant,reserved,occupied,maintenance,inactive" options="{'clickable': '1'}"/>
                 </header>
                 <sheet>
@@ -121,7 +128,7 @@
                                 只列出電費依度數計費的租金期次。填好抄表度數後，會自動帶到下一期的上期度數，草稿帳單的電費也會一起更新；帳單已過帳的月份不能再改。
                             </div>
                             <field name="meter_schedule_ids" nolabel="1">
-                                <list editable="bottom" create="0" delete="0" default_order="unit_id, period_start">
+                                <list editable="bottom" create="0" delete="0" default_order="period_start desc">
                                     <field name="period_month"/>
                                     <field name="tenant_id" optional="hide"/>
                                     <field name="electricity_prev_reading" string="上期度數" optional="show"/>
@@ -130,23 +137,6 @@
                                     <field name="electricity_amount"/>
                                     <field name="currency_id" column_invisible="True"/>
                                     <field name="invoice_state" column_invisible="True"/>
-                                </list>
-                            </field>
-                        </page>
-                        <page string="維修紀錄" name="maintenance_history">
-                            <field name="maintenance_request_ids" readonly="1">
-                                <list default_order="request_date desc, id desc">
-                                    <field name="name"/>
-                                    <field name="title"/>
-                                    <field name="request_date"/>
-                                    <field name="category"/>
-                                    <field name="vendor_id"/>
-                                    <field name="actual_cost"/>
-                                    <field name="currency_id" column_invisible="True"/>
-                                    <field name="state" widget="badge"
-                                           decoration-success="state == 'done'"
-                                           decoration-warning="state in ('assigned', 'waiting')"
-                                           decoration-info="state == 'in_progress'"/>
                                 </list>
                             </field>
                         </page>
@@ -167,6 +157,23 @@
                                         </t>
                                     </templates>
                                 </kanban>
+                            </field>
+                        </page>
+                        <page string="維修紀錄" name="maintenance_history">
+                            <field name="maintenance_request_ids" readonly="1">
+                                <list default_order="request_date desc, id desc">
+                                    <field name="name"/>
+                                    <field name="title"/>
+                                    <field name="request_date"/>
+                                    <field name="category"/>
+                                    <field name="vendor_id"/>
+                                    <field name="actual_cost"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'done'"
+                                           decoration-warning="state in ('assigned', 'waiting')"
+                                           decoration-info="state == 'in_progress'"/>
+                                </list>
                             </field>
                         </page>
                         <page string="維修照片" name="maintenance_photos">
