@@ -59,7 +59,7 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `electricity_meter_ref` / `water_meter_ref` | 電錶／水錶編號或位置 |
 | `state` | vacant / reserved / occupied / maintenance / inactive |
 | `meter_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `unit_id`），domain 電費 metered 且租約非 cancelled，不限月份；期次本來就依租約起訖拆月，所以列出的就是租約期間的所有月份 |
-| `action_open_unit()` / `action_view_current_lease()` | 物件 form 出租單位分頁的「檢視房間」「檢視租約」按鈕；租約挑選順序：active → draft → 其他（依 start_date 新到舊）→ cancelled，沒有租約時回傳 `action_view_leases()` |
+| `action_open_unit()` / `action_view_current_lease()` | 物件 form 出租單位分頁的「🏠房間」「📄租約帳單」按鈕（`icon` + `o_ggandy_icon_tight`，`static/src/scss/ggandy_backend.scss` 把 Odoo 預設的圖示右邊距拿掉）；租約挑選順序：active → draft → 其他（依 start_date 新到舊）→ cancelled，沒有租約時回傳 `action_view_leases()` |
 | `layout_photo_ids` | compute：本單位 chatter 上的 `image/*` 附件 |
 | `maintenance_photo_ids` | compute：本單位所有報修單（含封存）的 `image/*` 附件，依 `ggandy_request_date` desc |
 
@@ -173,24 +173,28 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 
 ### ggandy.accounting.overview（帳務總表）
 
-- 一列 = 一個出租單位 × 一個月（`unique(unit_id, period_start)`）。
-- `ensure_period_records(date_value=None, units=None)`：沒給 `units` 時替所有 active 單位建立當月列，並刪除當月 `unit_id = False` 的舊格式列；給 `units` 時只補這些單位（`ggandy.property.unit.create()` 會呼叫，新單位立刻有當月列）。
-- 手動補建：總表 list header 的「更新本月總表」按鈕（`action_refresh_current_month`，`display="always"`）；原本的選單與 server action 已移除。
-- GGandy帳務選單：營運總表（10）、逾期未收（20，`ggandy.rent.schedule` + `search_default_overdue` + 依物件分組）、房東待付（30，`account.move` in_invoice 且有 `ggandy_owner_contract_id`，`search_default_open`，限 `account.group_account_invoice`）。
-- 所有金額非 stored，每次開啟即時計算：
+- **`_auto = False` + `_table_query`**（2026-10-11 由「實體表 + 每日排程建列 + 非 stored compute」改寫）：沒有資料表、沒有 cron、不需要手動更新；所有欄位都是 SQL 欄位，所以 `read_group` 可以分組加總（list 依物件分組有小計），也能做樞紐分析／圖表。`init()` 只負責把改版前留下的實體表 `DROP TABLE ... CASCADE`。舊 cron 用 `data/accounting_cron.xml` 的 `<delete search=...>` 移除。
+- 列的範圍：每個 `active` 出租單位，從 `least(單位 create_date 月, 該單位非 cancelled 租約最早 start_date 月)` 到 `CURRENT_DATE` 當月（`generate_series`）。封存的單位不出現。
+- `id = unit_id * 2000 + (年 − 2000) * 12 + 月`（穩定、int4）。`_depends` 列出來源 model 欄位，同一交易內改到來源資料時 ORM 會失效快取。
+- access 只讀（user / manager 都是 1,0,0,0），list / form `create="0" edit="0" delete="0"`。
+- 計算（與改版前 Python 逐列比對 94 列完全一致）：
 
 ```text
-rent_receivable  = Σ 本單位當月（period_start 在月內）期次 total_amount
-rent_collected   = Σ 這些期次 invoice 的已付金額（已過帳）
-rent_uncollected = max(receivable − collected, 0)
-tenant_deposit   = Σ 本單位當月開始、state ∈ {active, expired, terminated} 的租約押金
+rent_receivable  = Σ 本單位 period_start 在當月的期次 total_amount（未排除 cancelled 租約，見 TODO）
+rent_collected   = Σ 這些期次 invoice：posted 才算，sign × max(amount_total − amount_residual, 0)，refund sign = −1
+contract         = 物件當月有交集、state=active、start_date desc, id desc 的第一份房東合約
 ratio            = 本單位 monthly_rent / 物件所有 active 單位 monthly_rent 合計（合計為 0 → 1/單位數）
-owner_payable    = Σ 當期房東合約當月 Vendor Bill（含 refund 為負）× ratio
-owner_paid       = Σ 已付金額 × ratio
-purchase_cost    = Σ 歸屬本物件+本單位、kind=purchase、invoice_date 在月內的 vendor bill
-employee_advance = 同上，kind=employee_advance
-net_cash_flow    = collected + deposit − owner_paid − purchase_cost − employee_advance
+owner_payable    = Σ 該合約、ggandy_settlement_period_start = 當月 1 號、in_invoice/in_refund、非 cancel 的 sign × amount_total × ratio
+owner_paid       = 同一批帳單 posted 的已付金額 × ratio
+purchase_cost    = Σ 歸屬本物件+本單位、kind=purchase、invoice_date 在月內、非 cancel 的 sign × amount_total
+rent_uncollected = max(receivable − collected, 0)；owner_unpaid = max(payable − paid, 0)
+net_cash_flow    = collected − owner_paid − purchase_cost（2026-10-11 起不含押金、員工代墊）
+has_*            = 上面數字的 SQL 布林欄位，原生可搜尋
 ```
+
+- 欄位名稱：應付房東（`owner_payable`）、已付房東（`owner_paid`）、待付房東（`owner_unpaid`）。押金（`tenant_deposit`）、員工代墊（`employee_advance`）、備註（`note`）已移除；Vendor Bill 上的「公司員工代墊」費用類型仍可標記，只是不進總表。
+- list 只在單一欄位上色：`rent_collected` warning（`rent_uncollected > 0`）、`owner_paid` warning（`owner_unpaid > 0`）、`net_cash_flow` danger（< 0）。action 預設 `search_default_current_month` + `search_default_group_property`。
+- GGandy帳務選單：營運總表（10）、逾期未收（20，`ggandy.rent.schedule` + `search_default_overdue` + 依物件分組；租金期次 list 的金額欄都有 `sum`）、待付房東（30，`account.move` in_invoice 且有 `ggandy_owner_contract_id`，`search_default_open`，限 `account.group_account_invoice`）。
 
 ### Google Sheet 匯入（TransientModel）
 
@@ -312,7 +316,6 @@ sale.order / purchase.order 的 project_id = 整備專案
 | GGAndy：自動建立租金帳單 | `ggandy.rent.schedule._cron_create_due_invoices` | 1 天 |
 | GGAndy：建立逾期租金提醒 | `ggandy.rent.schedule._cron_create_overdue_rent_activities` | 1 天 |
 | GGAndy：自動建立房東 Vendor Bill | `ggandy.owner.contract._cron_create_owner_vendor_bills` | 1 天 |
-| GGAndy：更新帳務總表月份 | `ggandy.accounting.overview._cron_ensure_current_period_records` | 1 天 |
 | GGAndy Telegram：接收管理員指令 | `ggandy.telegram.log._cron_poll_updates` | 1 分鐘 |
 | GGAndy Telegram：逾期租金摘要 | `ggandy.telegram.log._cron_send_overdue_rent_digest` | 1 天 |
 

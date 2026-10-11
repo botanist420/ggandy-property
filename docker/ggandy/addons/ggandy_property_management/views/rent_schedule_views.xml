@@ -39,8 +39,8 @@
                 <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
                 <field name="tenant_id"/>
                 <field name="due_date"/>
-                <field name="rent_amount"/>
-                <field name="management_fee" optional="show"/>
+                <field name="rent_amount" sum="租金"/>
+                <field name="management_fee" optional="show" sum="管理費"/>
                 <field name="electricity_amount" optional="show" sum="電費"/>
                 <field name="water_amount" optional="show" sum="水費"/>
                 <field name="total_amount" sum="應收合計"/>

@@ -9,7 +9,7 @@
   `views/account_move_views.xml` 把所有 GGAndy 欄位塞進 `sale_info_group`，但 Odoo 19 這個 group 設了 `invisible="move_type not in ('out_invoice', 'out_refund')"`。結果房東合約、**費用歸屬物件／單位／費用類型**在 Vendor Bill 上都看不到，使用者沒辦法手動標記採購費用與員工代墊，帳務總表的「採購費用」「員工代墊」永遠是 0。
   → 另開一個 vendor bill 專用 group（例如 xpath 到 `//group[@name='accounting_info_group']` 前面，`invisible="move_type not in ('in_invoice','in_refund')"`）。
 - [ ] **終止／取消的租約，未來期次還被算進帳務總表的「租金應收」**
-  `accounting_overview._compute_amounts` 用單位 + 月份抓期次，沒過濾 `lease_id.state`。租約提前終止後，剩下的期次還在，會讓應收、未收、現金流判讀失真。
+  `accounting_overview._table_query` 的 `rent` LATERAL 用單位 + 月份抓期次，沒過濾 `lease_id.state`。租約提前終止後，剩下的期次還在，會讓應收、未收、現金流判讀失真。
   → 終止時刪除（或標記）`period_start > 終止日` 且未開單的期次，並在總表排除 `cancelled` 租約的期次。
 - [ ] **租約沒有辦法變成「已到期」**
   `ggandy.lease` 有 `expired` 狀態，但沒有按鈕也沒有排程會設定它。租期結束後租約永遠是 `active`，單位也一直是「已出租」。（Telegram `/renew` 目前靠「end_date 已過但仍 active」另列一段提醒；做了自動到期後，要記得改成列出近期轉 `expired` 的租約，否則這段提醒會消失。）
@@ -31,7 +31,7 @@
 - [ ] **房東端月中起訖不按天數計算**：包租保底租金 `guaranteed_rent` 每月固定付整月，房東合約月中開始／結束也一樣。代管結算讀期次 `rent_amount`，已自動跟著按日比例。包租端要不要按日比例，待確認。
 - [ ] **租約生效會觸發全域開帳單**：`lease.action_activate` 最後呼叫 `_cron_create_due_invoices()`，會順便替**所有**租約開帳單。改成只處理 `self.schedule_ids`。
 - [ ] **`action_terminate` 沒檢查狀態**：可以對 draft / cancelled 租約呼叫（UI 有擋，RPC 沒擋），也沒記錄實際終止日。考慮加 `termination_date` 欄位。
-- [ ] **押金退還流程**：目前押金只在帳務總表算入現金流，沒有收押金 / 退押金的帳單或負債科目。
+- [ ] **押金退還流程**：目前押金只記在租約上（2026-10-11 起帳務總表也不再計入），沒有收押金 / 退押金的帳單或負債科目。
 - [ ] **房東押金 `owner_deposit`** 只是記錄欄位，沒有付款流程。
 
 ## 🟠 合約資料（2026-10-04 與老闆討論）
@@ -69,7 +69,7 @@
 ## 🟡 改善
 
 - [ ] **自動化測試**：兩個模組都沒有 `tests/`。最值得先寫：`_generate_rent_schedule`（短月、月中起訖）、`_get_owner_settlement_amount`（包租／代管百分比／固定費／部分收款）、`_compute_amounts`（分攤比例）、重疊檢查 constraint。
-- [ ] **帳務總表效能**：`_search_computed_flag` 是 `self.search([]).filtered(...)`，每次篩選都會算整張表所有列。資料量大後考慮改成 stored + cron 重算，或用 SQL view（`_auto = False`）。
+- [x] **帳務總表效能**：改成 `_auto = False` + `_table_query` 即時 SQL，`has_*` 篩選、分組加總都走 SQL；同時拿掉每日建列 cron 與「更新本月總表」（2026-10-11）
 - [ ] **Google Sheet URL 寫死在程式碼**（`DEFAULT_PROPERTY_SHEET_URL`、`DEFAULT_CONTACT_SHEET_URL`）：改成 `ir.config_parameter` 或設定頁欄位。
 - [ ] **Telegram 正式環境**：目前只有 getUpdates 輪詢（每分鐘，和其他 cron 共用 `max_cron_threads = 1`）。正式站可加 webhook controller；`TelegramAPIClient.get_updates` 可用 long polling `timeout`。
 - [ ] Telegram 訊息改用 `parse_mode=HTML` 做粗體／連結，並加上 Odoo 記錄的深層連結。

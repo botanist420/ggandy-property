@@ -33,6 +33,11 @@
         "views/menu_views.xml",
         "views/accounting_overview_views.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "ggandy_property_management/static/src/scss/ggandy_backend.scss",
+        ],
+    },
     "application": True,
     "installable": True,
 }

@@ -265,13 +265,6 @@ class GgandyPropertyUnit(models.Model):
             ):
                 raise ValidationError("水電單價與固定水電費不可小於零。")
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        records = super().create(vals_list)
-        # 帳務總表每單位每月一列，新單位立刻補上本月那列，不用等每日排程。
-        self.env["ggandy.accounting.overview"].ensure_period_records(units=records.filtered("active"))
-        return records
-
     def write(self, values):
         result = super().write(values)
         if any(field in values for field in UTILITY_SETTING_FIELDS):

@@ -58,7 +58,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `ggandy.lease` | `models/lease.py` | 房客租約；生效時拆月建期次 |
 | `ggandy.rent.schedule` | `models/rent_schedule.py` | 租金期次；建客戶 Invoice；逾期活動 |
 | `ggandy.maintenance.request` | `models/maintenance_request.py` | 報修單 |
-| `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每單位 × 每月一列**，金額全是非 stored compute |
+| `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每單位 × 每月一列**，`_auto = False` + `_table_query` 即時 SQL（可分組加總），唯讀 |
 | `ggandy.google.sheet.*.import.wizard` | `models/google_sheet_import_wizard.py` | TransientModel；物件／聯絡人匯入（pandas 讀 CSV export），共用 `ggandy.google.sheet.import.mixin` |
 | `ggandy.google.sheet.lease.import.wizard` | `models/google_sheet_lease_import_wizard.py` | TransientModel；租約與抄表匯入（房間租約／抄表度數／帳單調整三分頁），有預覽（savepoint 還原），租約一律建草稿 |
 | `ggandy.master.lease.profit.wizard` | `models/master_lease_profit_wizard.py` | TransientModel；包租獲利試算，純 compute 不寫資料，僅 manager |
@@ -79,7 +79,6 @@ Telegram 模組：`ggandy.telegram.log`（`models/telegram_log.py`，指令處�
 | 自動建立租金帳單 | `ggandy.rent.schedule._cron_create_due_invoices` | 每日 |
 | 建立逾期租金提醒 | `ggandy.rent.schedule._cron_create_overdue_rent_activities` | 每日 |
 | 自動建立房東 Vendor Bill | `ggandy.owner.contract._cron_create_owner_vendor_bills` | 每日 |
-| 更新帳務總表月份 | `ggandy.accounting.overview._cron_ensure_current_period_records` | 每日 |
 | Telegram 接收指令 | `ggandy.telegram.log._cron_poll_updates` | 每分鐘 |
 | Telegram 逾期摘要 | `ggandy.telegram.log._cron_send_overdue_rent_digest` | 每日 |
 
@@ -93,7 +92,7 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 - **房東合約生效**會回寫物件的 `management_mode`、`owner_id`、`acquisition_date`、`management_end_date`。
 - **重疊檢查**：同物件同期間只能一份 active 房東合約；同單位同期間只能一份 active 租約（`@api.constrains`）。
 - **帳單用的產品**以 xmlid 取得：`product_product_rent`、`product_product_management_fee`、`product_product_owner_settlement`（`data/product_data.xml`）。
-- **帳務總表** `_unique_unit_period` 用 Odoo 19 的 `models.Constraint`；`init()` 會 drop 舊的 property-period constraint。flag 欄位（`has_*`）的 search 是 `search([]).filtered(...)`，資料量大時會慢。
+- **帳務總表**是 `_table_query` 的 SQL：沒有資料表、不用排程建列；新增金額欄位要改 SQL，並把來源欄位加進 `_depends`。`init()` 只會 drop 改版前留下的實體表。
 - **Telegram 授權**：`telegram_user_id` + `telegram_enabled` + 使用者需屬於 `group_property_manager`；只處理私訊；查詢用 `with_user(user).with_company(company)` 套用記錄規則。
 
 ### 權限
