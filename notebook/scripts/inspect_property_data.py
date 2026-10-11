@@ -21,7 +21,9 @@ for prop in props:
     print(f"\n=== {prop.name}（{prop.code}，id {prop.id}，{'使用中' if prop.active else '已封存'}）")
     print(f"管理模式 {prop.management_mode}｜房東 {prop.owner_id.name or '-'}｜負責人 {prop.manager_id.name or '-'}")
     units = env["ggandy.property.unit"].with_context(active_test=False).search([("property_id", "=", prop.id)])
-    print(f"出租單位 {len(units)}：" + "、".join(f"{u.name}({u.state})" for u in units))
+    print(f"出租單位 {len(units)}（已封存 {len(units.filtered(lambda u: not u.active))}）：" + "、".join(
+        f"{u.name}({u.state}{'，已封存' if not u.active else ''})" for u in units
+    ))
     leases = env["ggandy.lease"].with_context(active_test=False).search([("property_id", "=", prop.id)])
     print(f"租約 {len(leases)}（{count_by(leases, 'state')}）")
     for lease in leases:
