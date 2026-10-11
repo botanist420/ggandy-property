@@ -24,7 +24,7 @@ class GgandyPropertyUnit(models.Model):
     _name = "ggandy.property.unit"
     _description = "出租單位"
     _inherit = ["mail.thread", "mail.activity.mixin"]
-    _order = "property_id, floor, name"
+    _order = "property_id, sequence, id"
 
     name = fields.Char(
         string="房號／單位名稱",
@@ -33,6 +33,11 @@ class GgandyPropertyUnit(models.Model):
         help="出租單位的名稱，例如 2F-A、B1 車位或 301。建議使用清楚、可辨識的命名。",
     )
     active = fields.Boolean(default=True)
+    sequence = fields.Integer(
+        string="排序",
+        default=10,
+        help="物件頁出租單位分頁的顯示順序，可以拖曳左邊的把手調整。新增的單位會排在最後面；電表維護、當期帳單等分頁也照這個順序。",
+    )
     property_id = fields.Many2one(
         "ggandy.property",
         string="所屬物件",
@@ -270,6 +275,23 @@ class GgandyPropertyUnit(models.Model):
                 or record.water_fixed_fee < 0
             ):
                 raise ValidationError("水電單價與固定水電費不可小於零。")
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        # 沒指定排序時接在同物件最後面，讓房間順序跟新增順序（通常就是房東 Sheet 的順序）一致。
+        property_ids = {vals["property_id"] for vals in vals_list if "sequence" not in vals and vals.get("property_id")}
+        next_sequence = {}
+        if property_ids:
+            groups = self.with_context(active_test=False)._read_group(
+                [("property_id", "in", list(property_ids))], ["property_id"], ["sequence:max"]
+            )
+            next_sequence = {property_record.id: (max_sequence or 0) + 1 for property_record, max_sequence in groups}
+        for vals in vals_list:
+            if "sequence" in vals or not vals.get("property_id"):
+                continue
+            vals["sequence"] = next_sequence.get(vals["property_id"], 10)
+            next_sequence[vals["property_id"]] = vals["sequence"] + 1
+        return super().create(vals_list)
 
     def write(self, values):
         result = super().write(values)

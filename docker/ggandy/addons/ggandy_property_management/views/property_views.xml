@@ -64,7 +64,7 @@
                             <field name="owner_contract_count" widget="statinfo" string="房東合約"/>
                         </button>
                         <button name="action_view_leases" type="object" class="oe_stat_button" icon="fa-file-text-o">
-                            <field name="lease_count" widget="statinfo" string="租約"/>
+                            <field name="lease_count" widget="statinfo" string="房客租約"/>
                         </button>
                         <button name="action_view_maintenance" type="object" class="oe_stat_button" icon="fa-wrench">
                             <field name="maintenance_count" widget="statinfo" string="報修單"/>
@@ -104,6 +104,10 @@
                         <page string="出租單位" name="units">
                             <field name="unit_ids" context="{'default_property_id': id}">
                                 <list editable="bottom">
+                                    <control>
+                                        <create string="新增房間"/>
+                                    </control>
+                                    <field name="sequence" widget="handle"/>
                                     <field name="name"/>
                                     <field name="unit_type" optional="hide"/>
                                     <field name="floor" optional="hide"/>
@@ -152,18 +156,20 @@
                         </page>
                         <page string="電表維護" name="meter_readings">
                             <div class="text-muted mb-2">
-                                只列出本月帳單、電費依度數計費的租金期次。本月帳單收的是上個月的電費，所以「電表月份」會是上個月；抄表度數請填該電表月份月底的讀數。過去月份請到出租單位的「電表維護」分頁。填好抄表度數後，會自動帶到下一期的上期度數，草稿帳單的電費也會一起更新；帳單已過帳的月份不能再改。
+                                <p class="mb-1">列出本月帳單、電費依度數計費的房間。本月帳單收的是上個月的電費，所以「電表月份」是上個月，抄表度數請填該月月底的讀數。</p>
+                                <p class="mb-0">填好後會自動帶到下一期的上期度數，草稿帳單的電費也會一起更新；帳單已過帳就不能再改。過去月份請到出租單位的「電表維護」分頁。</p>
                             </div>
                             <field name="current_meter_schedule_ids" nolabel="1">
                                 <list editable="bottom" create="0" delete="0" default_order="unit_id">
-                                    <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
-                                    <field name="meter_month"/>
-                                    <field name="period_month" optional="hide"/>
+                                    <field name="unit_id" context="{'ggandy_unit_short_name': True}" width="110px"/>
+                                    <field name="meter_month" width="90px"/>
+                                    <field name="period_month" optional="hide" width="90px"/>
                                     <field name="tenant_id" optional="hide"/>
-                                    <field name="electricity_prev_reading" string="上期度數" optional="show"/>
-                                    <field name="electricity_curr_reading" string="抄表度數" readonly="invoice_state == 'posted'"/>
-                                    <field name="electricity_usage" optional="show"/>
-                                    <field name="electricity_amount"/>
+                                    <field name="electricity_prev_reading" string="上期度數" optional="show" width="100px"/>
+                                    <field name="electricity_curr_reading" string="抄表度數" readonly="invoice_state == 'posted'" width="100px"/>
+                                    <field name="electricity_usage" optional="show" width="90px"/>
+                                    <field name="electricity_amount" width="100px"/>
+                                    <field name="note" string="備註" optional="show" placeholder="例如：換電錶"/>
                                     <field name="currency_id" column_invisible="True"/>
                                     <field name="invoice_state" column_invisible="True"/>
                                 </list>

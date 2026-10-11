@@ -9,8 +9,6 @@ from odoo.tools import float_compare
 
 from .rent_schedule import READING_TO_BILL_MONTH_OFFSET, _format_number
 
-# 從 Google Sheet 連 A 欄一起複製時，房間列第一格會是這些標題。
-ROOM_ROW_LABELS = {"度數", "房間", "房號"}
 MONTH_OPTION_COUNT = 12
 STATUS_LABELS = {
     "write": ("將寫入", "text-bg-success"),
@@ -45,14 +43,16 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
         help="要貼上的是哪個月的電表讀數（該月月底抄的度數）。"
         "這個月的電費會算進下個月的帳單，例如選 9 月，度數會寫進 10 月期次的本期度數。",
     )
-    room_text = fields.Text(
-        string="房間",
-        help="從 Google Sheet 複製房號那一列直接貼上，例如「R1　R2　R3」（以 tab 分隔）。"
-        "房號要跟出租單位的名稱完全一樣。",
+    room_order_html = fields.Html(
+        string="房間順序",
+        compute="_compute_room_order_html",
+        sanitize=False,
+        help="系統裡這個物件的出租單位順序，貼上的度數會依這個順序對應。"
+        "跟 Google Sheet 不一致時，請到物件頁的出租單位分頁拖曳調整。",
     )
     reading_text = fields.Text(
         string="抄表度數",
-        help="從 Google Sheet 複製同一個電表月份的度數那一列貼上，順序要跟上面的房間一致。"
+        help="從 Google Sheet 複製同一個電表月份的度數那一列貼上，順序要跟上面的房間順序一致。"
         "千分位逗號會自動去掉；空白或 0 代表這間還沒抄，會略過。",
     )
     bill_month_hint = fields.Char(
@@ -83,6 +83,17 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
             options.append((month.strftime("%Y-%m"), f"{month.year} 年 {month.month} 月"))
         return options
 
+    @api.depends("property_id")
+    def _compute_room_order_html(self):
+        for wizard in self:
+            badges = Markup()
+            for index, unit in enumerate(wizard.property_id.unit_ids, start=1):
+                badges += Markup(
+                    '<span class="badge rounded-pill text-bg-light border me-1 mb-1">'
+                    '<span class="text-muted me-1">%s</span>%s</span>'
+                ) % (index, unit.name)
+            wizard.room_order_html = badges or False
+
     @api.depends("meter_month")
     def _compute_bill_month_hint(self):
         for wizard in self:
@@ -95,15 +106,15 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
     # ------------------------------------------------------------------
     # 解析與比對
     # ------------------------------------------------------------------
-    def _split_row(self, text, label, allow_space=False):
+    def _split_row(self, text):
         lines = [line for line in (text or "").splitlines() if line.strip()]
         if not lines:
             return []
         if len(lines) > 1:
-            raise UserError(f"「{label}」一次只能貼一列，目前有 {len(lines)} 列。")
+            raise UserError(f"「抄表度數」一次只能貼一列，目前有 {len(lines)} 列。")
         line = lines[0]
-        # 房號可能含空白，只用 tab 切；度數列手打時也接受空白分隔。
-        cells = line.split() if allow_space and "\t" not in line else line.split("\t")
+        # Google Sheet 複製是 tab 分隔；手打時也接受空白分隔。
+        cells = line.split("\t") if "\t" in line else line.split()
         return [cell.strip() for cell in cells]
 
     def _parse_reading(self, text):
@@ -121,32 +132,25 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
         return True
 
     def _parse_rows(self):
-        """回傳 [(房號, 度數文字)]；兩列對不起來時 raise UserError。"""
+        """依出租單位順序回傳 [(出租單位, 度數文字)]；格數對不起來時 raise UserError。"""
         self.ensure_one()
-        rooms = self._split_row(self.room_text, "房間")
-        cells = self._split_row(self.reading_text, "抄表度數", allow_space=True)
-        if rooms and rooms[0] in ROOM_ROW_LABELS:
-            rooms = rooms[1:]
-        while rooms and not rooms[-1]:
-            rooms.pop()
-        if len(cells) == len(rooms) + 1 and cells[0] and not self._is_number(cells[0]):
+        units = self.property_id.unit_ids
+        cells = self._split_row(self.reading_text)
+        if len(cells) == len(units) + 1 and cells[0] and not self._is_number(cells[0]):
             # 度數列連 A 欄的「9月」一起複製
             cells = cells[1:]
-        if len(cells) > len(rooms) and not any(cells[len(rooms):]):
-            cells = cells[: len(rooms)]
-        if not rooms:
-            raise UserError("請先貼上房間那一列。")
+        if len(cells) > len(units) and not any(cells[len(units):]):
+            cells = cells[: len(units)]
+        if not units:
+            raise UserError("這個物件還沒有出租單位。")
         if not cells:
             raise UserError("請貼上抄表度數那一列。")
-        if len(rooms) != len(cells):
+        if len(cells) != len(units):
             raise UserError(
-                f"房間有 {len(rooms)} 格，抄表度數有 {len(cells)} 格，對不起來。"
-                "請確認兩列是從同樣的欄位範圍複製的。"
+                f"系統有 {len(units)} 間房，貼上的度數有 {len(cells)} 格，對不起來。"
+                "請確認複製的範圍，或到物件頁的出租單位分頁檢查房間是否多了、少了。"
             )
-        duplicates = sorted({room for room in rooms if room and rooms.count(room) > 1})
-        if duplicates:
-            raise UserError(f"房間列有重複的房號：{'、'.join(duplicates)}。")
-        return list(zip(rooms, cells))
+        return list(zip(units, cells))
 
     def _get_bill_month(self):
         year, month = map(int, self.meter_month.split("-"))
@@ -157,15 +161,11 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
         self.ensure_one()
         pairs = self._parse_rows()
         bill_month = self._get_bill_month()
-        units = {unit.name.strip(): unit for unit in self.property_id.unit_ids}
         Schedule = self.env["ggandy.rent.schedule"]
         results = []
-        for room, cell in pairs:
-            line = {"room": room, "reading": None, "schedule": Schedule, "status": "skip", "message": ""}
+        for unit, cell in pairs:
+            line = {"room": unit.name, "reading": None, "schedule": Schedule, "status": "skip", "message": ""}
             results.append(line)
-            if not room:
-                line["message"] = "房號空白"
-                continue
             try:
                 line["reading"] = self._parse_reading(cell)
             except ValueError:
@@ -173,10 +173,6 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
                 continue
             if line["reading"] is None:
                 line["message"] = "沒有度數"
-                continue
-            unit = units.get(room)
-            if not unit:
-                line.update(status="error", message=f"{self.property_id.name} 沒有房號「{room}」")
                 continue
             schedule = Schedule._find_unit_month_schedule(unit, bill_month)
             line["schedule"] = schedule
@@ -215,12 +211,12 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
     # ------------------------------------------------------------------
     # 預覽
     # ------------------------------------------------------------------
-    @api.depends("property_id", "meter_month", "room_text", "reading_text")
+    @api.depends("property_id", "meter_month", "reading_text")
     def _compute_preview_html(self):
         for wizard in self:
             wizard.preview_html = False
             wizard.write_count = wizard.unchanged_count = 0
-            if not (wizard.room_text or wizard.reading_text) or not wizard.meter_month:
+            if not wizard.reading_text or not wizard.meter_month:
                 continue
             try:
                 lines = wizard._analyze()
@@ -233,7 +229,7 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
 
     def _render_preview(self, lines):
         rows = Markup()
-        for line in lines:
+        for index, line in enumerate(lines, start=1):
             schedule = line["schedule"]
             prev = schedule.electricity_prev_reading if schedule else None
             usage = line["reading"] - prev if line["status"] == "write" and prev is not None else None
@@ -242,9 +238,10 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
             if line["message"]:
                 status += Markup('<span class="small text-muted ms-2">%s</span>') % line["message"]
             rows += Markup(
-                "<tr><td class='fw-bold'>%s</td><td>%s</td><td class='text-end'>%s</td><td class='text-end'>%s</td>"
+                "<tr><td class='text-muted'>%s</td><td class='fw-bold'>%s</td><td>%s</td><td class='text-end'>%s</td><td class='text-end'>%s</td>"
                 "<td class='text-end'>%s</td><td>%s</td></tr>"
             ) % (
+                index,
                 line["room"],
                 schedule.period_month if schedule else "",
                 _format_number(prev) if prev is not None else "",
@@ -260,7 +257,7 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
         return Markup(
             '<div class="mb-2">%s</div>'
             '<table class="table table-sm table-hover align-middle mb-0">'
-            "<thead><tr><th>房號</th><th>帳單月份</th><th class='text-end'>上期度數</th>"
+            "<thead><tr><th>#</th><th>房號</th><th>帳單月份</th><th class='text-end'>上期度數</th>"
             "<th class='text-end'>抄表度數</th><th class='text-end'>用電度數</th><th>狀態</th></tr></thead>"
             "<tbody>%s</tbody></table>"
         ) % (summary, rows)

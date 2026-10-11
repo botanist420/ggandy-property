@@ -11,8 +11,8 @@
                 <div class="alert alert-info py-2 mb-3" role="alert" invisible="state != 'edit'">
                     <ol class="mb-0 ps-3">
                         <li>選擇<strong>電表月份</strong></li>
-                        <li>從 Google Sheet 複製<strong>房號那一列</strong>，貼到「房間」</li>
-                        <li>複製同月份的<strong>度數那一列</strong>，貼到「抄表度數」，再按「預覽」</li>
+                        <li>確認下方<strong>房間順序</strong>跟 Google Sheet 一致（不一致請到出租單位分頁拖曳調整）</li>
+                        <li>從 Google Sheet 複製該月的<strong>度數那一列</strong>，貼到「抄表度數」，再按「預覽」</li>
                     </ol>
                 </div>
                 <div class="alert alert-info py-2 mb-3" role="alert" invisible="state != 'preview' or write_count or not unchanged_count">
@@ -28,11 +28,11 @@
                         <field name="meter_month" readonly="state == 'preview'"/>
                         <field name="bill_month_hint" class="text-muted" nolabel="1"/>
                     </div>
-                    <field name="room_text" invisible="state != 'edit'" placeholder="R1　R2　R3　R4 …"/>
+                    <field name="room_order_html" readonly="1" invisible="state != 'edit'"/>
                     <field name="reading_text" invisible="state != 'edit'" placeholder="2,398　9,389　5,789　7,345 …"/>
                 </group>
                 <div class="small text-muted" invisible="state != 'edit'">
-                    千分位逗號會自動去掉，連 A 欄的「度數」「9月」一起複製也可以；度數空白或 0 的房間會略過。
+                    千分位逗號會自動去掉，連 A 欄的「9月」一起複製也可以；度數空白或 0 的房間會略過。
                 </div>
                 <field name="preview_html" nolabel="1" readonly="1" invisible="state != 'preview'"/>
                 <footer>

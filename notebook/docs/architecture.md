@@ -50,6 +50,7 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 
 | 欄位 | 說明 |
 | --- | --- |
+| `sequence` | `_order = "property_id, sequence, id"`；物件 form 出租單位分頁 `widget="handle"` 可拖曳。`create()` 沒帶 sequence 時接在同物件（含封存）最大值 +1，批次依序累加；既有資料升級時全為 10，靠 id 維持建立順序 |
 | `unit_type` | suite / room / whole / shop / office / parking / other |
 | `monthly_rent` | 參考月租：租約預設值，也是帳務總表房東應付的**分攤權重** |
 | `deposit_months` | 押金月數（預設 2） |
@@ -228,8 +229,8 @@ has_*            = 上面數字的 SQL 布林欄位，原生可搜尋
 - `ggandy.quick.meter.reading.wizard`（`models/quick_meter_reading_wizard.py`）：物件 form `<header>` 的「快速抄表」（`ggandy.property.action_open_quick_meter_reading()`，target new）。主模組物件 form 的 `<header>` 只放這顆按鈕，整備模組用 `//header` position inside 接在後面（快速抄表 → 開始整備 → 整備採購 → 同步庫存位置）。
   - 兩步驟：`state` edit → `action_preview()`（先跑 `_analyze()`，格數不對直接 `UserError` 留在貼上步驟）→ preview（隱藏貼上欄位、月份唯讀，顯示 `preview_html`）→ `action_apply()`；`action_back()` 回 edit。兩個按鈕都回傳 `_reopen_wizard()`。`write_count` 為 0 時不顯示「確認寫入」。`bill_month_hint` 顯示在月份旁（→ 寫進 N 月帳單）。
   - `meter_month`：動態 Selection（`_get_meter_month_selection`，本月往回 12 個月），預設本月；帳單月份 = 電表月份 + `READING_TO_BILL_MONTH_OFFSET`。
-  - `_parse_rows()`：房間列只用 tab 切（房號可能含空白），度數列沒有 tab 時也接受空白；去掉房間列開頭的「度數／房間／房號」、度數列開頭非數字的那格（連 A 欄複製）、尾端空白格；兩列格數不同、重複房號、一欄多列 → `UserError`。
-  - `_analyze()`（`preview_html` / `write_count` 與 `action_apply()` 共用）：每格狀態 write / unchanged / skip（空白或 0、非依度數計費）/ error（找不到房號、沒有期次、已過帳、小於上期）。
+  - 不貼房號：`room_order_html` 顯示 `property_id.unit_ids`（依 `sequence`）的編號順序，度數列依序對應。`_parse_rows()`：有 tab 用 tab 切、否則空白；去掉開頭非數字的那格（連 A 欄「9月」複製）與超出房間數的尾端空白格；格數 ≠ 房間數、一欄多列 → `UserError`。
+  - `_analyze()`（`preview_html` / `write_count` 與 `action_apply()` 共用）：每格狀態 write / unchanged / skip（空白或 0、非依度數計費）/ error（度數非數字、沒有期次、已過帳、小於上期）。
   - `action_apply()`：每間 `cr.savepoint()` 寫 `electricity_curr_reading`（走期次 `write()` 的帶上期度數與草稿帳單同步），回傳 `display_notification` + `next: act_window_close`（物件 form 會重新載入）；一間都沒寫且沒有「未變更」時 `UserError`。只處理電錶。
 - `ggandy.master.lease.profit.wizard`（`models/master_lease_profit_wizard.py`），選單只開給 `group_property_manager`。
 - 只有「關閉」按鈕，結果全是非 stored compute，在畫面上即時重算，不會寫入資料庫。`property_id` 只用來帶入 `room_count`（= `unit_count`）。
