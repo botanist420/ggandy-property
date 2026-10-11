@@ -125,7 +125,7 @@ class GgandyProperty(models.Model):
         readonly=True,
     )
 
-    unit_ids = fields.One2many("ggandy.property.unit", "property_id", string="出租單位")
+    unit_ids = fields.One2many("ggandy.property.unit", "property_id", string="房間")
     owner_contract_ids = fields.One2many(
         "ggandy.owner.contract", "property_id", string="房東合約"
     )
@@ -160,16 +160,17 @@ class GgandyProperty(models.Model):
     current_meter_schedule_ids = fields.One2many(
         "ggandy.rent.schedule",
         "property_id",
-        string="電表維護",
+        string="水電表維護",
         domain=lambda self: self._get_current_meter_schedule_domain(),
-        help="此物件本月、電費依度數計費的租金期次。在這裡填抄表度數，跟租約裡的租金期次是同一筆資料；過去月份請到出租單位的電表維護分頁查看。",
+        help="此物件本月、電費依度數計費或水費要另外收的租金期次。在這裡填抄表度數、調整這個月的水費，"
+        "跟租約裡的租金期次是同一筆資料；過去月份請到房間的水電表維護分頁查看。",
     )
     maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request", "property_id", string="報修單"
     )
     unit_count = fields.Integer(
         compute="_compute_counts",
-        help="這個物件底下的出租單位數量。若數字不對，先檢查單位是否建在別的物件底下。",
+        help="這個物件底下的房間數量。若數字不對，先檢查房間是否建在別的物件底下。",
     )
     owner_contract_count = fields.Integer(
         compute="_compute_counts",
@@ -211,7 +212,11 @@ class GgandyProperty(models.Model):
 
     @api.model
     def _get_current_meter_schedule_domain(self):
-        return self._get_current_schedule_domain() + [("electricity_billing_type", "=", "metered")]
+        return self._get_current_schedule_domain() + [
+            "|",
+            ("electricity_billing_type", "=", "metered"),
+            ("water_billing_type", "in", ("metered", "fixed")),
+        ]
 
     @api.onchange("city_id")
     def _onchange_city_id(self):
@@ -292,7 +297,7 @@ class GgandyProperty(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": "出租單位",
+            "name": "房間",
             "res_model": "ggandy.property.unit",
             "view_mode": "list,form",
             "domain": [("property_id", "=", self.id)],

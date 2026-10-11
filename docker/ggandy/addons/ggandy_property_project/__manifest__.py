@@ -15,6 +15,7 @@
     "data": [
         "data/project_preparation_data.xml",
         "views/property_views.xml",
+        "views/purchase_order_views.xml",
         "views/res_config_settings_views.xml",
     ],
     "application": False,

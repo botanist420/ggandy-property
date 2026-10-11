@@ -461,7 +461,7 @@ class GgandyGoogleSheetLeaseImportWizard(models.TransientModel):
     def _write_changed(self, record, values):
         """只寫入真的有變的欄位，回傳變更的欄位名稱。
 
-        避免重新匯入時，例如出租單位的水電設定被整批重寫，把期次上手動調整過的金額蓋回預設值。
+        避免重新匯入時，例如房間的水電設定被整批重寫，把期次上手動調整過的金額蓋回預設值。
         """
         changed = {}
         for field_name, value in values.items():

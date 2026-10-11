@@ -4,7 +4,7 @@
         <field name="name">ggandy.property.unit.search</field>
         <field name="model">ggandy.property.unit</field>
         <field name="arch" type="xml">
-            <search string="搜尋出租單位">
+            <search string="搜尋房間">
                 <field name="name"/>
                 <field name="property_id"/>
                 <filter name="vacant" string="空房" domain="[('state', '=', 'vacant')]"/>
@@ -15,7 +15,7 @@
                 <group>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
                     <filter name="group_state" string="出租狀態" context="{'group_by': 'state'}"/>
-                    <filter name="group_type" string="單位類型" context="{'group_by': 'unit_type'}"/>
+                    <filter name="group_type" string="房間類型" context="{'group_by': 'unit_type'}"/>
                     <filter name="group_electricity_billing" string="電費計費方式" context="{'group_by': 'electricity_billing_type'}"/>
                     <filter name="group_water_billing" string="水費計費方式" context="{'group_by': 'water_billing_type'}"/>
                 </group>
@@ -27,7 +27,7 @@
         <field name="name">ggandy.property.unit.list</field>
         <field name="model">ggandy.property.unit</field>
         <field name="arch" type="xml">
-            <list string="出租單位" multi_edit="1" decoration-muted="not active">
+            <list string="房間" multi_edit="1" decoration-muted="not active">
                 <field name="property_id"/>
                 <field name="name"/>
                 <field name="unit_type"/>
@@ -53,7 +53,7 @@
         <field name="name">ggandy.property.unit.form</field>
         <field name="model">ggandy.property.unit</field>
         <field name="arch" type="xml">
-            <form string="出租單位">
+            <form string="房間">
                 <header>
                     <field name="has_open_lease" invisible="1"/>
                     <button name="action_create_lease" type="object" string="新增房客租約" class="btn-primary"
@@ -123,11 +123,12 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="電表維護" name="meter_readings">
+                        <page string="水電表維護" name="meter_readings">
                             <div class="o_ggandy_hint">
                                 <i class="fa fa-info-circle" role="img" title="說明"/>
                                 <div>
                                     <div><strong>電表月份</strong>是這期帳單收哪個月的電費，例如 10 月帳單收 9 月電費。</div>
+                                    <div><strong>水費</strong>是那一期帳單收的固定水費，只改那一期；要改之後每個月的金額請改上方的水費設定。</div>
                                     <div>抄表度數填該月月底讀數，填好會帶到下一期並更新草稿帳單，已過帳不能改。</div>
                                 </div>
                             </div>
@@ -136,10 +137,19 @@
                                     <field name="meter_month" width="90px"/>
                                     <field name="period_month" optional="hide" width="90px"/>
                                     <field name="tenant_id" optional="hide"/>
-                                    <field name="electricity_prev_reading" string="上期度數" optional="show" width="100px"/>
-                                    <field name="electricity_curr_reading" string="抄表度數" readonly="invoice_state == 'posted'" width="100px"/>
-                                    <field name="electricity_usage" optional="show" width="90px"/>
+                                    <field name="electricity_billing_type" column_invisible="True"/>
+                                    <field name="electricity_prev_reading" string="上期度數" optional="show" width="100px"
+                                           invisible="electricity_billing_type != 'metered'"/>
+                                    <field name="electricity_curr_reading" string="抄表度數" width="100px"
+                                           invisible="electricity_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
+                                    <field name="electricity_usage" optional="show" width="90px"
+                                           invisible="electricity_billing_type != 'metered'"/>
                                     <field name="electricity_amount" width="100px"/>
+                                    <field name="water_billing_type" column_invisible="True"/>
+                                    <field name="water_fixed_fee" string="水費" width="100px"
+                                           invisible="water_billing_type != 'fixed'" readonly="invoice_state == 'posted'"/>
+                                    <field name="water_curr_reading" string="水錶度數" optional="hide" width="100px"
+                                           invisible="water_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
                                     <field name="note" string="備註" optional="show" placeholder="例如：換電錶"/>
                                     <field name="currency_id" column_invisible="True"/>
                                     <field name="invoice_state" column_invisible="True"/>
@@ -223,13 +233,13 @@
     </record>
 
     <record id="action_ggandy_property_unit" model="ir.actions.act_window">
-        <field name="name">出租單位</field>
+        <field name="name">房間</field>
         <field name="res_model">ggandy.property.unit</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_ggandy_property_unit_search"/>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">建立第一個出租單位</p>
-            <p>出租單位可以是一間房、一戶、一個店面或車位。</p>
+            <p class="o_view_nocontent_smiling_face">建立第一個房間</p>
+            <p>房間可以是一間套房、一戶、一個店面或車位。</p>
         </field>
     </record>
 </odoo>

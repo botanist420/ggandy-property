@@ -20,14 +20,14 @@ select '房客 tenants' as item, count(*) as total
 from res_partner
 where coalesce(is_ggandy_tenant, false)
 union all
-select '維修廠商 vendors' as item, count(*) as total
+select '合作廠商 vendors' as item, count(*) as total
 from res_partner
 where coalesce(is_ggandy_vendor, false)
 union all
 select '物件 properties' as item, count(*) as total
 from ggandy_property
 union all
-select '出租單位 units' as item, count(*) as total
+select '房間 units' as item, count(*) as total
 from ggandy_property_unit
 union all
 select '房東合約 owner contracts' as item, count(*) as total
@@ -44,7 +44,7 @@ from ggandy_maintenance_request;
 
 
 -- 03. 查所有 GGAndy 聯絡人。
--- 房東、房客、維修廠商都是 Odoo 的 res_partner，只靠布林欄位區分身份。
+-- 房東、房客、合作廠商都是 Odoo 的 res_partner，只靠布林欄位區分身份。
 select
     p.id,
     p.name as 姓名,
@@ -52,7 +52,7 @@ select
     p.email as email,
     case when coalesce(p.is_ggandy_owner, false) then 'Y' else '' end as 房東,
     case when coalesce(p.is_ggandy_tenant, false) then 'Y' else '' end as 房客,
-    case when coalesce(p.is_ggandy_vendor, false) then 'Y' else '' end as 維修廠商,
+    case when coalesce(p.is_ggandy_vendor, false) then 'Y' else '' end as 合作廠商,
     p.active as 啟用
 from res_partner p
 where coalesce(p.is_ggandy_owner, false)
@@ -108,7 +108,7 @@ select
     p.email,
     p.is_ggandy_owner as 是房東,
     p.is_ggandy_tenant as 是房客,
-    p.is_ggandy_vendor as 是維修廠商
+    p.is_ggandy_vendor as 是合作廠商
 from res_partner p
 where p.name ilike '%Rosy%'
    or p.phone ilike '%Rosy%'
@@ -116,7 +116,7 @@ where p.name ilike '%Rosy%'
 order by p.name nulls last, p.id;
 
 
--- 07. 查物件總覽：物件、房東、管理模式、單位數、地址。
+-- 07. 查物件總覽：物件、房東、管理模式、房間數、地址。
 select
     property.id,
     property.code as 物件編號,
@@ -136,7 +136,7 @@ select
         when 'other' then '其他'
         else property.property_type
     end as 物件類型,
-    count(unit.id) as 單位數,
+    count(unit.id) as 房間數,
     concat_ws(' ', property.zip, state.name, property.city, property.street, property.street2) as 地址,
     property.active as 啟用
 from ggandy_property property
@@ -150,7 +150,7 @@ group by property.id, owner.name, state.name
 order by property.code, property.name;
 
 
--- 08. 查電表度數（同出租單位表單的「電表維護」分頁；物件表單只顯示本月）。
+-- 08. 查電表度數（同房間表單的「水電表維護」分頁；物件表單只顯示本月）。
 -- 只列電費依度數計費、租約未取消的期次；把物件編號換成你要查的物件。
 select
     property.code as 物件編號,
@@ -173,13 +173,13 @@ where schedule.electricity_billing_type = 'metered'
 order by unit.name, schedule.period_start;
 
 
--- 09. 查出租單位總覽。
+-- 09. 查房間總覽。
 -- state: vacant 空房、reserved 已保留、occupied 已出租、maintenance 維修中、inactive 停用。
 select
     property.code as 物件編號,
     property.name as 物件名稱,
     unit.id as unit_id,
-    unit.name as 單位,
+    unit.name as 房間,
     unit.floor as 樓層,
     case unit.state
         when 'vacant' then '空房'
@@ -202,11 +202,11 @@ order by property.code, unit.floor, unit.name;
 
 
 -- 10. 查目前空房。
--- 如果要排除停用物件/單位，保留 active 條件。
+-- 如果要排除停用物件/房間，保留 active 條件。
 select
     property.code as 物件編號,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     unit.floor as 樓層,
     unit.monthly_rent as 參考月租,
     unit.deposit_months as 押金月數,
@@ -222,7 +222,7 @@ where unit.state = 'vacant'
 order by property.code, unit.floor, unit.name;
 
 
--- 11. 查租約總覽：物件、單位、房客、租期、租金。
+-- 11. 查租約總覽：物件、房間、房客、租期、租金。
 select
     lease.id,
     lease.name as 租約編號,
@@ -236,7 +236,7 @@ select
     end as 租約狀態,
     property.code as 物件編號,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     tenant.name as 房客,
     tenant.phone as 房客電話,
     lease.start_date as 租期開始,
@@ -260,7 +260,7 @@ order by lease.start_date desc, lease.name desc;
 select
     property.code as 物件編號,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     tenant.name as 房客,
     tenant.phone as 房客電話,
     tenant.email as 房客email,
@@ -285,7 +285,7 @@ order by property.code, unit.name, lease.start_date desc;
 select
     lease.name as 租約編號,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     tenant.name as 房客,
     string_agg(co_tenant.name, ', ' order by co_tenant.name) as 共同居住人
 from ggandy_lease lease
@@ -310,7 +310,7 @@ select
     schedule.name as 期次,
     property.code as 物件編號,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     tenant.name as 房客,
     schedule.period_start as 計費開始,
     schedule.period_end as 計費結束,
@@ -347,7 +347,7 @@ select
     schedule.name as 期次,
     property.code as 物件編號,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     tenant.name as 房客,
     tenant.phone as 房客電話,
     schedule.due_date as 繳款期限,
@@ -385,7 +385,7 @@ order by schedule.due_date, property.code, unit.name;
 select
     property.code as 物件編號,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     tenant.name as 房客,
     schedule.name as 期次,
     schedule.due_date as 繳款期限,
@@ -419,7 +419,7 @@ select
     tenant.name as 房客,
     lease.name as 租約編號,
     property.name as 物件名稱,
-    unit.name as 單位
+    unit.name as 房間
 from account_move invoice
 join ggandy_lease lease
     on lease.id = invoice.ggandy_lease_id
@@ -513,9 +513,9 @@ select
     request.priority as 優先度,
     request.category as 類型,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     tenant.name as 報修房客,
-    vendor.name as 維修廠商,
+    vendor.name as 合作廠商,
     request.request_date as 通報時間,
     request.scheduled_date as 預約處理時間,
     request.completed_date as 完成時間,
@@ -540,9 +540,9 @@ select
     request.title as 主旨,
     request.state as 狀態,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     tenant.name as 報修房客,
-    vendor.name as 維修廠商,
+    vendor.name as 合作廠商,
     request.request_date as 通報時間,
     request.scheduled_date as 預約處理時間
 from ggandy_maintenance_request request
@@ -568,7 +568,7 @@ select
     bill.payment_state as 付款狀態,
     vendor.name as 廠商或墊付人,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     case bill.ggandy_expense_kind
         when 'purchase' then '採購費用'
         when 'employee_advance' then '公司員工代墊'
@@ -590,12 +590,12 @@ order by bill.invoice_date desc nulls last, bill.id desc;
 
 -- 23. 查帳務總表紀錄。
 -- 注意：ggandy_accounting_overview 多數金額是 Odoo compute 欄位，不一定實際存在資料表欄位。
--- 因此這裡只查該表實際儲存的月份、物件、單位、房東，用來確認總表紀錄是否已建立。
+-- 因此這裡只查該表實際儲存的月份、物件、房間、房東，用來確認總表紀錄是否已建立。
 select
     overview.period_start as 月份開始,
     overview.period_end as 月份結束,
     property.name as 物件名稱,
-    unit.name as 單位,
+    unit.name as 房間,
     owner.name as 房東,
     overview.note as 備註
 from ggandy_accounting_overview overview
@@ -608,18 +608,18 @@ left join res_partner owner
 order by overview.period_start desc, property.name, unit.name;
 
 
--- 24. 查單位狀態與 active lease 是否一致。
--- 例如：單位顯示空房，但其實有生效租約；或單位顯示已出租，但沒有生效租約。
+-- 24. 查房間狀態與 active lease 是否一致。
+-- 例如：房間顯示空房，但其實有生效租約；或房間顯示已出租，但沒有生效租約。
 select
     property.code as 物件編號,
     property.name as 物件名稱,
-    unit.name as 單位,
-    unit.state as 單位狀態,
+    unit.name as 房間,
+    unit.state as 房間狀態,
     count(active_lease.id) as 生效租約數,
     case
         when unit.state = 'occupied' and count(active_lease.id) = 0 then '已出租但沒有生效租約'
         when unit.state = 'vacant' and count(active_lease.id) > 0 then '空房但有生效租約'
-        when count(active_lease.id) > 1 then '同單位有多筆生效租約'
+        when count(active_lease.id) > 1 then '同房間有多筆生效租約'
         else 'OK'
     end as 檢查結果
 from ggandy_property_unit unit

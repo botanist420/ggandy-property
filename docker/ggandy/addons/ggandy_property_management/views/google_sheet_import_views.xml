@@ -60,14 +60,14 @@
                                     房號用<strong>半形逗號 <code>,</code></strong> 隔開，例如
                                     <code>201,202,203,301,店面</code>
                                 </td>
-                                <td>不建立出租單位</td>
+                                <td>不建立房間</td>
                             </tr>
                         </tbody>
                     </table>
                     <ul class="mb-0 small">
                         <li>重複匯入同一份 Sheet 不會重複建立物件，而是更新同一筆；<strong>留空的欄位不會蓋掉</strong>系統上已填好的資料。</li>
-                        <li>出租單位只會<strong>新增</strong>物件底下還沒有的房號，Sheet 上刪掉的房號不會被刪除。
-                            <code>201</code>、<code>1203</code> 這類房號會自動帶入樓層，名稱含「店面」「車位」會自動設定單位類型。</li>
+                        <li>房間只會<strong>新增</strong>物件底下還沒有的房號，Sheet 上刪掉的房號不會被刪除。
+                            <code>201</code>、<code>1203</code> 這類房號會自動帶入樓層，名稱含「店面」「車位」會自動設定房間類型。</li>
                         <li>全形逗號「，」或頓號「、」也看得懂，但建議統一用半形逗號。</li>
                     </ul>
                 </div>
@@ -179,7 +179,7 @@
                             </tr>
                             <tr>
                                 <td class="text-nowrap"><code>is_vendor</code></td>
-                                <td>是維修廠商填 <code>TRUE</code>，不是填 <code>FALSE</code></td>
+                                <td>是合作廠商填 <code>TRUE</code>，不是填 <code>FALSE</code></td>
                                 <td>不變更</td>
                             </tr>
                         </tbody>
@@ -254,7 +254,7 @@
                                     電費方式<span class="text-danger">*</span>、每度電價、固定電費、入住電錶度數、
                                     水費方式<span class="text-danger">*</span>、每度水價、固定水費、入住水錶度數
                                 </td>
-                                <td>一間房一列。更新出租單位的水電設定，建立或更新<strong>草稿租約</strong>並產生租金期次。
+                                <td>一間房一列。更新房間的水電設定，建立或更新<strong>草稿租約</strong>並產生租金期次。
                                     以「房號＋起租日」辨識同一份租約；房客先比電話、再比名稱，找不到就新增。</td>
                             </tr>
                             <tr>

@@ -25,7 +25,7 @@ MANAGEMENT_MODE_BY_LABEL = {label: value for value, label in MANAGEMENT_MODE_SEL
 REQUIRED_PROPERTY_COLUMNS = ["編號", "案件名稱"]
 OPTIONAL_PROPERTY_COLUMNS = ["經營模式", "房東", "地址", "管理人員", "匯款日期", "出租單位"]
 
-# 出租單位的分隔符號：半形逗號為主，順便接受全形逗號與頓號，避免手滑打錯。
+# 房間的分隔符號：半形逗號為主，順便接受全形逗號與頓號，避免手滑打錯。
 UNIT_SEPARATOR_PATTERN = r"[,，、]"
 
 # 聯絡人沿用舊的 scripts/google_res_partner.py 表頭（英文），順序就是建議的 Sheet 欄位順序。
@@ -39,7 +39,7 @@ DEPRECATED_CONTACT_COLUMNS = {"mobile": "手機請統一填在 phone"}
 CONTACT_FLAG_COLUMNS = {
     "is_owner": ("is_ggandy_owner", "房東"),
     "is_tenant": ("is_ggandy_tenant", "房客"),
-    "is_vendor": ("is_ggandy_vendor", "維修廠商"),
+    "is_vendor": ("is_ggandy_vendor", "合作廠商"),
 }
 # Google Sheet 核取方塊匯出是 TRUE / FALSE；手打的常見寫法也一併接受。
 TRUE_TEXTS = {"true", "1", "y", "yes", "v", "是", "✓", "✔"}
@@ -253,13 +253,13 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
                 f"{property_record.code} / {property_record.name}"
             )
             if new_units:
-                message += f"（新增出租單位 {len(new_units)} 間：{'、'.join(new_units.mapped('name'))}）"
+                message += f"（新增房間 {len(new_units)} 間：{'、'.join(new_units.mapped('name'))}）"
             messages.append(message)
 
         self.result_html = self._render_result_html(
             summary=(
                 f"物件新增 {created_count} 筆，更新 {updated_count} 筆，"
-                f"略過 {skipped_count} 筆；出租單位新增 {unit_created_count} 間。"
+                f"略過 {skipped_count} 筆；房間新增 {unit_created_count} 間。"
             ),
             messages=messages,
             warnings=manager_warnings,
@@ -370,7 +370,7 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
         return property_record, True
 
     def _parse_unit_names(self, text):
-        """把「201,202,店面」拆成單位名稱清單，去除空白與重複，保留原本順序。"""
+        """把「201,202,店面」拆成房號清單，去除空白與重複，保留原本順序。"""
         names = []
         for name in re.split(UNIT_SEPARATOR_PATTERN, self._clean_cell(text)):
             name = name.strip()
@@ -379,7 +379,7 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
         return names
 
     def _create_missing_units(self, property_record, unit_names):
-        """只新增物件底下還沒有的出租單位；Sheet 上沒列到的既有單位不會被刪除。"""
+        """只新增物件底下還沒有的房間；Sheet 上沒列到的既有房間不會被刪除。"""
         Unit = self.env["ggandy.property.unit"]
         if not unit_names:
             return Unit

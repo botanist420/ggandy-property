@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="purchase_order_form_preparation" model="ir.ui.view">
+        <field name="name">purchase.order.form.ggandy.preparation</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet//field[@name='partner_id']" position="before">
+                <field name="ggandy_is_preparation" invisible="1"/>
+            </xpath>
+            <xpath expr="//sheet//field[@name='partner_id']" position="attributes">
+                <attribute name="domain">[('is_ggandy_vendor', '=', True)] if ggandy_is_preparation else []</attribute>
+                <attribute name="context">{'res_partner_search_mode': 'supplier', 'show_vat': True, 'default_is_ggandy_vendor': ggandy_is_preparation}</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

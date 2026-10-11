@@ -24,7 +24,7 @@
                     <div class="o_ggandy_hint">
                         <i class="fa fa-info-circle" role="img" title="說明"/>
                         <div>
-                            <div>同一位聯絡人可以同時是<strong>房東、房客與維修廠商</strong>；建立合約、租約、報修單時會自動勾選。</div>
+                            <div>同一位聯絡人可以同時是<strong>房東、房客與合作廠商</strong>；建立合約、租約、報修單、整備採購時會自動勾選。</div>
                         </div>
                     </div>
                     <group string="身分類型">
@@ -52,7 +52,7 @@
         <field name="context">{'default_is_ggandy_tenant': True, 'default_company_type': 'person'}</field>
     </record>
     <record id="action_ggandy_vendor" model="ir.actions.act_window">
-        <field name="name">維修廠商</field>
+        <field name="name">合作廠商</field>
         <field name="res_model">res.partner</field>
         <field name="view_mode">list,form</field>
         <field name="domain">[('is_ggandy_vendor', '=', True)]</field>

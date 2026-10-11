@@ -64,7 +64,7 @@ env["ggandy.rent.schedule"]._cron_create_due_invoices()
 env["ggandy.owner.contract"]._cron_create_owner_vendor_bills()
 env["ggandy.accounting.overview"].ensure_period_records()
 
-# 看某單位本月帳務
+# 看某房間本月帳務
 ov = env["ggandy.accounting.overview"].search([("unit_id.name", "=", "301")], limit=1)
 print(ov.rent_receivable, ov.rent_collected, ov.owner_payable, ov.net_cash_flow)
 
@@ -81,7 +81,7 @@ docker exec -it ggandy_postgres17_db sh -c 'psql -U "$POSTGRES_USER" -d ggandy_d
 # 主機上用 pgAdmin / DBeaver：localhost:5555，帳密見 ggandy.env
 ```
 
-常用查詢集：[`scripts/ggandy_common.sql`](../../scripts/ggandy_common.sql)（24 段，涵蓋聯絡人、物件、單位、租約、期次、逾期、帳單、報修、成本、總表、狀態一致性檢查）。
+常用查詢集：[`scripts/ggandy_common.sql`](../../scripts/ggandy_common.sql)（24 段，涵蓋聯絡人、物件、房間、租約、期次、逾期、帳單、報修、成本、總表、狀態一致性檢查）。
 
 注意：帳務總表金額、`collection_state`、照片欄位都是**非 stored compute**，資料表裡沒有這些欄位，只能用 ORM 查。
 
@@ -102,7 +102,7 @@ docker exec ggandy_postgres17_db sh -c 'psql -U "$POSTGRES_USER" -d ggandy_dev -
 
 | 腳本 | 用途 |
 | --- | --- |
-| `orm_playground.py` | ORM 入門：物件 → 單位 → 租約 → 期次的資料關係（純查詢，結尾 rollback） |
+| `orm_playground.py` | ORM 入門：物件 → 房間 → 租約 → 期次的資料關係（純查詢，結尾 rollback） |
 | `check_user_online.py` | 查某使用者登入 / 在線狀態 / 裝置；用 `TARGET_LOGIN` 指定帳號（需 `docker exec -e TARGET_LOGIN=...`） |
 | `test.py` | 個人 scratch（gitignore） |
 

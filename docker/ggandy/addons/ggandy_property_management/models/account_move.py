@@ -23,10 +23,10 @@ class AccountMove(models.Model):
     ggandy_unit_id = fields.Many2one(
         "ggandy.property.unit",
         related="ggandy_lease_id.unit_id",
-        string="GGAndy 出租單位",
+        string="GGAndy 房間",
         store=True,
         readonly=True,
-        help="由 GGAndy 租約自動帶出的出租單位。若這裡空白，先檢查帳單有沒有連到租約。",
+        help="由 GGAndy 租約自動帶出的房間。若這裡空白，先檢查帳單有沒有連到租約。",
     )
     ggandy_owner_contract_id = fields.Many2one(
         "ggandy.owner.contract",
@@ -54,12 +54,12 @@ class AccountMove(models.Model):
     )
     ggandy_expense_unit_id = fields.Many2one(
         "ggandy.property.unit",
-        string="GGAndy 費用歸屬單位",
+        string="GGAndy 費用歸屬房間",
         copy=False,
         index=True,
         ondelete="restrict",
         domain="[('property_id', '=', ggandy_expense_property_id)]",
-        help="若費用可歸屬到特定出租單位，請填此欄位以便帳務總表精準呈現。能填到單位就不要只停在物件層級。",
+        help="若費用可歸屬到特定房間，請填此欄位以便帳務總表精準呈現。能填到房間就不要只停在物件層級。",
     )
     ggandy_expense_kind = fields.Selection(
         [

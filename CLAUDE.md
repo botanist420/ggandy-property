@@ -9,7 +9,7 @@
 - 三個模組，都放在 `docker/ggandy/addons/`（掛載到容器 `/mnt/extra-addons`）：
   - `ggandy_property_management`：主模組，depends `base, mail, contacts, account`。
   - `ggandy_property_telegram`：Telegram 管理員 Bot，depends 主模組。
-  - `ggandy_property_project`：包租物件「開始整備」→ 建立整備專案，depends 主模組 + `sale_project, project_purchase, project_account, project_purchase_stock`。主模組刻意不依賴 project / stock。開始整備時也會建房東空銷售單（已確認）與 `WH/庫存/{物件}/{單位}` 庫存位置。
+  - `ggandy_property_project`：包租物件「開始整備」→ 建立整備專案，depends 主模組 + `sale_project, project_purchase, project_account, project_purchase_stock`。主模組刻意不依賴 project / stock。開始整備時也會建房東空銷售單（已確認）與 `WH/庫存/{物件}/{房間}` 庫存位置。
 - 會計本地化 `l10n_tw` 已安裝在 `ggandy_dev`；開帳單時需要 `sale` / `purchase` 日記帳。
 
 ## 常用指令
@@ -53,12 +53,12 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | 模型 | 檔案 | 重點 |
 | --- | --- | --- |
 | `ggandy.property` | `models/property.py` | 物件；編號 `PROP/%(year)s/`；`owner_payment_day` 會預設帶入房東合約 |
-| `ggandy.property.unit` | `models/property_unit.py` | 出租單位；`display_name` = `物件 / 單位`（context `ggandy_unit_short_name` 時只顯示單位名）；格局／維修照片是 compute 的 `ir.attachment` Many2many |
+| `ggandy.property.unit` | `models/property_unit.py` | 房間；`display_name` = `物件 / 房間`（context `ggandy_unit_short_name` 時只顯示房間名）；格局／維修照片是 compute 的 `ir.attachment` Many2many |
 | `ggandy.owner.contract` | `models/owner_contract.py` | 房東合約（包租 / 代管）；cron 建房東 Vendor Bill |
 | `ggandy.lease` | `models/lease.py` | 房客租約；生效時拆月建期次 |
 | `ggandy.rent.schedule` | `models/rent_schedule.py` | 租金期次；建客戶 Invoice；逾期活動 |
 | `ggandy.maintenance.request` | `models/maintenance_request.py` | 報修單 |
-| `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每單位 × 每月一列**，`_auto = False` + `_table_query` 即時 SQL（可分組加總），唯讀 |
+| `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每房間 × 每月一列**，`_auto = False` + `_table_query` 即時 SQL（可分組加總），唯讀 |
 | `ggandy.google.sheet.*.import.wizard` | `models/google_sheet_import_wizard.py` | TransientModel；物件／聯絡人匯入（pandas 讀 CSV export），共用 `ggandy.google.sheet.import.mixin` |
 | `ggandy.google.sheet.lease.import.wizard` | `models/google_sheet_lease_import_wizard.py` | TransientModel；租約與抄表匯入（房間租約／抄表度數／帳單調整三分頁），有預覽（savepoint 還原），租約一律建草稿 |
 | `ggandy.master.lease.profit.wizard` | `models/master_lease_profit_wizard.py` | TransientModel；包租獲利試算，純 compute 不寫資料，僅 manager |
@@ -87,10 +87,10 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 ### 改程式時要知道的連動
 
 - **身分旗標是在 `create`/`write` 裡自動寫的**：物件/房東合約 → `is_ggandy_owner`；租約 → `is_ggandy_tenant`；報修單廠商 → `is_ggandy_vendor`。`ggandy.property.owner_id` 的 domain 是 `is_ggandy_owner = True`。
-- **租約生效** (`action_activate`)：單位 → `occupied`、`_generate_rent_schedule()`、然後呼叫**全域**的 `_cron_create_due_invoices()`。
-- **單位狀態**只會在 `vacant`↔`occupied` 之間自動切換（`_refresh_from_active_leases`），`reserved / maintenance / inactive` 尊重手動設定。
+- **租約生效** (`action_activate`)：房間 → `occupied`、`_generate_rent_schedule()`、然後呼叫**全域**的 `_cron_create_due_invoices()`。
+- **房間狀態**只會在 `vacant`↔`occupied` 之間自動切換（`_refresh_from_active_leases`），`reserved / maintenance / inactive` 尊重手動設定。
 - **房東合約生效**會回寫物件的 `management_mode`、`owner_id`、`acquisition_date`、`management_end_date`。
-- **重疊檢查**：同物件同期間只能一份 active 房東合約；同單位同期間只能一份 active 租約（`@api.constrains`）。
+- **重疊檢查**：同物件同期間只能一份 active 房東合約；同房間同期間只能一份 active 租約（`@api.constrains`）。
 - **帳單用的產品**以 xmlid 取得：`product_product_rent`、`product_product_management_fee`、`product_product_owner_settlement`（`data/product_data.xml`）。
 - **帳務總表**是 `_table_query` 的 SQL：沒有資料表、不用排程建列；新增金額欄位要改 SQL，並把來源欄位加進 `_depends`。`init()` 只會 drop 改版前留下的實體表。
 - **Telegram 授權**：`telegram_user_id` + `telegram_enabled` + 使用者需屬於 `group_property_manager`；只處理私訊；查詢用 `with_user(user).with_company(company)` 套用記錄規則。

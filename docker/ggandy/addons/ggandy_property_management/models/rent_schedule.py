@@ -95,7 +95,7 @@ class GgandyRentSchedule(models.Model):
         string="帳單月份",
         compute="_compute_period_month",
         store=True,
-        help="這一期租金所屬的月份（計費開始日的年-月）。物件頁的當期帳單、電表維護分頁用它篩出本月的期次。",
+        help="這一期租金所屬的月份（計費開始日的年-月）。物件頁的當期帳單、水電表維護分頁用它篩出本月的期次。",
     )
     meter_month = fields.Char(
         string="電表月份",
@@ -124,12 +124,12 @@ class GgandyRentSchedule(models.Model):
     electricity_billing_type = fields.Selection(
         ELECTRICITY_BILLING_TYPES,
         string="電費計費方式",
-        help="建立期次時從出租單位帶入。出租單位改設定後，帳單還沒過帳的期次會跟著更新；只想調整這一期也可以直接改。",
+        help="建立期次時從房間帶入。房間改設定後，帳單還沒過帳的期次會跟著更新；只想調整這一期也可以直接改。",
     )
     electricity_rate = fields.Float(
         string="每度電價",
         digits=(10, 2),
-        help="這一期的每度電價，預設從出租單位帶入。",
+        help="這一期的每度電價，預設從房間帶入。",
     )
     electricity_fixed_fee = fields.Monetary(
         string="固定電費",
@@ -163,12 +163,12 @@ class GgandyRentSchedule(models.Model):
     water_billing_type = fields.Selection(
         WATER_BILLING_TYPES,
         string="水費計費方式",
-        help="建立期次時從出租單位帶入。出租單位改設定後，帳單還沒過帳的期次會跟著更新；只想調整這一期也可以直接改。",
+        help="建立期次時從房間帶入。房間改設定後，帳單還沒過帳的期次會跟著更新；只想調整這一期也可以直接改。",
     )
     water_rate = fields.Float(
         string="每度水價",
         digits=(10, 2),
-        help="這一期的每度水價，預設從出租單位帶入。",
+        help="這一期的每度水價，預設從房間帶入。",
     )
     water_fixed_fee = fields.Monetary(
         string="固定水費",
@@ -292,7 +292,7 @@ class GgandyRentSchedule(models.Model):
 
     @api.model
     def _find_unit_month_schedule(self, unit, month):
-        """month 是該月任一天；回傳這個單位在該月、草稿或生效中租約的租金期次。"""
+        """month 是該月任一天；回傳這個房間在該月、草稿或生效中租約的租金期次。"""
         month_start = month.replace(day=1)
         return self.search(
             [

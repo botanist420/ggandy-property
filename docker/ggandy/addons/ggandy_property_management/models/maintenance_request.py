@@ -70,22 +70,22 @@ class GgandyMaintenanceRequest(models.Model):
         ondelete="restrict",
         tracking=True,
         index=True,
-        help="報修發生在哪個物件。選定後出租單位會依物件篩選，先把地址定住，後面才不會跑偏。",
+        help="報修發生在哪個物件。選定後房間會依物件篩選，先把地址定住，後面才不會跑偏。",
     )
     unit_id = fields.Many2one(
         "ggandy.property.unit",
-        string="出租單位",
+        string="房間",
         ondelete="restrict",
         tracking=True,
         domain="[('property_id', '=', property_id)]",
-        help="報修發生的出租單位。選入後會自動嘗試帶出目前生效租約與房客，減少重複填寫。",
+        help="報修發生的房間。選入後會自動嘗試帶出目前生效租約與房客，減少重複填寫。",
     )
     lease_id = fields.Many2one(
         "ggandy.lease",
         string="相關租約",
         ondelete="set null",
         domain="[('unit_id', '=', unit_id)]",
-        help="這張報修對應的租約。若選了出租單位，系統會先找生效中的租約；沒有也可以留空，不要硬湊。",
+        help="這張報修對應的租約。若選了房間，系統會先找生效中的租約；沒有也可以留空，不要硬湊。",
     )
     tenant_id = fields.Many2one(
         "res.partner",
@@ -126,11 +126,11 @@ class GgandyMaintenanceRequest(models.Model):
     )
     vendor_id = fields.Many2one(
         "res.partner",
-        string="維修廠商",
+        string="合作廠商",
         ondelete="restrict",
         tracking=True,
         domain="[('is_ggandy_vendor', '=', True)]",
-        help="負責維修的廠商。選到廠商後，系統會自動把聯絡人標記為 GGAndy 維修廠商，方便下次再找他。",
+        help="負責維修的合作廠商，只能選聯絡人裡標記為「合作廠商」的人；在這裡直接輸入新名字建立的聯絡人會自動標記，方便下次再找他。",
     )
     description = fields.Html(
         string="問題說明",
@@ -224,7 +224,7 @@ class GgandyMaintenanceRequest(models.Model):
     def action_assign(self):
         for record in self:
             if not record.user_id and not record.vendor_id:
-                raise UserError("請先設定內部負責人或維修廠商。")
+                raise UserError("請先設定內部負責人或合作廠商。")
             record.state = "assigned"
         return True
 

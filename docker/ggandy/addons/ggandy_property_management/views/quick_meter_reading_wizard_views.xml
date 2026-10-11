@@ -11,7 +11,7 @@
                 <div class="alert alert-info py-2 mb-3" role="alert" invisible="state != 'edit'">
                     <ol class="mb-0 ps-3">
                         <li>選擇<strong>電表月份</strong></li>
-                        <li>確認下方<strong>房間順序</strong>跟 Google Sheet 一致（不一致請到出租單位分頁拖曳調整）</li>
+                        <li>確認下方<strong>房間順序</strong>跟 Google Sheet 一致（不一致請到房間分頁拖曳調整）</li>
                         <li>從 Google Sheet 複製該月的<strong>度數那一列</strong>，貼到「抄表度數」，再按「預覽」</li>
                     </ol>
                 </div>

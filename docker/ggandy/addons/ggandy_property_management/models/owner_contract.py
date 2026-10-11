@@ -66,7 +66,8 @@ class GgandyOwnerContract(models.Model):
         required=True,
         ondelete="restrict",
         tracking=True,
-        help="Vendor Bill 會開給這位房東。",
+        domain=[("is_ggandy_owner", "=", True)],
+        help="Vendor Bill 會開給這位房東。只能選聯絡人裡標記為「房東」的人；在這裡直接輸入新名字建立的聯絡人會自動標記。",
     )
     start_date = fields.Date(
         string="合約開始",

@@ -38,7 +38,7 @@ class GgandyProperty(models.Model):
         copy=False,
         readonly=True,
         ondelete="set null",
-        help="這個物件在倉庫中的位置（總倉底下以物件名稱命名），各出租單位的位置都建在它底下。"
+        help="這個物件在倉庫中的位置（總倉底下以物件名稱命名），各房間的位置都建在它底下。"
         "開始整備或按「同步庫存位置」時自動建立。",
     )
 
@@ -188,7 +188,7 @@ class GgandyProperty(models.Model):
         return location, created
 
     def _ensure_stock_locations(self):
-        """建立（或沿用）總倉／物件／各出租單位的庫存位置，可重複執行。
+        """建立（或沿用）總倉／物件／各房間的庫存位置，可重複執行。
 
         :return: (新建數, 沿用數)；已連結過的位置不計入
         """

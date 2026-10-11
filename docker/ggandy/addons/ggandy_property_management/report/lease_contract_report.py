@@ -113,7 +113,7 @@ class ReportGgandyLeaseContract(models.AbstractModel):
 
     @api.model
     def _get_utility_terms(self, lease):
-        """第二條第 3 點的水電文字，依出租單位的計費方式產生。"""
+        """第二條第 3 點的水電文字，依房間的計費方式產生。"""
         unit = lease.unit_id
         reading = lease.electricity_start_reading
         electricity = {

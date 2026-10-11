@@ -46,13 +46,13 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `current_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `property_id`），callable domain `_get_current_schedule_domain()`：租約非 cancelled、`period_month` = 本月（每次讀取時計算）；表單「當期帳單」分頁 `readonly="1"`、`default_order="unit_id"`，只供檢視 |
 | `internet_fee` | 網路第四台（Monetary，tracking），每月固定金額，只算進本月收入概覽的合計，不進房客帳單 |
 | `month_*_total` / `month_summary_label` | 「本月收入概覽」：非 stored compute（`_compute_month_summary`），加總 `current_schedule_ids` 的租金／管理費／電費／水費；`month_income_total` = 四項 + `internet_fee`。順序照老闆付房東 Sheet（2026-10-11 驗算：Sheet 的 N 月 = N 月帳單 `period_month`） |
-| `current_meter_schedule_ids` | 同上再加電費 metered（`_get_current_meter_schedule_domain()`）；表單「電表維護」分頁 `default_order="unit_id"`（照出租單位 `_order`），直接編輯期次的 `electricity_curr_reading`，連動走期次 `write()` |
+| `current_meter_schedule_ids` | 同上再加「電費 metered 或水費 metered／fixed」（`_get_current_meter_schedule_domain()`）；表單「水電表維護」分頁 `default_order="unit_id"`（照房間 `_order`），直接編輯期次的 `electricity_curr_reading`、`water_fixed_fee`（欄名「水費」，fixed 才顯示）與 `water_curr_reading`（`optional="hide"`，metered 才顯示），連動走期次 `write()` |
 
-### ggandy.property.unit（出租單位）
+### ggandy.property.unit（房間）
 
 | 欄位 | 說明 |
 | --- | --- |
-| `sequence` | `_order = "property_id, sequence, id"`；物件 form 出租單位分頁 `widget="handle"` 可拖曳。`create()` 沒帶 sequence 時接在同物件（含封存）最大值 +1，批次依序累加；既有資料升級時全為 10，靠 id 維持建立順序 |
+| `sequence` | `_order = "property_id, sequence, id"`；物件 form 房間分頁 `widget="handle"` 可拖曳。`create()` 沒帶 sequence 時接在同物件（含封存）最大值 +1，批次依序累加；既有資料升級時全為 10，靠 id 維持建立順序 |
 | `unit_type` | suite / room / whole / shop / office / parking / other |
 | `monthly_rent` | 參考月租：租約預設值，也是帳務總表房東應付的**分攤權重** |
 | `deposit_months` | 押金月數（預設 2） |
@@ -61,11 +61,11 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `electricity_fixed_fee` / `water_fixed_fee` | 每月固定水電費（Monetary） |
 | `electricity_meter_ref` / `water_meter_ref` | 電錶／水錶編號或位置 |
 | `state` | vacant / reserved / occupied / maintenance / inactive |
-| `meter_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `unit_id`），domain 電費 metered 且租約非 cancelled，不限月份；表單分頁 `default_order="period_start desc"`；期次本來就依租約起訖拆月，所以列出的就是租約期間的所有月份 |
-| `action_open_unit()` / `action_view_current_lease()` | 物件 form 出租單位分頁的「🏠房間」「📄租約帳單」按鈕（`icon` + `o_ggandy_icon_tight`，`static/src/scss/ggandy_backend.scss` 把 Odoo 預設的圖示右邊距拿掉）；租約挑選順序：active → draft → 其他（依 start_date 新到舊）→ cancelled，沒有租約時回傳 `action_view_leases()` |
+| `meter_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `unit_id`），domain 租約非 cancelled 且（電費 metered 或水費 metered／fixed），不限月份，欄位同物件的水電表維護分頁；表單分頁 `default_order="period_start desc"`；期次本來就依租約起訖拆月，所以列出的就是租約期間的所有月份 |
+| `action_open_unit()` / `action_view_current_lease()` | 物件 form 房間分頁的「🏠房間」「📄租約帳單」按鈕（`icon` + `o_ggandy_icon_tight`，`static/src/scss/ggandy_backend.scss` 把 Odoo 預設的圖示右邊距拿掉）；租約挑選順序：active → draft → 其他（依 start_date 新到舊）→ cancelled，沒有租約時回傳 `action_view_leases()` |
 | `has_open_lease` / `action_create_lease()` | 有 draft / active 租約（與 `lease_count` 同一個 compute）；表單 header 兩顆「新增房客租約」按鈕依它切換 `btn-primary` / `btn-secondary`，開新 `ggandy.lease` form 並帶 `default_*`（與 `action_view_leases()` 同一組） |
-| `layout_photo_ids` | compute：本單位 chatter 上的 `image/*` 附件 |
-| `maintenance_photo_ids` | compute：本單位所有報修單（含封存）的 `image/*` 附件，依 `ggandy_request_date` desc |
+| `layout_photo_ids` | compute：本房間 chatter 上的 `image/*` 附件 |
+| `maintenance_photo_ids` | compute：本房間所有報修單（含封存）的 `image/*` 附件，依 `ggandy_request_date` desc |
 
 `_refresh_from_active_leases()`：只在 `vacant` / `occupied` 狀態下，依是否有 active 租約自動切換。
 
@@ -75,6 +75,7 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 
 | 欄位 | 說明 |
 | --- | --- |
+| `owner_id` | 簽約房東，domain `is_ggandy_owner = True`（view context `default_is_ggandy_owner`，就地新建的聯絡人會勾好） |
 | `contract_type` | master_lease（包租）/ agency（代管） |
 | `owner_payment_day` | 每月結算日（1–31，預設 10，或從物件帶入） |
 | `guaranteed_rent` | 包租保底租金（生效前必填 > 0） |
@@ -98,7 +99,9 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 
 狀態：`draft → active → expired / terminated`，`draft → cancelled`，`→ draft`（無已過帳帳單才可）。
 
-水電：`electricity_billing_type` / `water_billing_type` related 出租單位（給表單與期次列表 `column_invisible` 用）；`electricity_start_reading` / `water_start_reading` 為入住度數，onchange 出租單位時預設帶 `unit._get_last_meter_reading()`（該單位跨租約最近一筆 curr ≠ 0 的期次）。
+房客：`tenant_id`、`co_tenant_ids` domain 都是 `is_ggandy_tenant = True`（view context `default_is_ggandy_tenant`，就地新建的聯絡人會勾好）。
+
+水電：`electricity_billing_type` / `water_billing_type` related 房間（給表單與期次列表 `column_invisible` 用）；`electricity_start_reading` / `water_start_reading` 為入住度數，onchange 房間時預設帶 `unit._get_last_meter_reading()`（該房間跨租約最近一筆 curr ≠ 0 的期次）。
 
 `_generate_rent_schedule()` 拆月規則：
 
@@ -109,7 +112,7 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
     due_date     = 該月 rent_due_day（短月取月底），若早於 start_date 則用 start_date
     ratio        = 期次天數 ÷ 當月實際天數（整月 = 1）
     rent_amount / management_fee = 月額 × ratio，四捨五入到元（整月直接用月額）
-    水電設定 = 出租單位快照（固定水電費同樣 × ratio）；prev_reading = _get_meter_reading_before()
+    水電設定 = 房間快照（固定水電費同樣 × ratio）；prev_reading = _get_meter_reading_before()
     同 lease + period_start 已存在 → 跳過（可重複執行）
 ```
 
@@ -128,8 +131,8 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
   - 出租人判斷（`_get_contract_parties`）：找該物件在租約開始日有效的 active 房東合約 → 用 `contract_type`，找不到就用物件 `management_mode`。`master_lease` → 出租人 = 公司 partner、沒有丙方；其他（代管）→ 出租人 = 物件 `owner_id`、丙方 = 公司 partner。
   - 繳款帳戶：收款方（有丙方用丙方，否則出租人）的第一個 `bank_ids`；分行留空手寫。
   - 承租人資料：只印聯絡人既有的姓名、`vat`（身分證號）、`phone`（行動電話）、`email`，其餘欄位與兩位緊急聯絡人都印空白。
-  - 地址範圍（`_format_premises`）= 物件縣市＋區＋street（已出現在 street 裡的不重複）＋單位樓層（`12F` → `12 樓`）。
-  - 水電文字（`_get_utility_terms`）依出租單位的計費方式產生：metered 印每度單價與租約入住度數、fixed 印每月固定金額、included／tenant_paid 各有一句，未設定印空白底線。
+  - 地址範圍（`_format_premises`）= 物件縣市＋區＋street（已出現在 street 裡的不重複）＋房間樓層（`12F` → `12 樓`）。
+  - 水電文字（`_get_utility_terms`）依房間的計費方式產生：metered 印每度單價與租約入住度數、fixed 印每月固定金額、included／tenant_paid 各有一句，未設定印空白底線。
   - 設備點交表：`EQUIPMENT_ROWS` 常數（合約範本的設備與賠償單價，每列 8 個），數量留空點交時手寫。
   - 條文中三處「乙方簽名＿＿ 年 月 日」與最後一頁日期都留空。「合約備註」印在第七條第 3 點。
 - 字型用容器內的 `Noto Serif CJK TC`；分頁用 `page-break-before` 對齊紙本四頁。
@@ -141,12 +144,12 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 
 | 欄位 | 說明 |
 | --- | --- |
-| `{electricity,water}_billing_type` / `_rate` / `_fixed_fee` | 建期次時從出租單位**快照**（固定費按日比例）；單位 `write()` 改這些設定時，`_sync_utility_settings_to_schedules()` 會更新租約 draft/active、帳單未過帳的期次 |
+| `{electricity,water}_billing_type` / `_rate` / `_fixed_fee` | 建期次時從房間**快照**（固定費按日比例）；房間 `write()` 改這些設定時，`_sync_utility_settings_to_schedules()` 會更新租約 draft/active、帳單未過帳的期次 |
 | `{electricity,water}_prev_reading` / `_curr_reading` | 上期／本期度數（Float digits (12,1)）。第一期 prev = 租約 `*_start_reading`，之後 = 前一期的 curr（沒抄就沿用前一期的 prev） |
 | `{electricity,water}_usage` / `_amount` | stored compute：metered = (curr − prev) × rate 四捨五入到元（curr 為 0 視為未抄、金額 0）；fixed = fixed_fee；其他 = 0 |
 | `period_start` / `period_end` / `due_date` | view 層 `readonly="id"`（租約內嵌 list 與期次 form）：已存檔的期次鎖住，新增中的列可填；model 層沒有限制，程式與匯入照常可寫 |
 | `period_month` | 「帳單月份」，stored compute：`period_start` 的 `YYYY-MM`；物件的 `_get_current_schedule_domain()` 用它篩本月 |
-| `meter_month` | 「電表月份」，同一個 compute：`period_start − READING_TO_BILL_MONTH_OFFSET` 個月的 `YYYY-MM`。電表維護分頁、租約期次列表、期次 form 顯示它（`period_month` 在電表維護分頁 `optional="hide"`） |
+| `meter_month` | 「電表月份」，同一個 compute：`period_start − READING_TO_BILL_MONTH_OFFSET` 個月的 `YYYY-MM`。水電表維護分頁、租約期次列表、期次 form 顯示它（`period_month` 在水電表維護分頁 `optional="hide"`） |
 | `meter_reading_pending` | stored compute：任一項 metered 且 curr 為 0（「待抄表」篩選用） |
 | `total_amount` | stored compute = `rent_amount + management_fee + electricity_amount + water_amount` |
 | `invoice_id` | 建立的客戶發票（租金、管理費、電費、水費各一行，0 元不列） |
@@ -179,19 +182,19 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 ### ggandy.accounting.overview（帳務總表）
 
 - **`_auto = False` + `_table_query`**（2026-10-11 由「實體表 + 每日排程建列 + 非 stored compute」改寫）：沒有資料表、沒有 cron、不需要手動更新；所有欄位都是 SQL 欄位，所以 `read_group` 可以分組加總（list 依物件分組有小計），也能做樞紐分析／圖表。`init()` 只負責把改版前留下的實體表 `DROP TABLE ... CASCADE`。舊 cron 用 `data/accounting_cron.xml` 的 `<delete search=...>` 移除。
-- 列的範圍：每個 `active` 出租單位，從 `least(單位 create_date 月, 該單位非 cancelled 租約最早 start_date 月)` 到 `CURRENT_DATE` 當月（`generate_series`）。封存的單位不出現。
+- 列的範圍：每個 `active` 房間，從 `least(房間 create_date 月, 該房間非 cancelled 租約最早 start_date 月)` 到 `CURRENT_DATE` 當月（`generate_series`）。封存的房間不出現。
 - `id = unit_id * 2000 + (年 − 2000) * 12 + 月`（穩定、int4）。`_depends` 列出來源 model 欄位，同一交易內改到來源資料時 ORM 會失效快取。
 - access 只讀（user / manager 都是 1,0,0,0），list / form `create="0" edit="0" delete="0"`。
 - 計算（與改版前 Python 逐列比對 94 列完全一致）：
 
 ```text
-rent_receivable  = Σ 本單位 period_start 在當月的期次 total_amount（未排除 cancelled 租約，見 TODO）
+rent_receivable  = Σ 本房間 period_start 在當月的期次 total_amount（未排除 cancelled 租約，見 TODO）
 rent_collected   = Σ 這些期次 invoice：posted 才算，sign × max(amount_total − amount_residual, 0)，refund sign = −1
 contract         = 物件當月有交集、state=active、start_date desc, id desc 的第一份房東合約
-ratio            = 本單位 monthly_rent / 物件所有 active 單位 monthly_rent 合計（合計為 0 → 1/單位數）
+ratio            = 本房間 monthly_rent / 物件所有 active 房間 monthly_rent 合計（合計為 0 → 1/房間數）
 owner_payable    = Σ 該合約、ggandy_settlement_period_start = 當月 1 號、in_invoice/in_refund、非 cancel 的 sign × amount_total × ratio
 owner_paid       = 同一批帳單 posted 的已付金額 × ratio
-purchase_cost    = Σ 歸屬本物件+本單位、kind=purchase、invoice_date 在月內、非 cancel 的 sign × amount_total
+purchase_cost    = Σ 歸屬本物件+本房間、kind=purchase、invoice_date 在月內、非 cancel 的 sign × amount_total
 rent_uncollected = max(receivable − collected, 0)；owner_unpaid = max(payable − paid, 0)
 net_cash_flow    = collected − owner_paid − purchase_cost（2026-10-11 起不含押金、員工代墊）
 has_*            = 上面數字的 SQL 布林欄位，原生可搜尋
@@ -210,7 +213,7 @@ has_*            = 上面數字的 SQL 布林欄位，原生可搜尋
   - 更新時一律覆寫 name、note；其他欄位**只有 Sheet 有值才寫入**。新建時經營模式留空用 wizard 的 `management_mode`，房東／管理人員留空就真的留空（`ggandy.property.owner_id` 已非必填）。
   - 房東：`res.partner` 依 `name =` 比對，同名優先 `is_ggandy_owner`；找不到且 `create_missing_owner` 時自動建立（`is_ggandy_owner=True`）。
   - 管理人員：`res.users` 依 `name` 或 `login` 比對，限 `share = False`（內部使用者）；**不自動建立**，找不到就留空，並收集到 `manager_warnings`，在結果最上方以 `alert-warning` 列出「編號／案件名稱：管理人員「X」不是內部使用者」。
-  - 出租單位：只建立物件底下（含封存）沒有的名稱；`\d{3,4}` 房號自動帶 floor（去掉末兩碼），名稱含「店面」「車位」設 unit_type。
+  - 房間：只建立物件底下（含封存）沒有的名稱；`\d{3,4}` 房號自動帶 floor（去掉末兩碼），名稱含「店面」「車位」設 unit_type。
 - 共用 `ggandy.google.sheet.import.mixin`（AbstractModel）：`result_html`、`_read_google_sheet_csv`（會 strip 表頭）、`_to_google_sheet_csv_url`、`_check_required_columns`、`_render_result_html`（警告框 + 摘要 + 前 80 筆訊息）、`_reopen_wizard`、`_clean_cell`。
 - `ggandy.google.sheet.contact.import.wizard`：預設 URL `DEFAULT_CONTACT_SHEET_URL`（與物件同一份試算表的 `gid=0`）。表頭 `partner_key,name,phone,email,street,city,zip,is_owner,is_tenant,is_vendor`，僅 `name` 必填；`mobile` 已停用（`DEPRECATED_CONTACT_COLUMNS`，出現時只提醒不匯入）。
   - 對應既有聯絡人：`ref = partner_key` → `email =ilike` → 電話（SQL `regexp_replace(phone, '\D', '', 'g')` 只比數字）→ `name =`。有 partner_key 但 ref 找不到時，後三種只在 `ref` 空白的聯絡人中找，避免合併不同 key 的人。同一條件 >1 位 → 整列略過、列入警告。
@@ -284,7 +287,7 @@ ir.cron（每分鐘）→ ggandy.telegram.log._cron_poll_updates
 
 ## 4. 整備專案模組（`ggandy_property_project`）
 
-> **現況（2026-10-10 與老闆討論）**：庫存與採購現階段不是主力，目前這套架構（整備專案、採購帶分析帳戶、`WH/庫存/{物件}/{單位}` 庫存位置）先維持、夠用，之後視情況再往下開發。庫存位置只在背景記錄：開始整備時照常建立，物件管理資訊仍顯示、「同步庫存位置」按鈕保留，但物件 form 的出租單位分頁已不顯示庫存位置欄位。
+> **現況（2026-10-10 與老闆討論）**：庫存與採購現階段不是主力，目前這套架構（整備專案、採購帶分析帳戶、`WH/庫存/{物件}/{房間}` 庫存位置）先維持、夠用，之後視情況再往下開發。庫存位置只在背景記錄：開始整備時照常建立，物件管理資訊仍顯示、「同步庫存位置」按鈕保留，但物件 form 的房間分頁已不顯示庫存位置欄位。
 
 depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`project_account`、`project_purchase_stock`（帶入 `stock`；主模組不依賴庫存）。不新增模型，只 inherit `ggandy.property`、`ggandy.property.unit`、`res.config.settings`。
 
@@ -293,12 +296,13 @@ depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`
 | `preparation_project_id` | 整備專案，`copy=False`、readonly；`models.Constraint unique(preparation_project_id)` |
 | `preparation_progress` | Char，`已完成/全部 (百分比%)`，完成數 = 專案 `task_count - open_task_count`（與 Odoo 專案看板的進度同算法，取消也算完成；compute_sudo），給智慧按鈕（自訂 `o_stat_info`，不用 statinfo widget） |
 | `action_start_preparation()` | 冪等：已有專案就直接開啟。檢查 manager 群組、`management_mode == master_lease`、`owner_id` → 以 sudo 從範本建立專案 → 補建分析帳戶 → 回寫物件 |
-| `stock_location_id`（物件、出租單位） | 對應的 `stock.location`，`copy=False`、readonly、`ondelete=set null` |
+| `stock_location_id`（物件、房間） | 對應的 `stock.location`，`copy=False`、readonly、`ondelete=set null` |
 | `_ensure_preparation_sale_order(project)` | 找 `project_id`＋`partner_id = owner_id`＋未取消的銷售單；沒有就 sudo 建空單並 `action_confirm()` |
-| `_ensure_stock_locations()` | 冪等。公司第一個倉庫的 `lot_stock_id` → `{物件名稱}` → 每個 active 單位 `{單位名稱}`；已連結就跳過，否則同上層同名的 internal 位置沿用，再沒有才建立；回傳（新建數, 沿用數） |
+| `_ensure_stock_locations()` | 冪等。公司第一個倉庫的 `lot_stock_id` → `{物件名稱}` → 每個 active 房間 `{房間名稱}`；已連結就跳過，否則同上層同名的 internal 位置沿用，再沒有才建立；回傳（新建數, 沿用數） |
 | `action_sync_stock_locations()` | 包租且已有整備專案；manager 才可按；呼叫 `_ensure_stock_locations()` 並跳通知 |
 | `action_view_preparation_project()` | 回傳專案的 `action_view_tasks()` |
 | `action_create_preparation_purchase()` | 包租且已有整備專案才可用；開新的 `purchase.order` form，context `default_project_id` = 整備專案（與 Odoo `project_purchase` 的 `action_open_project_purchase_orders` 同做法） |
+| `purchase.order.ggandy_is_preparation`（`models/purchase_order.py`） | 非儲存 compute：`project_id` 是某物件的 `preparation_project_id`（sudo 查，採購人員不一定能讀物件）。`views/purchase_order_views.xml` 讓 `partner_id` domain = `[('is_ggandy_vendor', '=', True)] if ggandy_is_preparation else []`，context 帶 `default_is_ggandy_vendor` |
 
 ```text
 物件「開始整備」
@@ -308,7 +312,7 @@ depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`
   → project.account_id 為空 → project._create_analytic_account()   # account_id copy=False，範本複製不會帶
   → property.preparation_project_id = project
   → _ensure_preparation_sale_order(project)    # 空銷售單，已確認（重新開立發票成本需要 state = sale）
-  → _ensure_stock_locations()                  # WH/庫存/{物件}/{單位}
+  → _ensure_stock_locations()                  # WH/庫存/{物件}/{房間}
 
 sale.order / purchase.order 的 project_id = 整備專案
   → 明細 _compute_analytic_distribution 帶入 project._get_analytic_distribution()
@@ -317,7 +321,7 @@ sale.order / purchase.order 的 project_id = 整備專案
 
 - `data/project_preparation_data.xml` 為 `noupdate="1"`：範本專案先建，任務階段再用 `project_ids` 掛到範本上（沒有專案的階段會被 `project.task.type._default_user_id` 當成個人階段），最後是 12 個範本任務。
 - 使用者在 UI 改範本任務，升級模組不會覆蓋。
-- 單位改名不會改位置名稱；封存的單位不建位置；刪除單位不刪位置（位置可能有庫存）。
+- 房間改名不會改位置名稱；封存的房間不建位置；刪除房間不刪位置（位置可能有庫存）。
 - 廠商帳單「重新開立發票成本」轉到銷售單的明細（`is_expense`）若是商品類，`sale_stock` 會照常產生交貨單；目前由使用者手動取消（從交貨單轉單的流程 Odoo 有 `skip_procurement`，帳單流程沒有）。
 
 ## 5. 排程總表

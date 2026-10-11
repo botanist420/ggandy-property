@@ -45,17 +45,17 @@ class GgandyLease(models.Model):
         ondelete="restrict",
         tracking=True,
         index=True,
-        help="這份租約掛在哪個物件底下。選對物件後，出租單位會跟著篩選，後續資料也會正確歸屬。",
+        help="這份租約掛在哪個物件底下。選對物件後，房間會跟著篩選，後續資料也會正確歸屬。",
     )
     unit_id = fields.Many2one(
         "ggandy.property.unit",
-        string="出租單位",
+        string="房間",
         required=True,
         ondelete="restrict",
         tracking=True,
         index=True,
         domain="[('property_id', '=', property_id), ('active', '=', True)]",
-        help="實際出租的房號或單位。選定後會自動帶入物件、參考月租與押金；若帶出的金額不正確，請先檢查出租單位的參考資料。",
+        help="實際出租的房間。選定後會自動帶入物件、參考月租與押金；若帶出的金額不正確，請先檢查房間的參考資料。",
     )
     tenant_id = fields.Many2one(
         "res.partner",
@@ -63,7 +63,8 @@ class GgandyLease(models.Model):
         required=True,
         ondelete="restrict",
         tracking=True,
-        help="租金帳單會開給這位房客。其他一起住的人可以記在「共同居住人」，但收款對象以這位房客為準。",
+        domain=[("is_ggandy_tenant", "=", True)],
+        help="租金帳單會開給這位房客。只能選聯絡人裡標記為「房客」的人；在這裡直接輸入新名字建立的聯絡人會自動標記。其他一起住的人可以記在「共同居住人」，但收款對象以這位房客為準。",
     )
     co_tenant_ids = fields.Many2many(
         "res.partner",
@@ -71,7 +72,8 @@ class GgandyLease(models.Model):
         "lease_id",
         "partner_id",
         string="共同居住人",
-        help="和房客一起住的人，只做記錄；租金帳單仍開給房客。",
+        domain=[("is_ggandy_tenant", "=", True)],
+        help="和房客一起住的人，只做記錄；租金帳單仍開給房客。同樣只能選標記為「房客」的聯絡人。",
     )
     start_date = fields.Date(
         string="租期開始",
@@ -94,7 +96,7 @@ class GgandyLease(models.Model):
     deposit_amount = fields.Monetary(
         string="押金",
         tracking=True,
-        help="承租人支付的押金。從出租單位選入時，預設為參考月租乘押金月數；押金不等同租金收入。",
+        help="承租人支付的押金。從房間選入時，預設為參考月租乘押金月數；押金不等同租金收入。",
     )
     management_fee = fields.Monetary(
         string="每月管理費",
@@ -104,24 +106,24 @@ class GgandyLease(models.Model):
     electricity_billing_type = fields.Selection(
         related="unit_id.electricity_billing_type",
         string="電費計費方式",
-        help="從出租單位帶出來的電費設定；要修改請到出租單位。",
+        help="從房間帶出來的電費設定；要修改請到房間。",
     )
     water_billing_type = fields.Selection(
         related="unit_id.water_billing_type",
         string="水費計費方式",
-        help="從出租單位帶出來的水費設定；要修改請到出租單位。",
+        help="從房間帶出來的水費設定；要修改請到房間。",
     )
     electricity_start_reading = fields.Float(
         string="入住電錶度數",
         digits=(12, 1),
         tracking=True,
-        help="點交時抄的電錶度數，會當成第一期的「電錶上期度數」。選出租單位時，會預設帶入這個單位最近一次抄表的度數。",
+        help="點交時抄的電錶度數，會當成第一期的「電錶上期度數」。選房間時，會預設帶入這個房間最近一次抄表的度數。",
     )
     water_start_reading = fields.Float(
         string="入住水錶度數",
         digits=(12, 1),
         tracking=True,
-        help="點交時抄的水錶度數，會當成第一期的「水錶上期度數」。選出租單位時，會預設帶入這個單位最近一次抄表的度數。",
+        help="點交時抄的水錶度數，會當成第一期的「水錶上期度數」。選房間時，會預設帶入這個房間最近一次抄表的度數。",
     )
     rent_due_day = fields.Integer(
         string="每月繳租日",
@@ -278,7 +280,7 @@ class GgandyLease(models.Model):
                 ]
             )
             if overlapping:
-                raise ValidationError("此出租單位在相同期間已有生效中的租約。")
+                raise ValidationError("此房間在相同期間已有生效中的租約。")
 
     def action_activate(self):
         for record in self:

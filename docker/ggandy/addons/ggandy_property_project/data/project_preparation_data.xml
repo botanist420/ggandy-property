@@ -157,12 +157,12 @@
 
     <!-- 5. 上架招租 -->
     <record id="task_preparation_units_photo" model="project.task">
-        <field name="name">拍照並建立出租單位</field>
+        <field name="name">拍照並建立房間</field>
         <field name="project_id" ref="project_preparation_template"/>
         <field name="stage_id" ref="task_stage_preparation_listing"/>
         <field name="sequence">10</field>
         <field name="description" type="html">
-            <p>在物件建立各出租單位（房間）與租金，並拍攝上架照片。</p>
+            <p>在物件建立各房間與租金，並拍攝上架照片。</p>
         </field>
     </record>
     <record id="task_preparation_listing" model="project.task">

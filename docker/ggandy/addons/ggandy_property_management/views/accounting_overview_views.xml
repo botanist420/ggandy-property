@@ -21,7 +21,7 @@
                 <group>
                     <filter name="group_period" string="月份" context="{'group_by': 'period_start:month'}"/>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
-                    <filter name="group_unit" string="出租單位" context="{'group_by': 'unit_id'}"/>
+                    <filter name="group_unit" string="房間" context="{'group_by': 'unit_id'}"/>
                     <filter name="group_owner" string="房東" context="{'group_by': 'owner_id'}"/>
                 </group>
             </search>
@@ -102,7 +102,7 @@
         <field name="context">{'search_default_current_month': 1, 'search_default_group_property': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">目前沒有帳務資料</p>
-            <p>每個啟用中的出租單位每個月會自動有一列，金額即時從租金期次與帳單算出，不需要手動更新。</p>
+            <p>每個啟用中的房間每個月會自動有一列，金額即時從租金期次與帳單算出，不需要手動更新。</p>
         </field>
     </record>
 

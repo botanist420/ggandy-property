@@ -37,7 +37,7 @@
                 <field name="address_display" optional="show"/>
                 <field name="manager_id" widget="many2one_avatar_user" optional="show"/>
                 <field name="owner_payment_day" optional="show"/>
-                <field name="unit_count" string="單位數" optional="show"/>
+                <field name="unit_count" string="房間數" optional="show"/>
                 <field name="company_id" groups="base.group_multi_company" optional="hide"/>
             </list>
         </field>
@@ -58,7 +58,7 @@
                     <widget name="web_ribbon" title="已封存" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_units" type="object" class="oe_stat_button" icon="fa-building">
-                            <field name="unit_count" widget="statinfo" string="出租單位"/>
+                            <field name="unit_count" widget="statinfo" string="房間"/>
                         </button>
                         <button name="action_view_owner_contracts" type="object" class="oe_stat_button" icon="fa-handshake-o">
                             <field name="owner_contract_count" widget="statinfo" string="房東合約"/>
@@ -111,7 +111,7 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="出租單位" name="units">
+                        <page string="房間" name="units">
                             <field name="unit_ids" context="{'default_property_id': id}">
                                 <list editable="bottom">
                                     <control>
@@ -168,12 +168,13 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="電表維護" name="meter_readings">
+                        <page string="水電表維護" name="meter_readings">
                             <div class="o_ggandy_hint">
                                 <i class="fa fa-info-circle" role="img" title="說明"/>
                                 <div>
                                     <div>本月帳單收上個月電費，所以<strong>電表月份是上個月</strong>；抄表度數請填該月月底讀數。</div>
-                                    <div>填好會帶到下一期並更新草稿帳單，已過帳不能改。過去月份請到出租單位查看。</div>
+                                    <div><strong>水費</strong>是這個月帳單收的固定水費，只改這一期；要改之後每個月的金額請到房間設定。</div>
+                                    <div>填好會帶到下一期並更新草稿帳單，已過帳不能改。過去月份請到房間查看。</div>
                                 </div>
                             </div>
                             <field name="current_meter_schedule_ids" nolabel="1">
@@ -182,10 +183,19 @@
                                     <field name="meter_month" width="90px"/>
                                     <field name="period_month" optional="hide" width="90px"/>
                                     <field name="tenant_id" optional="hide"/>
-                                    <field name="electricity_prev_reading" string="上期度數" optional="show" width="100px"/>
-                                    <field name="electricity_curr_reading" string="抄表度數" readonly="invoice_state == 'posted'" width="100px"/>
-                                    <field name="electricity_usage" optional="show" width="90px"/>
+                                    <field name="electricity_billing_type" column_invisible="True"/>
+                                    <field name="electricity_prev_reading" string="上期度數" optional="show" width="100px"
+                                           invisible="electricity_billing_type != 'metered'"/>
+                                    <field name="electricity_curr_reading" string="抄表度數" width="100px"
+                                           invisible="electricity_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
+                                    <field name="electricity_usage" optional="show" width="90px"
+                                           invisible="electricity_billing_type != 'metered'"/>
                                     <field name="electricity_amount" width="100px"/>
+                                    <field name="water_billing_type" column_invisible="True"/>
+                                    <field name="water_fixed_fee" string="水費" width="100px"
+                                           invisible="water_billing_type != 'fixed'" readonly="invoice_state == 'posted'"/>
+                                    <field name="water_curr_reading" string="水錶度數" optional="hide" width="100px"
+                                           invisible="water_billing_type != 'metered'" readonly="invoice_state == 'posted'"/>
                                     <field name="note" string="備註" optional="show" placeholder="例如：換電錶"/>
                                     <field name="currency_id" column_invisible="True"/>
                                     <field name="invoice_state" column_invisible="True"/>
@@ -210,7 +220,7 @@
         <field name="context">{'search_default_group_manager': 0}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">建立第一個包租或代管物件</p>
-            <p>先登記房東與地址，再加入房間或其他出租單位。</p>
+            <p>先登記房東與地址，再加入房間。</p>
         </field>
     </record>
 </odoo>

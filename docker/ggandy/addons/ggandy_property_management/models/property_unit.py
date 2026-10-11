@@ -22,21 +22,21 @@ UTILITY_SETTING_FIELDS = tuple(
 
 class GgandyPropertyUnit(models.Model):
     _name = "ggandy.property.unit"
-    _description = "出租單位"
+    _description = "房間"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "property_id, sequence, id"
 
     name = fields.Char(
-        string="房號／單位名稱",
+        string="房號",
         required=True,
         tracking=True,
-        help="出租單位的名稱，例如 2F-A、B1 車位或 301。建議使用清楚、可辨識的命名。",
+        help="房間的名稱，例如 2F-A、B1 車位或 301。建議使用清楚、可辨識的命名。",
     )
     active = fields.Boolean(default=True)
     sequence = fields.Integer(
         string="排序",
         default=10,
-        help="物件頁出租單位分頁的顯示順序，可以拖曳左邊的把手調整。新增的單位會排在最後面；電表維護、當期帳單等分頁也照這個順序。",
+        help="物件頁房間分頁的顯示順序，可以拖曳左邊的把手調整。新增的房間會排在最後面；水電表維護、當期帳單等分頁也照這個順序。",
     )
     property_id = fields.Many2one(
         "ggandy.property",
@@ -45,7 +45,7 @@ class GgandyPropertyUnit(models.Model):
         ondelete="restrict",
         tracking=True,
         index=True,
-        help="這個出租單位屬於哪個物件。若物件選錯，後續租約與報修也會跟著歸錯地方。",
+        help="這個房間屬於哪個物件。若物件選錯，後續租約與報修也會跟著歸錯地方。",
     )
     company_id = fields.Many2one(
         "res.company",
@@ -70,11 +70,11 @@ class GgandyPropertyUnit(models.Model):
             ("parking", "車位"),
             ("other", "其他"),
         ],
-        string="單位類型",
+        string="房間類型",
         required=True,
         default="suite",
         tracking=True,
-        help="單位類型會幫助分類與搜尋。它不會直接影響計算，但能讓報表更好讀。",
+        help="房間類型會幫助分類與搜尋。它不會直接影響計算，但能讓報表更好讀。",
     )
     floor = fields.Char(
         string="樓層",
@@ -82,7 +82,7 @@ class GgandyPropertyUnit(models.Model):
     )
     area = fields.Float(
         string="坪數",
-        help="單位坪數，提供管理與分析參考。若未填寫，坪效相關分析可能不完整。",
+        help="房間坪數，提供管理與分析參考。若未填寫，坪效相關分析可能不完整。",
     )
     bedroom_count = fields.Integer(
         string="房間數",
@@ -107,7 +107,7 @@ class GgandyPropertyUnit(models.Model):
         string="電費計費方式",
         default="metered",
         tracking=True,
-        help="這個單位的電費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度電價；"
+        help="這個房間的電費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度電價；"
         "每月固定金額＝不看度數、每月收固定電費；含在租金內＝不另外收；房客自繳台電＝獨立電錶、帳單直接寄給房客。"
         "空白代表還沒設定。改動後，生效中租約尚未過帳的租金期次會跟著更新。",
     )
@@ -131,7 +131,7 @@ class GgandyPropertyUnit(models.Model):
         string="水費計費方式",
         default="fixed",
         tracking=True,
-        help="這個單位的水費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度水價；"
+        help="這個房間的水費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度水價；"
         "每月固定金額＝不看度數、每月收固定水費；含在租金內＝不另外收；房客自繳水公司＝獨立水錶、帳單直接寄給房客。"
         "空白代表還沒設定。改動後，生效中租約尚未過帳的租金期次會跟著更新。",
     )
@@ -168,16 +168,22 @@ class GgandyPropertyUnit(models.Model):
     meter_schedule_ids = fields.One2many(
         "ggandy.rent.schedule",
         "unit_id",
-        string="電表維護",
-        domain=[("electricity_billing_type", "=", "metered"), ("lease_id.state", "!=", "cancelled")],
-        help="這個單位電費依度數計費的租金期次，涵蓋每份租約開始到結束的月份。在這裡填抄表度數，跟租約裡的租金期次是同一筆資料。",
+        string="水電表維護",
+        domain=[
+            ("lease_id.state", "!=", "cancelled"),
+            "|",
+            ("electricity_billing_type", "=", "metered"),
+            ("water_billing_type", "in", ("metered", "fixed")),
+        ],
+        help="這個房間電費依度數計費或水費要另外收的租金期次，涵蓋每份租約開始到結束的月份。"
+        "在這裡填抄表度數、調整某個月的水費，跟租約裡的租金期次是同一筆資料。",
     )
     maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request", "unit_id", string="報修紀錄"
     )
     lease_count = fields.Integer(
         compute="_compute_counts",
-        help="這個單位的租約紀錄數量。包含歷史紀錄，不代表目前一定出租中。",
+        help="這個房間的租約紀錄數量。包含歷史紀錄，不代表目前一定出租中。",
     )
     has_open_lease = fields.Boolean(
         string="有進行中租約",
@@ -186,20 +192,20 @@ class GgandyPropertyUnit(models.Model):
     )
     maintenance_count = fields.Integer(
         compute="_compute_counts",
-        help="這個單位的報修紀錄數量。數字偏高時可以回頭看是不是設備該保養了。",
+        help="這個房間的報修紀錄數量。數字偏高時可以回頭看是不是設備該保養了。",
     )
-    note = fields.Html(string="單位備註")
+    note = fields.Html(string="房間備註")
     layout_photo_ids = fields.Many2many(
         "ir.attachment",
         string="格局照片",
         compute="_compute_photos",
-        help="上傳在這個單位 chatter 的圖片附件。要新增格局照片，請直接用下方 chatter 的迴紋針上傳。",
+        help="上傳在這個房間 chatter 的圖片附件。要新增格局照片，請直接用下方 chatter 的迴紋針上傳。",
     )
     maintenance_photo_ids = fields.Many2many(
         "ir.attachment",
         string="維修照片",
         compute="_compute_photos",
-        help="上傳在這個單位所有報修單 chatter 的圖片附件。要新增維修照片，請到該報修單的 chatter 上傳。",
+        help="上傳在這個房間所有報修單 chatter 的圖片附件。要新增維修照片，請到該報修單的 chatter 上傳。",
     )
     layout_photo_count = fields.Integer(compute="_compute_photos")
     maintenance_photo_count = fields.Integer(compute="_compute_photos")
@@ -207,8 +213,8 @@ class GgandyPropertyUnit(models.Model):
     @api.depends("property_id.name", "name")
     @api.depends_context("ggandy_unit_short_name")
     def _compute_display_name(self):
-        # 預設顯示「物件 / 單位」避免不同物件的同名房號混淆；
-        # 畫面上已有物件欄位時，欄位帶 context ggandy_unit_short_name 只顯示單位名稱。
+        # 預設顯示「物件 / 房間」避免不同物件的同名房號混淆；
+        # 畫面上已有物件欄位時，欄位帶 context ggandy_unit_short_name 只顯示房間名稱。
         short_name = self.env.context.get("ggandy_unit_short_name")
         for record in self:
             record.display_name = (
@@ -311,7 +317,7 @@ class GgandyPropertyUnit(models.Model):
         return values
 
     def _sync_utility_settings_to_schedules(self):
-        """把單位的水電設定同步到草稿／生效中租約、帳單還沒過帳的期次。"""
+        """把房間的水電設定同步到草稿／生效中租約、帳單還沒過帳的期次。"""
         schedules = self.env["ggandy.rent.schedule"].search(
             [
                 ("unit_id", "in", self.ids),
@@ -325,7 +331,7 @@ class GgandyPropertyUnit(models.Model):
             schedule.write(schedule.unit_id._get_utility_schedule_values(schedule._get_period_ratio()))
 
     def _get_last_meter_reading(self, kind):
-        """這個單位最近一次抄表的度數（跨租約），新租約的入住度數會預設帶入這個值。"""
+        """這個房間最近一次抄表的度數（跨租約），新租約的入住度數會預設帶入這個值。"""
         self.ensure_one()
         field_name = f"{kind}_curr_reading"
         schedule = self.env["ggandy.rent.schedule"].search(
@@ -380,14 +386,14 @@ class GgandyPropertyUnit(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": "出租單位",
+            "name": "房間",
             "res_model": "ggandy.property.unit",
             "view_mode": "form",
             "res_id": self.id,
         }
 
     def action_view_current_lease(self):
-        """直接開這個單位目前的租約：生效中優先，其次草稿，再來是最近開始的那份；沒有租約就開租約列表。"""
+        """直接開這個房間目前的租約：生效中優先，其次草稿，再來是最近開始的那份；沒有租約就開租約列表。"""
         self.ensure_one()
         state_priority = {"active": 0, "draft": 1, "cancelled": 3}
         lease = self.lease_ids.sorted(

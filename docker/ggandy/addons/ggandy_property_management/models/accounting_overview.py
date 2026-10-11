@@ -3,10 +3,10 @@ from odoo.tools import SQL
 
 
 class GgandyAccountingOverview(models.Model):
-    """帳務總表：每個啟用中的出租單位 × 每個月一列，整張表由 SQL 即時算出。
+    """帳務總表：每個啟用中的房間 × 每個月一列，整張表由 SQL 即時算出。
 
     不存資料、不需要排程或手動更新；因為金額都是 SQL 欄位，可以依物件／月份分組加總。
-    列的範圍：每個單位從「建立月」與「最早一份未取消租約的開始月」較早者，一路到本月。
+    列的範圍：每個房間從「建立月」與「最早一份未取消租約的開始月」較早者，一路到本月。
     """
 
     _name = "ggandy.accounting.overview"
@@ -46,7 +46,7 @@ class GgandyAccountingOverview(models.Model):
         help="這筆總表統計的最後一天，也就是當月月底。",
     )
     property_id = fields.Many2one("ggandy.property", string="物件", readonly=True)
-    unit_id = fields.Many2one("ggandy.property.unit", string="出租單位", readonly=True)
+    unit_id = fields.Many2one("ggandy.property.unit", string="房間", readonly=True)
     owner_id = fields.Many2one("res.partner", string="房東", readonly=True)
     active_owner_contract_id = fields.Many2one(
         "ggandy.owner.contract",
@@ -60,7 +60,7 @@ class GgandyAccountingOverview(models.Model):
     rent_receivable = fields.Monetary(
         string="租金應收",
         readonly=True,
-        help="本月該出租單位所有租金期次的應收合計（租金 + 管理費 + 水電費）。請搭配租金實收一起判讀。",
+        help="本月該房間所有租金期次的應收合計（租金 + 管理費 + 水電費）。請搭配租金實收一起判讀。",
     )
     rent_collected = fields.Monetary(
         string="租金實收",
@@ -75,12 +75,12 @@ class GgandyAccountingOverview(models.Model):
     owner_payable = fields.Monetary(
         string="應付房東",
         readonly=True,
-        help="本月房東 Vendor Bill 金額，會依出租單位的參考月租比例分攤；若沒有參考月租，則平均分攤。",
+        help="本月房東 Vendor Bill 金額，會依房間的參考月租比例分攤；若沒有參考月租，則平均分攤。",
     )
     owner_paid = fields.Monetary(
         string="已付房東",
         readonly=True,
-        help="房東 Vendor Bill 中已實際付款的金額，同樣依出租單位比例分攤。還有待付款項時，這格會以橘色提醒。",
+        help="房東 Vendor Bill 中已實際付款的金額，同樣依房間比例分攤。還有待付款項時，這格會以橘色提醒。",
     )
     owner_unpaid = fields.Monetary(
         string="待付房東",
@@ -90,7 +90,7 @@ class GgandyAccountingOverview(models.Model):
     purchase_cost = fields.Monetary(
         string="採購費用",
         readonly=True,
-        help="抓採購帳單中歸屬到這個物件與出租單位、費用類型為採購費用的金額。要算準，帳單上的 GGAndy 歸屬欄位要記得填。",
+        help="抓採購帳單中歸屬到這個物件與房間、費用類型為採購費用的金額。要算準，帳單上的 GGAndy 歸屬欄位要記得填。",
     )
     net_cash_flow = fields.Monetary(
         string="現金流小計",
@@ -100,7 +100,7 @@ class GgandyAccountingOverview(models.Model):
     has_uncollected_rent = fields.Boolean(
         string="有租金未收",
         readonly=True,
-        help="租金未收大於 0 時會勾起來。可用來快速篩出需要追蹤的出租單位。",
+        help="租金未收大於 0 時會勾起來。可用來快速篩出需要追蹤的房間。",
     )
     has_owner_unpaid = fields.Boolean(
         string="有待付房東",
@@ -179,7 +179,7 @@ class GgandyAccountingOverview(models.Model):
                     contract.id AS active_owner_contract_id,
                     rent.receivable AS rent_receivable,
                     rent.collected AS rent_collected,
-                    -- 房東帳單依參考月租比例分攤到各單位；物件沒有參考月租時平均分攤。
+                    -- 房東帳單依參考月租比例分攤到各房間；物件沒有參考月租時平均分攤。
                     owner_bill.payable * (
                         CASE WHEN property_units.total_rent > 0
                             THEN um.monthly_rent / property_units.total_rent

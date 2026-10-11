@@ -114,7 +114,7 @@
                             <div class="o_ggandy_hint" invisible="not auto_generate_schedule">
                                 <i class="fa fa-info-circle" role="img" title="說明"/>
                                 <div>
-                                    <div>每月一期：租金、管理費依租約，水電依出租單位設定；月中入住／退租那期按日計算。</div>
+                                    <div>每月一期：租金、管理費依租約，水電依房間設定；月中入住／退租那期按日計算。</div>
                                     <div>電費依度數計費時，抄表後填<strong>電錶本期</strong>，會自動算電費並帶到下一期。</div>
                                 </div>
                             </div>

@@ -13,8 +13,8 @@ class ResPartner(models.Model):
         help="標記此聯絡人是 GGAndy 房客。建立租約時會自動勾選，之後篩選承租人比較快。",
     )
     is_ggandy_vendor = fields.Boolean(
-        string="維修廠商",
-        help="標記此聯絡人是 GGAndy 維修廠商。報修單選廠商時會用它篩選。",
+        string="合作廠商",
+        help="標記此聯絡人是 GGAndy 合作廠商，包含維修、工程與採購的廠商。報修單選廠商、整備採購選供應商時都只會列出有勾這個的聯絡人。",
     )
 
     ggandy_owned_property_ids = fields.One2many(
@@ -52,7 +52,7 @@ class ResPartner(models.Model):
     )
     ggandy_maintenance_count = fields.Integer(
         compute="_compute_ggandy_counts",
-        help="此聯絡人作為維修廠商承接的報修單數量。可用來查看合作與維修紀錄。",
+        help="此聯絡人作為合作廠商承接的報修單數量。可用來查看合作與維修紀錄。",
     )
 
     @api.depends(

@@ -47,8 +47,8 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
         string="房間順序",
         compute="_compute_room_order_html",
         sanitize=False,
-        help="系統裡這個物件的出租單位順序，貼上的度數會依這個順序對應。"
-        "跟 Google Sheet 不一致時，請到物件頁的出租單位分頁拖曳調整。",
+        help="系統裡這個物件的房間順序，貼上的度數會依這個順序對應。"
+        "跟 Google Sheet 不一致時，請到物件頁的房間分頁拖曳調整。",
     )
     reading_text = fields.Text(
         string="抄表度數",
@@ -132,7 +132,7 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
         return True
 
     def _parse_rows(self):
-        """依出租單位順序回傳 [(出租單位, 度數文字)]；格數對不起來時 raise UserError。"""
+        """依房間順序回傳 [(房間, 度數文字)]；格數對不起來時 raise UserError。"""
         self.ensure_one()
         units = self.property_id.unit_ids
         cells = self._split_row(self.reading_text)
@@ -142,13 +142,13 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
         if len(cells) > len(units) and not any(cells[len(units):]):
             cells = cells[: len(units)]
         if not units:
-            raise UserError("這個物件還沒有出租單位。")
+            raise UserError("這個物件還沒有房間。")
         if not cells:
             raise UserError("請貼上抄表度數那一列。")
         if len(cells) != len(units):
             raise UserError(
                 f"系統有 {len(units)} 間房，貼上的度數有 {len(cells)} 格，對不起來。"
-                "請確認複製的範圍，或到物件頁的出租單位分頁檢查房間是否多了、少了。"
+                "請確認複製的範圍，或到物件頁的房間分頁檢查房間是否多了、少了。"
             )
         return list(zip(units, cells))
 
