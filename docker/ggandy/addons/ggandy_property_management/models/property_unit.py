@@ -265,6 +265,13 @@ class GgandyPropertyUnit(models.Model):
             ):
                 raise ValidationError("水電單價與固定水電費不可小於零。")
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        # 帳務總表每單位每月一列，新單位立刻補上本月那列，不用等每日排程。
+        self.env["ggandy.accounting.overview"].ensure_period_records(units=records.filtered("active"))
+        return records
+
     def write(self, values):
         result = super().write(values)
         if any(field in values for field in UTILITY_SETTING_FIELDS):
@@ -330,6 +337,36 @@ class GgandyPropertyUnit(models.Model):
                 "default_rent_amount": self.monthly_rent,
                 "default_deposit_amount": self.monthly_rent * self.deposit_months,
             },
+        }
+
+    def action_open_unit(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "出租單位",
+            "res_model": "ggandy.property.unit",
+            "view_mode": "form",
+            "res_id": self.id,
+        }
+
+    def action_view_current_lease(self):
+        """直接開這個單位目前的租約：生效中優先，其次草稿，再來是最近開始的那份；沒有租約就開租約列表。"""
+        self.ensure_one()
+        state_priority = {"active": 0, "draft": 1, "cancelled": 3}
+        lease = self.lease_ids.sorted(
+            key=lambda lease: (
+                state_priority.get(lease.state, 2),
+                -(lease.start_date.toordinal() if lease.start_date else 0),
+            )
+        )[:1]
+        if not lease:
+            return self.action_view_leases()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "房客租約",
+            "res_model": "ggandy.lease",
+            "view_mode": "form",
+            "res_id": lease.id,
         }
 
     def action_view_maintenance(self):

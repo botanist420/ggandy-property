@@ -342,16 +342,20 @@ class GgandyAccountingOverview(models.Model):
         return period_start, period_end
 
     @api.model
-    def ensure_period_records(self, date_value=None):
+    def ensure_period_records(self, date_value=None, units=None):
+        """補齊某月（預設本月）每個出租單位的總表資料列；units 未指定時處理所有啟用中的單位。"""
         date_value = date_value or fields.Date.context_today(self)
         period_start, period_end = self._month_bounds(date_value)
-        units = self.env["ggandy.property.unit"].search([("active", "=", True)])
-        self.search(
-            [
-                ("period_start", "=", period_start),
-                ("unit_id", "=", False),
-            ]
-        ).unlink()
+        if units is None:
+            units = self.env["ggandy.property.unit"].search([("active", "=", True)])
+            self.search(
+                [
+                    ("period_start", "=", period_start),
+                    ("unit_id", "=", False),
+                ]
+            ).unlink()
+        if not units:
+            return True
         existing_unit_ids = set(
             self.search(
                 [

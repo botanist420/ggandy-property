@@ -117,9 +117,9 @@
                             </div>
                             <field name="schedule_ids" context="{'default_lease_id': id}">
                                 <list editable="bottom" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
-                                    <field name="period_start"/>
-                                    <field name="period_end"/>
-                                    <field name="due_date"/>
+                                    <field name="period_start" readonly="id"/>
+                                    <field name="period_end" readonly="id"/>
+                                    <field name="due_date" readonly="id"/>
                                     <field name="rent_amount"/>
                                     <field name="management_fee" optional="show"/>
                                     <field name="invoice_state" column_invisible="True"/>

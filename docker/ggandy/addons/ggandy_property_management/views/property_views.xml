@@ -109,6 +109,8 @@
                                            decoration-success="state == 'occupied'"
                                            decoration-warning="state == 'maintenance'"
                                            decoration-info="state == 'reserved'"/>
+                                    <button name="action_open_unit" type="object" string="檢視房間" class="btn-link"/>
+                                    <button name="action_view_current_lease" type="object" string="檢視租約" class="btn-link"/>
                                 </list>
                             </field>
                         </page>

@@ -34,6 +34,10 @@
         <field name="model">ggandy.accounting.overview</field>
         <field name="arch" type="xml">
             <list string="GGAndy 帳務總表" decoration-success="net_cash_flow &gt;= 0" decoration-danger="net_cash_flow &lt; 0">
+                <header>
+                    <button name="action_refresh_current_month" type="object" string="更新本月總表" display="always"
+                            help="立刻替所有啟用中的出租單位補上本月資料列。平常每日排程和新增出租單位時都會自動補，通常不用按。"/>
+                </header>
                 <field name="period_start" string="月份"/>
                 <field name="property_id"/>
                 <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
@@ -115,17 +119,33 @@
         <field name="context">{'search_default_current_month': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">建立本月帳務總表</p>
-            <p>每日排程會自動替每個啟用中的出租單位建立本月資料，也可以使用「更新本月總表」。</p>
+            <p>每日排程與新增出租單位時，會自動替每個啟用中的出租單位建立本月資料；也可以按列表上方的「更新本月總表」。</p>
         </field>
     </record>
 
-    <record id="action_ggandy_accounting_overview_refresh" model="ir.actions.server">
-        <field name="name">更新本月總表</field>
-        <field name="model_id" ref="model_ggandy_accounting_overview"/>
-        <field name="state">code</field>
-        <field name="code">
-model.ensure_period_records()
-action = env.ref("ggandy_property_management.action_ggandy_accounting_overview").read()[0]
+    <record id="action_ggandy_overdue_rent_schedule" model="ir.actions.act_window">
+        <field name="name">逾期未收</field>
+        <field name="res_model">ggandy.rent.schedule</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_ggandy_rent_schedule_search"/>
+        <field name="context">{'search_default_overdue': 1, 'search_default_group_property': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">目前沒有逾期未收的租金</p>
+            <p>生效中租約的租金期次過了繳款期限、帳單還沒收齊，就會出現在這裡。</p>
+        </field>
+    </record>
+
+    <record id="action_ggandy_owner_unpaid_bill" model="ir.actions.act_window">
+        <field name="name">房東待付</field>
+        <field name="res_model">account.move</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="account.view_in_invoice_bill_tree"/>
+        <field name="search_view_id" ref="account.view_account_bill_filter"/>
+        <field name="domain">[('move_type', '=', 'in_invoice'), ('ggandy_owner_contract_id', '!=', False)]</field>
+        <field name="context">{'default_move_type': 'in_invoice', 'search_default_open': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">目前沒有待付給房東的帳單</p>
+            <p>房東合約每月自動建立的 Vendor Bill，還沒付清的會列在這裡；拿掉「待付款」篩選可以看全部。</p>
         </field>
     </record>
 
@@ -139,9 +159,15 @@ action = env.ref("ggandy_property_management.action_ggandy_accounting_overview")
               parent="menu_ggandy_accounting"
               action="action_ggandy_accounting_overview"
               sequence="10"/>
-    <menuitem id="menu_ggandy_accounting_refresh"
-              name="更新本月總表"
+    <menuitem id="menu_ggandy_overdue_rent_schedule"
+              name="逾期未收"
               parent="menu_ggandy_accounting"
-              action="action_ggandy_accounting_overview_refresh"
-              sequence="90"/>
+              action="action_ggandy_overdue_rent_schedule"
+              sequence="20"/>
+    <menuitem id="menu_ggandy_owner_unpaid_bill"
+              name="房東待付"
+              parent="menu_ggandy_accounting"
+              action="action_ggandy_owner_unpaid_bill"
+              groups="account.group_account_invoice"
+              sequence="30"/>
 </odoo>

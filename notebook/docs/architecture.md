@@ -59,6 +59,7 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `electricity_meter_ref` / `water_meter_ref` | 電錶／水錶編號或位置 |
 | `state` | vacant / reserved / occupied / maintenance / inactive |
 | `meter_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `unit_id`），domain 電費 metered 且租約非 cancelled，不限月份；期次本來就依租約起訖拆月，所以列出的就是租約期間的所有月份 |
+| `action_open_unit()` / `action_view_current_lease()` | 物件 form 出租單位分頁的「檢視房間」「檢視租約」按鈕；租約挑選順序：active → draft → 其他（依 start_date 新到舊）→ cancelled，沒有租約時回傳 `action_view_leases()` |
 | `layout_photo_ids` | compute：本單位 chatter 上的 `image/*` 附件 |
 | `maintenance_photo_ids` | compute：本單位所有報修單（含封存）的 `image/*` 附件，依 `ggandy_request_date` desc |
 
@@ -139,6 +140,7 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 | `{electricity,water}_billing_type` / `_rate` / `_fixed_fee` | 建期次時從出租單位**快照**（固定費按日比例）；單位 `write()` 改這些設定時，`_sync_utility_settings_to_schedules()` 會更新租約 draft/active、帳單未過帳的期次 |
 | `{electricity,water}_prev_reading` / `_curr_reading` | 上期／本期度數（Float digits (12,1)）。第一期 prev = 租約 `*_start_reading`，之後 = 前一期的 curr（沒抄就沿用前一期的 prev） |
 | `{electricity,water}_usage` / `_amount` | stored compute：metered = (curr − prev) × rate 四捨五入到元（curr 為 0 視為未抄、金額 0）；fixed = fixed_fee；其他 = 0 |
+| `period_start` / `period_end` / `due_date` | view 層 `readonly="id"`（租約內嵌 list 與期次 form）：已存檔的期次鎖住，新增中的列可填；model 層沒有限制，程式與匯入照常可寫 |
 | `period_month` | stored compute：`period_start` 的 `YYYY-MM`，電表維護分頁顯示月份用 |
 | `meter_reading_pending` | stored compute：任一項 metered 且 curr 為 0（「待抄表」篩選用） |
 | `total_amount` | stored compute = `rent_amount + management_fee + electricity_amount + water_amount` |
@@ -172,7 +174,9 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 ### ggandy.accounting.overview（帳務總表）
 
 - 一列 = 一個出租單位 × 一個月（`unique(unit_id, period_start)`）。
-- `ensure_period_records()`：替所有 active 單位建立當月列，並刪除當月 `unit_id = False` 的舊格式列。
+- `ensure_period_records(date_value=None, units=None)`：沒給 `units` 時替所有 active 單位建立當月列，並刪除當月 `unit_id = False` 的舊格式列；給 `units` 時只補這些單位（`ggandy.property.unit.create()` 會呼叫，新單位立刻有當月列）。
+- 手動補建：總表 list header 的「更新本月總表」按鈕（`action_refresh_current_month`，`display="always"`）；原本的選單與 server action 已移除。
+- GGandy帳務選單：營運總表（10）、逾期未收（20，`ggandy.rent.schedule` + `search_default_overdue` + 依物件分組）、房東待付（30，`account.move` in_invoice 且有 `ggandy_owner_contract_id`，`search_default_open`，限 `account.group_account_invoice`）。
 - 所有金額非 stored，每次開啟即時計算：
 
 ```text

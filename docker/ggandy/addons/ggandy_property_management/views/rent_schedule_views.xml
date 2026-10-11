@@ -81,9 +81,9 @@
                             <field name="tenant_id"/>
                         </group>
                         <group string="計費期間">
-                            <field name="period_start"/>
-                            <field name="period_end"/>
-                            <field name="due_date"/>
+                            <field name="period_start" readonly="id"/>
+                            <field name="period_end" readonly="id"/>
+                            <field name="due_date" readonly="id"/>
                         </group>
                     </group>
                     <group>
