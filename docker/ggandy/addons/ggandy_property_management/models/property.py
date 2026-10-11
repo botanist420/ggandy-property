@@ -137,6 +137,26 @@ class GgandyProperty(models.Model):
         domain=lambda self: self._get_current_schedule_domain(),
         help="此物件所有房間本月的租金期次，只供檢視；要建立帳單或修改金額請到租金期次或租約。",
     )
+    internet_fee = fields.Monetary(
+        string="網路第四台",
+        tracking=True,
+        help="這個物件每月固定的網路第四台費用，算進「本月收入概覽」的合計，最後會一起付給房東。"
+        "目前只記在物件上，不會開進房客帳單。",
+    )
+    month_summary_label = fields.Char(string="帳單月份", compute="_compute_month_summary")
+    month_rent_total = fields.Monetary(string="租金", compute="_compute_month_summary")
+    month_management_fee_total = fields.Monetary(string="管理費", compute="_compute_month_summary")
+    month_electricity_total = fields.Monetary(
+        string="電費",
+        compute="_compute_month_summary",
+        help="本月帳單的電費加總，收的是上個月的用電。",
+    )
+    month_water_total = fields.Monetary(string="水費", compute="_compute_month_summary")
+    month_income_total = fields.Monetary(
+        string="合計",
+        compute="_compute_month_summary",
+        help="租金＋管理費＋網路第四台＋電費＋水費。依本月各房間的租金期次即時加總（含草稿租約），還沒扣給房東的調整項目。",
+    )
     current_meter_schedule_ids = fields.One2many(
         "ggandy.rent.schedule",
         "property_id",
@@ -223,6 +243,31 @@ class GgandyProperty(models.Model):
         for record in self:
             if record.owner_payment_day and not 1 <= record.owner_payment_day <= 31:
                 raise ValidationError("匯款日期必須介於 1 到 31。")
+
+    @api.depends(
+        "internet_fee",
+        "current_schedule_ids.rent_amount",
+        "current_schedule_ids.management_fee",
+        "current_schedule_ids.electricity_amount",
+        "current_schedule_ids.water_amount",
+    )
+    def _compute_month_summary(self):
+        # 跟「當期帳單」分頁同一批期次：本月帳單、租約未取消。
+        today = fields.Date.context_today(self)
+        for record in self:
+            schedules = record.current_schedule_ids
+            record.month_summary_label = f"{today.year} 年 {today.month} 月"
+            record.month_rent_total = sum(schedules.mapped("rent_amount"))
+            record.month_management_fee_total = sum(schedules.mapped("management_fee"))
+            record.month_electricity_total = sum(schedules.mapped("electricity_amount"))
+            record.month_water_total = sum(schedules.mapped("water_amount"))
+            record.month_income_total = (
+                record.month_rent_total
+                + record.month_management_fee_total
+                + record.internet_fee
+                + record.month_electricity_total
+                + record.month_water_total
+            )
 
     @api.depends("unit_ids", "owner_contract_ids", "lease_ids", "maintenance_request_ids")
     def _compute_counts(self):

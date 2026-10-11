@@ -44,6 +44,8 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `acquisition_date` / `management_end_date` | 房東合約生效時回寫 |
 | `state_id` / `city_id` / `zip` / `city` | 地址：`city_id` 是 `res.city`（台灣資料來自 `l10n_tw` 的 `data/res.city.csv`，所以 depends `l10n_tw`），view domain 限定 `state_id`；onchange `city_id` 帶入 `city`（區名 Char）、`zip`、`state_id`，onchange `state_id` 時不符的 `city_id` 清空。`city` Char 保留給 `address_display`、租約 PDF `_format_premises` 用 |
 | `current_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `property_id`），callable domain `_get_current_schedule_domain()`：租約非 cancelled、`period_month` = 本月（每次讀取時計算）；表單「當期帳單」分頁 `readonly="1"`、`default_order="unit_id"`，只供檢視 |
+| `internet_fee` | 網路第四台（Monetary，tracking），每月固定金額，只算進本月收入概覽的合計，不進房客帳單 |
+| `month_*_total` / `month_summary_label` | 「本月收入概覽」：非 stored compute（`_compute_month_summary`），加總 `current_schedule_ids` 的租金／管理費／電費／水費；`month_income_total` = 四項 + `internet_fee`。順序照老闆付房東 Sheet（2026-10-11 驗算：Sheet 的 N 月 = N 月帳單 `period_month`） |
 | `current_meter_schedule_ids` | 同上再加電費 metered（`_get_current_meter_schedule_domain()`）；表單「電表維護」分頁 `default_order="unit_id"`（照出租單位 `_order`），直接編輯期次的 `electricity_curr_reading`，連動走期次 `write()` |
 
 ### ggandy.property.unit（出租單位）
