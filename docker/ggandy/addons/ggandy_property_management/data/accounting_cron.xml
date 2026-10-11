@@ -20,6 +20,16 @@
         <field name="active" eval="True"/>
     </record>
 
+    <record id="ir_cron_expire_ended_leases" model="ir.cron">
+        <field name="name">GGAndy：房客租約到期自動結案</field>
+        <field name="model_id" ref="model_ggandy_lease"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_expire_ended_leases()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+
     <record id="ir_cron_create_owner_vendor_bills" model="ir.cron">
         <field name="name">GGAndy：自動建立房東 Vendor Bill</field>
         <field name="model_id" ref="model_ggandy_owner_contract"/>

@@ -97,7 +97,11 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 
 ### ggandy.lease（房客租約）
 
-狀態：`draft → active → expired / terminated`，`draft → cancelled`，`→ draft`（無已過帳帳單才可）。
+狀態：`draft → active → expired / terminated`，`draft → cancelled`，`→ draft`（無已過帳帳單才可），`expired → active`（續約）。
+
+- **自動到期**：`_cron_expire_ended_leases()`（每日）把 `active` 且 `end_date < today` 的租約改 `expired`、`message_post`、`_refresh_unit_state()`。因此「已到期」的租約仍要參與收款與抄表：`_get_overdue_domain`、`_cron_create_due_invoices`、租金期次搜尋的逾期／待抄表篩選用 `state in (active, expired)`；`_find_unit_month_schedule`、`_sync_utility_settings_to_schedules` 用 `(draft, active, expired)`。
+- **續約**：`action_open_renew_wizard()` → `ggandy.lease.renew.wizard`（`models/lease_renew_wizard.py`，TransientModel）。延長同一份租約，不另建租約：檢查新結束日 > 舊結束日、同房間沒有 draft/active 租約起租日落在 `(舊結束日, 新結束日]` → `write(end_date, rent_amount, management_fee[, state=active])` → `_refresh_unit_state()` → `auto_generate_schedule` 時 `_generate_rent_schedule(from_date=舊結束日 + 1)` → `message_post` → `_cron_create_due_invoices()`。三個預設值各自一個 compute（store、readonly=False）：共用同一個 compute 時，create 只帶其中一個，其他的就不會被算出來。
+- **待續約**：`has_next_lease`（非 stored，`_search_has_next_lease` 用 SQL `EXISTS`：同 `unit_id`、`active`、`state in (draft, active)`、`start_date > 本租約 end_date`；Odoo 19 boolean 搜尋會正規化成 `in` / `not in`）、`days_to_end`（非 stored）、`tenant_phone`（related）。`action_ggandy_lease_renewal` domain `state in (active, expired) and has_next_lease = False`，預設 `search_default_ending_30`；list `view_ggandy_lease_renewal_list`（priority 20，不影響「房客租約」選單）。Telegram `/renew`、`/status` 的到期數也排除 `has_next_lease`。
 
 房客：`tenant_id`、`co_tenant_ids` domain 都是 `is_ggandy_tenant = True`（view context `default_is_ggandy_tenant`，就地新建的聯絡人會勾好）。
 
@@ -106,10 +110,11 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 `_generate_rent_schedule()` 拆月規則：
 
 ```text
-for 每個月 month_cursor（start_date 月 ~ end_date 月）:
-    period_start = max(start_date, 月初)
+first_date = max(start_date, from_date)   # from_date 預設 None = start_date；續約傳舊結束日隔天
+for 每個月 month_cursor（first_date 月 ~ end_date 月）:
+    period_start = max(first_date, 月初)
     period_end   = min(end_date, 月底)
-    due_date     = 該月 rent_due_day（短月取月底），若早於 start_date 則用 start_date
+    due_date     = 該月 rent_due_day（短月取月底），若早於 first_date 則用 first_date
     ratio        = 期次天數 ÷ 當月實際天數（整月 = 1）
     rent_amount / management_fee = 月額 × ratio，四捨五入到元（整月直接用月額）
     水電設定 = 房間快照（固定水電費同樣 × ratio）；prev_reading = _get_meter_reading_before()
@@ -119,6 +124,7 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 > 按日比例用**當月實際天數**（不是固定 30 天）：一年期租約起訖在同一個月份，第一期 + 最後一期剛好等於一個月，總額 = 12 個月租金。
 > 例：9/25 起租、月租 31,000 → 第一期 9/25–9/30 = 31,000 × 6/30 = 6,200。
 > 規則只影響新產生的期次；改版前已建立的期次維持原金額。
+> 續約時舊結束日不在月底（例如 11/14），當月會拆成兩期：11/1–11/14（舊月租）與 11/15–11/30（新月租），各自按日比例。
 
 `contract_document_ids`：非 stored compute，抓 `res_model = ggandy.lease`、`res_id = 本租約` 的所有 `ir.attachment`（不限圖片），一次 search 後依 `res_id` 分配；未儲存的新租約為空。
 
@@ -159,7 +165,7 @@ for 每個月 month_cursor（start_date 月 ~ end_date 月）:
 - **鎖定與同步**：帳單已過帳時改水電欄位 → `UserError`；帳單是草稿時 `_sync_draft_invoice_utility_lines()` 以產品比對更新／新增／刪除水電行。
 - `@api.constrains`：curr 不可小於 prev（換錶要手動改 prev）。
 - `_get_unpaid_domain()`、`_get_overdue_domain()`：共用的 domain，Telegram 也用。
-- `_cron_create_due_invoices`：`invoice_id = False`、`period_start <= today`、租約 active → `action_create_invoice()`。
+- `_cron_create_due_invoices`：`invoice_id = False`、`period_start <= today`、租約 active 或 expired → `action_create_invoice()`。
 - `_cron_create_overdue_rent_activities`：符合 overdue domain → 建 `mail.mail_activity_data_todo` 活動（摘要「逾期租金待處理」，同人同期次不重複），指派給物件 `manager_id` → 租約建立者 → 目前使用者。
 
 ### ggandy.maintenance.request（報修單）
@@ -297,7 +303,7 @@ depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`
 | `preparation_progress` | Char，`已完成/全部 (百分比%)`，完成數 = 專案 `task_count - open_task_count`（與 Odoo 專案看板的進度同算法，取消也算完成；compute_sudo），給智慧按鈕（自訂 `o_stat_info`，不用 statinfo widget） |
 | `action_start_preparation()` | 冪等：已有專案就直接開啟。檢查 manager 群組、`management_mode == master_lease`、`owner_id` → 以 sudo 從範本建立專案 → 補建分析帳戶 → 回寫物件 |
 | `stock_location_id`（物件、房間） | 對應的 `stock.location`，`copy=False`、readonly、`ondelete=set null` |
-| `_ensure_preparation_sale_order(project)` | 找 `project_id`＋`partner_id = owner_id`＋未取消的銷售單；沒有就 sudo 建空單並 `action_confirm()` |
+| `_ensure_preparation_sale_order(project)` | 找 `project_id`＋`partner_id = owner_id`＋未取消的銷售單；沒有就 sudo 建單（帶一行 0 元 `product_product_master_lease_service_fee`「包租服務費」）並 `action_confirm()`；沿用的單沒有非 `display_type` 明細也補這一行。原因：`sale_project` 的 `action_view_sos()` 是用 `_fetch_sale_order_items()` 從明細反推銷售單，空單在專案的「銷售訂單」分頁看不到 |
 | `_ensure_stock_locations()` | 冪等。公司第一個倉庫的 `lot_stock_id` → `{物件名稱}` → 每個 active 房間 `{房間名稱}`；已連結就跳過，否則同上層同名的 internal 位置沿用，再沒有才建立；回傳（新建數, 沿用數） |
 | `action_sync_stock_locations()` | 包租且已有整備專案；manager 才可按；呼叫 `_ensure_stock_locations()` 並跳通知 |
 | `action_view_preparation_project()` | 回傳專案的 `action_view_tasks()` |
@@ -311,7 +317,7 @@ depends：`ggandy_property_management`、`sale_project`、`project_purchase`、`
        範本不存在 → project.project.create(只帶 7 個預設階段)
   → project.account_id 為空 → project._create_analytic_account()   # account_id copy=False，範本複製不會帶
   → property.preparation_project_id = project
-  → _ensure_preparation_sale_order(project)    # 空銷售單，已確認（重新開立發票成本需要 state = sale）
+  → _ensure_preparation_sale_order(project)    # 帶 0 元包租服務費，已確認（重新開立發票成本需要 state = sale）
   → _ensure_stock_locations()                  # WH/庫存/{物件}/{房間}
 
 sale.order / purchase.order 的 project_id = 整備專案
@@ -330,6 +336,7 @@ sale.order / purchase.order 的 project_id = 整備專案
 | --- | --- | --- |
 | GGAndy：自動建立租金帳單 | `ggandy.rent.schedule._cron_create_due_invoices` | 1 天 |
 | GGAndy：建立逾期租金提醒 | `ggandy.rent.schedule._cron_create_overdue_rent_activities` | 1 天 |
+| GGAndy：房客租約到期自動結案 | `ggandy.lease._cron_expire_ended_leases` | 1 天 |
 | GGAndy：自動建立房東 Vendor Bill | `ggandy.owner.contract._cron_create_owner_vendor_bills` | 1 天 |
 | GGAndy Telegram：接收管理員指令 | `ggandy.telegram.log._cron_poll_updates` | 1 分鐘 |
 | GGAndy Telegram：逾期租金摘要 | `ggandy.telegram.log._cron_send_overdue_rent_digest` | 1 天 |

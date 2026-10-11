@@ -1,12 +1,15 @@
 import calendar
+import logging
 
 from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
-from odoo.tools import float_round
+from odoo.tools import SQL, float_round
 
 from .property_unit import UTILITY_KINDS
+
+_logger = logging.getLogger(__name__)
 
 
 class GgandyLease(models.Model):
@@ -176,6 +179,23 @@ class GgandyLease(models.Model):
         help="上傳在這份租約 chatter 的所有附件，例如簽好名的合約掃描檔、公證書或點交照片。要新增文件，請直接用下方 chatter 的迴紋針上傳。",
     )
     contract_document_count = fields.Integer(compute="_compute_contract_documents")
+    tenant_phone = fields.Char(
+        related="tenant_id.phone",
+        string="房客電話",
+        help="從房客聯絡人帶出來的電話，方便談續約時直接聯絡；要修改請到聯絡人。",
+    )
+    days_to_end = fields.Integer(
+        string="剩餘天數",
+        compute="_compute_days_to_end",
+        help="今天到租期結束還有幾天；負數代表已經過了幾天。",
+    )
+    has_next_lease = fields.Boolean(
+        string="已有下一份租約",
+        compute="_compute_has_next_lease",
+        search="_search_has_next_lease",
+        help="同一個房間已經有起租日在這份租約結束之後的草稿或生效中租約（例如已找到下一位房客），"
+        "這份租約就不會出現在「房客待續約」清單。",
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -240,6 +260,42 @@ class GgandyLease(models.Model):
             )
             record.contract_document_ids = documents
             record.contract_document_count = len(documents)
+
+    @api.depends("end_date")
+    def _compute_days_to_end(self):
+        today = fields.Date.context_today(self)
+        for record in self:
+            record.days_to_end = (record.end_date - today).days if record.end_date else 0
+
+    def _get_ids_with_next_lease(self):
+        """同房間已有起租日在租期結束之後、草稿或生效中租約的租約 id。"""
+        query = SQL(
+            """
+            SELECT lease.id
+              FROM ggandy_lease lease
+             WHERE EXISTS (
+                    SELECT 1
+                      FROM ggandy_lease next_lease
+                     WHERE next_lease.unit_id = lease.unit_id
+                       AND next_lease.id != lease.id
+                       AND next_lease.active
+                       AND next_lease.state IN ('draft', 'active')
+                       AND next_lease.start_date > lease.end_date
+                   )
+            """
+        )
+        return [lease_id for lease_id, in self.env.execute_query(query)]
+
+    @api.depends("unit_id", "end_date")
+    def _compute_has_next_lease(self):
+        ids_with_next_lease = set(self._get_ids_with_next_lease())
+        for record in self:
+            record.has_next_lease = record._origin.id in ids_with_next_lease
+
+    def _search_has_next_lease(self, operator, value):
+        if operator not in ("in", "not in"):
+            return NotImplemented
+        return [("id", operator, self._get_ids_with_next_lease())]
 
     @api.constrains("start_date", "end_date")
     def _check_dates(self):
@@ -317,27 +373,58 @@ class GgandyLease(models.Model):
     def _refresh_unit_state(self):
         self.mapped("unit_id")._refresh_from_active_leases()
 
+    def action_open_renew_wizard(self):
+        self.ensure_one()
+        if self.state not in ("active", "expired"):
+            raise UserError("只有生效中或已到期的租約可以續約。")
+        return {
+            "type": "ir.actions.act_window",
+            "name": "續約",
+            "res_model": "ggandy.lease.renew.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_lease_id": self.id},
+        }
+
+    @api.model
+    def _cron_expire_ended_leases(self):
+        """租期結束隔天把還掛「生效中」的租約改成「已到期」，房間沒有其他生效租約就變回空房。"""
+        today = fields.Date.context_today(self)
+        leases = self.search([("state", "=", "active"), ("end_date", "<", today)])
+        for lease in leases:
+            try:
+                lease.state = "expired"
+                lease.message_post(body=f"租期已於 {lease.end_date} 結束，系統自動改為「已到期」。")
+                lease._refresh_unit_state()
+            except Exception:
+                _logger.exception("Unable to expire lease %s.", lease.display_name)
+
     def action_generate_schedule(self):
         self.ensure_one()
         self._generate_rent_schedule()
         return self.action_view_schedules()
 
-    def _generate_rent_schedule(self):
+    def _generate_rent_schedule(self, from_date=None):
+        """按月建立租金期次，已存在（同期次開始日）的會略過。
+
+        from_date：續約時傳入舊結束日的隔天，只補建延長的期間。
+        """
         Schedule = self.env["ggandy.rent.schedule"]
         for lease in self:
             if not lease.start_date or not lease.end_date:
                 raise UserError("請先填寫完整租期。")
-            month_cursor = lease.start_date.replace(day=1)
+            first_date = max(lease.start_date, from_date) if from_date else lease.start_date
+            month_cursor = first_date.replace(day=1)
             final_month = lease.end_date.replace(day=1)
             while month_cursor <= final_month:
-                period_start = max(lease.start_date, month_cursor)
+                period_start = max(first_date, month_cursor)
                 month_end = month_cursor + relativedelta(months=1, days=-1)
                 period_end = min(lease.end_date, month_end)
                 days_in_month = calendar.monthrange(month_cursor.year, month_cursor.month)[1]
                 due_day = min(lease.rent_due_day, days_in_month)
                 due_date = month_cursor.replace(day=due_day)
-                if due_date < lease.start_date:
-                    due_date = lease.start_date
+                if due_date < first_date:
+                    due_date = first_date
                 existing = Schedule.search_count(
                     [
                         ("lease_id", "=", lease.id),

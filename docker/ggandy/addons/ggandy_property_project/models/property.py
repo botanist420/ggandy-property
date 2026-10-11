@@ -125,12 +125,23 @@ class GgandyProperty(models.Model):
         }
 
     def _ensure_preparation_sale_order(self, project):
-        """整備專案給房東的銷售單；已有（未取消）就沿用，沒有才建立一張空單並確認。
+        """整備專案給房東的銷售單；已有（未取消）就沿用，沒有才建立並確認。
 
         廠商帳單「重新開立發票成本」只會加到已確認的銷售單上，所以要先確認。
+        專案的「銷售訂單」是從銷售明細反推的，空單在專案裡看不到，
+        所以單上沒有明細時會帶一行 0 元「包租服務費」，金額之後再到銷售單調整。
         """
         self.ensure_one()
         SaleOrder = self.env["sale.order"].sudo()
+        service_fee = self.env.ref(
+            "ggandy_property_project.product_product_master_lease_service_fee",
+            raise_if_not_found=False,
+        )
+        service_fee_line = (
+            [fields.Command.create({"product_id": service_fee.id, "product_uom_qty": 1, "price_unit": 0})]
+            if service_fee
+            else []
+        )
         sale_order = SaleOrder.search(
             [
                 ("project_id", "=", project.id),
@@ -147,9 +158,12 @@ class GgandyProperty(models.Model):
                     "project_id": project.id,
                     "company_id": self.company_id.id,
                     "user_id": self.manager_id.id or self.env.user.id,
+                    "order_line": service_fee_line,
                 }
             )
             sale_order.action_confirm()
+        elif not sale_order.order_line.filtered(lambda line: not line.display_type):
+            sale_order.order_line = service_fee_line
         return sale_order
 
     def _get_preparation_parent_location(self):

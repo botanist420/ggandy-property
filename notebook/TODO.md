@@ -11,7 +11,7 @@
 - [ ] **終止／取消的租約，未來期次還被算進帳務總表的「租金應收」**
   `accounting_overview._table_query` 的 `rent` LATERAL 用單位 + 月份抓期次，沒過濾 `lease_id.state`。租約提前終止後，剩下的期次還在，會讓應收、未收、現金流判讀失真。
   → 終止時刪除（或標記）`period_start > 終止日` 且未開單的期次，並在總表排除 `cancelled` 租約的期次。
-- [ ] **租約沒有辦法變成「已到期」**
+- [x] **租約沒有辦法變成「已到期」**（2026-10-12：每日 cron `_cron_expire_ended_leases`、續約 wizard、「房客待續約」選單、Telegram `/renew` 改列近 30 天已到期；房東合約仍是手動「標記到期」）
   `ggandy.lease` 有 `expired` 狀態，但沒有按鈕也沒有排程會設定它。租期結束後租約永遠是 `active`，單位也一直是「已出租」。（Telegram `/renew` 目前靠「end_date 已過但仍 active」另列一段提醒；做了自動到期後，要記得改成列出近期轉 `expired` 的租約，否則這段提醒會消失。）
   → 新增 `action_mark_expired` + 每日 cron：`end_date < today` 的 active 租約 → expired，並 `_refresh_from_active_leases()`。房東合約也一樣只有手動「標記到期」，可以一起處理。
 - [ ] **Telegram `/status` 的逾期戶數和 `/overdue` 對不起來**

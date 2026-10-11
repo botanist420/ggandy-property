@@ -9,7 +9,7 @@
 - 三個模組，都放在 `docker/ggandy/addons/`（掛載到容器 `/mnt/extra-addons`）：
   - `ggandy_property_management`：主模組，depends `base, mail, contacts, account`。
   - `ggandy_property_telegram`：Telegram 管理員 Bot，depends 主模組。
-  - `ggandy_property_project`：包租物件「開始整備」→ 建立整備專案，depends 主模組 + `sale_project, project_purchase, project_account, project_purchase_stock`。主模組刻意不依賴 project / stock。開始整備時也會建房東空銷售單（已確認）與 `WH/庫存/{物件}/{房間}` 庫存位置。
+  - `ggandy_property_project`：包租物件「開始整備」→ 建立整備專案，depends 主模組 + `sale_project, project_purchase, project_account, project_purchase_stock`。主模組刻意不依賴 project / stock。開始整備時也會建房東銷售單（已確認，預帶 0 元「包租服務費」，因為專案是從銷售明細反推銷售單，空單看不到）與 `WH/庫存/{物件}/{房間}` 庫存位置。
 - 會計本地化 `l10n_tw` 已安裝在 `ggandy_dev`；開帳單時需要 `sale` / `purchase` 日記帳。
 
 ## 常用指令
@@ -55,7 +55,8 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `ggandy.property` | `models/property.py` | 物件；編號 `PROP/%(year)s/`；`owner_payment_day` 會預設帶入房東合約 |
 | `ggandy.property.unit` | `models/property_unit.py` | 房間；`display_name` = `物件 / 房間`（context `ggandy_unit_short_name` 時只顯示房間名）；格局／維修照片是 compute 的 `ir.attachment` Many2many |
 | `ggandy.owner.contract` | `models/owner_contract.py` | 房東合約（包租 / 代管）；cron 建房東 Vendor Bill |
-| `ggandy.lease` | `models/lease.py` | 房客租約；生效時拆月建期次 |
+| `ggandy.lease` | `models/lease.py` | 房客租約；生效時拆月建期次；每日 cron 過期自動 `expired`；`has_next_lease`（可搜尋）給「房客待續約」選單 |
+| `ggandy.lease.renew.wizard` | `models/lease_renew_wizard.py` | TransientModel；續約＝延長同一份租約，`_generate_rent_schedule(from_date=舊結束日+1)` 補期次 |
 | `ggandy.rent.schedule` | `models/rent_schedule.py` | 租金期次；建客戶 Invoice；逾期活動 |
 | `ggandy.maintenance.request` | `models/maintenance_request.py` | 報修單 |
 | `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每房間 × 每月一列**，`_auto = False` + `_table_query` 即時 SQL（可分組加總），唯讀 |
@@ -78,6 +79,7 @@ Telegram 模組：`ggandy.telegram.log`（`models/telegram_log.py`，指令處�
 | --- | --- | --- |
 | 自動建立租金帳單 | `ggandy.rent.schedule._cron_create_due_invoices` | 每日 |
 | 建立逾期租金提醒 | `ggandy.rent.schedule._cron_create_overdue_rent_activities` | 每日 |
+| 房客租約到期自動結案 | `ggandy.lease._cron_expire_ended_leases` | 每日 |
 | 自動建立房東 Vendor Bill | `ggandy.owner.contract._cron_create_owner_vendor_bills` | 每日 |
 | Telegram 接收指令 | `ggandy.telegram.log._cron_poll_updates` | 每分鐘 |
 | Telegram 逾期摘要 | `ggandy.telegram.log._cron_send_overdue_rent_digest` | 每日 |
@@ -87,7 +89,8 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 ### 改程式時要知道的連動
 
 - **身分旗標是在 `create`/`write` 裡自動寫的**：物件/房東合約 → `is_ggandy_owner`；租約 → `is_ggandy_tenant`；報修單廠商 → `is_ggandy_vendor`。`ggandy.property.owner_id` 的 domain 是 `is_ggandy_owner = True`。
-- **租約生效** (`action_activate`)：房間 → `occupied`、`_generate_rent_schedule()`、然後呼叫**全域**的 `_cron_create_due_invoices()`。
+- **租約生效** (`action_activate`)：房間 → `occupied`、`_generate_rent_schedule()`、然後呼叫**全域**的 `_cron_create_due_invoices()`。續約 wizard 也一樣。
+- **已到期 (`expired`) 的租約仍參與收款與抄表**：逾期、開帳單、抄表、水電同步的 domain 都是 `active` + `expired`；新增類似查詢時別只寫 `state = 'active'`。
 - **房間狀態**只會在 `vacant`↔`occupied` 之間自動切換（`_refresh_from_active_leases`），`reserved / maintenance / inactive` 尊重手動設定。
 - **房東合約生效**會回寫物件的 `management_mode`、`owner_id`、`acquisition_date`、`management_end_date`。
 - **重疊檢查**：同物件同期間只能一份 active 房東合約；同房間同期間只能一份 active 租約（`@api.constrains`）。

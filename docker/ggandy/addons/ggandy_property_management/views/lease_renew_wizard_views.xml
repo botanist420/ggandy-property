@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_lease_renew_wizard_form" model="ir.ui.view">
+        <field name="name">ggandy.lease.renew.wizard.form</field>
+        <field name="model">ggandy.lease.renew.wizard</field>
+        <field name="arch" type="xml">
+            <form string="續約">
+                <div class="alert alert-info py-2 mb-3" role="alert">
+                    延長這份租約的租期：確認後會從原結束日隔天起補建租金期次，新月租只套用在延長的期間。
+                    已到期的租約會改回「生效中」。
+                </div>
+                <group>
+                    <group>
+                        <field name="lease_id"/>
+                        <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
+                        <field name="tenant_id"/>
+                    </group>
+                    <group>
+                        <field name="currency_id" invisible="1"/>
+                        <field name="current_end_date"/>
+                        <field name="new_end_date" required="1"/>
+                        <field name="rent_amount" required="1"/>
+                        <field name="management_fee"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="確認續約" class="btn-primary" data-hotkey="q"/>
+                    <button string="取消" special="cancel" class="btn-secondary" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

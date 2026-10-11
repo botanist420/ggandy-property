@@ -341,6 +341,7 @@ class GgandyTelegramLog(models.Model):
                 ("state", "=", "active"),
                 ("end_date", ">=", today),
                 ("end_date", "<=", today + relativedelta(months=1)),
+                ("has_next_lease", "=", False),
             ]
         )
 
@@ -390,7 +391,9 @@ class GgandyTelegramLog(models.Model):
 
     @api.model
     def _build_renewal_message(self, user, argument="", limit=10):
-        """續約提醒：一個月內到期的生效中租約，加上已過到期日卻還沒處理的租約。
+        """續約提醒：一個月內到期的生效中租約，加上近 30 天已到期、還沒有下一份租約的租約。
+
+        同房間已經有下一份租約（續租或新房客）的不列出。
 
         argument 可帶天數（1～365），例如「/renew 60」查 60 天內到期；沒帶就是一個月。
         """
@@ -408,16 +411,21 @@ class GgandyTelegramLog(models.Model):
             window_end = today + relativedelta(months=1)
             window_label = "一個月內"
 
-        base_domain = [("company_id", "=", company.id), ("state", "=", "active")]
+        base_domain = [("company_id", "=", company.id), ("has_next_lease", "=", False)]
         order = "end_date, property_id, unit_id"
         upcoming = Lease.search(
-            base_domain + [("end_date", ">=", today), ("end_date", "<=", window_end)],
+            base_domain + [("state", "=", "active"), ("end_date", ">=", today), ("end_date", "<=", window_end)],
             order=order,
             limit=limit + 1,
         )
-        # 租約過了到期日不會自動結案，還掛「生效中」代表沒人處理，最需要追。
+        # 租約過了到期日會由排程改成「已到期」；還沒有下一份租約代表沒續約也還沒找到新房客，最需要追。
         overdue = Lease.search(
-            base_domain + [("end_date", "<", today)],
+            base_domain
+            + [
+                ("state", "in", ("active", "expired")),
+                ("end_date", "<", today),
+                ("end_date", ">=", today - timedelta(days=30)),
+            ],
             order=order,
             limit=limit + 1,
         )
@@ -436,7 +444,7 @@ class GgandyTelegramLog(models.Model):
             lines.append("\n（這段期間沒有到期的租約）")
 
         if overdue:
-            lines.append("\n⚠️ 已過到期日、租約還是「生效中」（請確認是否已續約或退租）")
+            lines.append("\n⚠️ 近 30 天已到期、還沒有下一份租約（請確認是否要續約或已退租）")
             for lease in overdue[:limit]:
                 days_over = (today - lease.end_date).days
                 lines.append(self._format_renewal_lease(lease, currency, f"已過 {days_over} 天"))

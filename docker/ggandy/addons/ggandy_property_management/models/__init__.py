@@ -4,6 +4,7 @@ from . import google_sheet_import_wizard
 from . import google_sheet_lease_import_wizard
 from . import ir_attachment
 from . import lease
+from . import lease_renew_wizard
 from . import maintenance_request
 from . import master_lease_profit_wizard
 from . import owner_contract

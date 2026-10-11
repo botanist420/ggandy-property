@@ -317,11 +317,11 @@ class GgandyPropertyUnit(models.Model):
         return values
 
     def _sync_utility_settings_to_schedules(self):
-        """把房間的水電設定同步到草稿／生效中租約、帳單還沒過帳的期次。"""
+        """把房間的水電設定同步到草稿／生效中／已到期租約、帳單還沒過帳的期次。"""
         schedules = self.env["ggandy.rent.schedule"].search(
             [
                 ("unit_id", "in", self.ids),
-                ("lease_id.state", "in", ("draft", "active")),
+                ("lease_id.state", "in", ("draft", "active", "expired")),
                 "|",
                 ("invoice_id", "=", False),
                 ("invoice_id.state", "=", "draft"),

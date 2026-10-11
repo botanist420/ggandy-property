@@ -262,7 +262,7 @@ class GgandyRentSchedule(models.Model):
         today = fields.Date.context_today(self)
         return [
             ("due_date", "<", today),
-            ("lease_id.state", "=", "active"),
+            ("lease_id.state", "in", ("active", "expired")),
             "|",
             ("invoice_id", "=", False),
             "&",
@@ -292,12 +292,12 @@ class GgandyRentSchedule(models.Model):
 
     @api.model
     def _find_unit_month_schedule(self, unit, month):
-        """month 是該月任一天；回傳這個房間在該月、草稿或生效中租約的租金期次。"""
+        """month 是該月任一天；回傳這個房間在該月、草稿／生效中／已到期租約的租金期次（已到期才能抄退租當月）。"""
         month_start = month.replace(day=1)
         return self.search(
             [
                 ("unit_id", "=", unit.id),
-                ("lease_id.state", "in", ("draft", "active")),
+                ("lease_id.state", "in", ("draft", "active", "expired")),
                 ("period_start", ">=", month_start),
                 ("period_start", "<", month_start + relativedelta(months=1)),
             ],
@@ -585,7 +585,7 @@ class GgandyRentSchedule(models.Model):
             [
                 ("invoice_id", "=", False),
                 ("period_start", "<=", today),
-                ("lease_id.state", "=", "active"),
+                ("lease_id.state", "in", ("active", "expired")),
             ]
         )
         for schedule in schedules:

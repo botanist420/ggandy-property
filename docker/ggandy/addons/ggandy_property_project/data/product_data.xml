@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- 開始整備時，房東銷售單預帶這一行（0 元）：專案是從銷售明細反推銷售單，空單在專案裡看不到 -->
+    <record id="product_product_master_lease_service_fee" model="product.product">
+        <field name="name">包租服務費</field>
+        <field name="default_code">GGANDY-MASTER-LEASE-FEE</field>
+        <field name="type">service</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+        <field name="invoice_policy">order</field>
+        <field name="service_tracking">no</field>
+        <field name="expense_policy">no</field>
+    </record>
+</odoo>

@@ -13,10 +13,10 @@
                 <filter name="due_this_month" string="本月"
                         domain="[('due_date', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')), ('due_date', '&lt;', (context_today() + relativedelta(day=1, months=1)).strftime('%Y-%m-%d'))]"/>
                 <filter name="overdue" string="逾期"
-                        domain="[('due_date', '&lt;', context_today().strftime('%Y-%m-%d')), ('lease_id.state', '=', 'active'), '|', ('invoice_id', '=', False), '&amp;', ('invoice_id.state', '!=', 'cancel'), '|', ('invoice_id.state', '=', 'draft'), '&amp;', ('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'not in', ('paid', 'reversed'))]"/>
+                        domain="[('due_date', '&lt;', context_today().strftime('%Y-%m-%d')), ('lease_id.state', 'in', ('active', 'expired')), '|', ('invoice_id', '=', False), '&amp;', ('invoice_id.state', '!=', 'cancel'), '|', ('invoice_id.state', '=', 'draft'), '&amp;', ('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'not in', ('paid', 'reversed'))]"/>
                 <filter name="uninvoiced" string="尚未開單" domain="[('invoice_id', '=', False)]"/>
                 <filter name="meter_reading_pending" string="待抄表"
-                        domain="[('meter_reading_pending', '=', True), ('lease_id.state', '=', 'active'), ('period_start', '&lt;=', context_today().strftime('%Y-%m-%d')), '|', ('invoice_id', '=', False), ('invoice_id.state', '=', 'draft')]"/>
+                        domain="[('meter_reading_pending', '=', True), ('lease_id.state', 'in', ('active', 'expired')), ('period_start', '&lt;=', context_today().strftime('%Y-%m-%d')), '|', ('invoice_id', '=', False), ('invoice_id.state', '=', 'draft')]"/>
                 <filter name="unpaid" string="未收款"
                         domain="[('invoice_id', '!=', False), ('invoice_id.state', '!=', 'cancel'), '|', ('invoice_id.state', '=', 'draft'), '&amp;', ('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'not in', ('paid', 'reversed'))]"/>
                 <filter name="invoiced" string="已建立帳單" domain="[('invoice_id', '!=', False)]"/>

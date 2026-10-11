@@ -11,8 +11,19 @@
                 <field name="tenant_id"/>
                 <filter name="active_lease" string="生效中" domain="[('state', '=', 'active')]"/>
                 <filter name="draft" string="草稿" domain="[('state', '=', 'draft')]"/>
-                <filter name="ending_soon" string="90 天內到期"
-                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today()), ('end_date', '&lt;=', (context_today() + relativedelta(days=90)).strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="ending_30" string="30 天內到期"
+                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+                <filter name="ending_60" string="60 天內到期"
+                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=60)).strftime('%Y-%m-%d'))]"/>
+                <filter name="ending_90" string="90 天內到期"
+                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=90)).strftime('%Y-%m-%d'))]"/>
+                <filter name="ending_120" string="120 天內到期"
+                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=120)).strftime('%Y-%m-%d'))]"/>
+                <filter name="expired_recent" string="近 30 天已到期"
+                        domain="[('state', '=', 'expired'), ('end_date', '&gt;=', (context_today() - relativedelta(days=30)).strftime('%Y-%m-%d')), ('end_date', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="no_next_lease" string="尚未有下一份租約" domain="[('has_next_lease', '=', False)]"/>
                 <separator/>
                 <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
                 <group>
@@ -49,6 +60,33 @@
         </field>
     </record>
 
+    <record id="view_ggandy_lease_renewal_list" model="ir.ui.view">
+        <field name="name">ggandy.lease.renewal.list</field>
+        <field name="model">ggandy.lease</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <list string="房客待續約" default_order="end_date, property_id, unit_id" create="0"
+                  decoration-danger="days_to_end &lt;= 7"
+                  decoration-warning="days_to_end &gt; 7 and days_to_end &lt;= 30">
+                <field name="name" optional="hide"/>
+                <field name="property_id"/>
+                <field name="unit_id" context="{'ggandy_unit_short_name': True}" width="110px"/>
+                <field name="tenant_id"/>
+                <field name="tenant_phone" widget="phone"/>
+                <field name="start_date" optional="hide"/>
+                <field name="end_date"/>
+                <field name="days_to_end" width="90px"/>
+                <field name="rent_amount" widget="monetary" width="100px"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'active'"
+                       decoration-muted="state == 'expired'"/>
+                <button name="action_open_renew_wizard" type="object" string="續約" icon="fa-refresh"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
     <record id="view_ggandy_lease_form" model="ir.ui.view">
         <field name="name">ggandy.lease.form</field>
         <field name="model">ggandy.lease</field>
@@ -57,6 +95,7 @@
                 <header>
                     <button name="action_activate" type="object" string="租約生效" class="btn-primary" invisible="state != 'draft'"/>
                     <button name="%(action_report_ggandy_lease_contract)d" type="action" string="產生租約 PDF" icon="fa-file-pdf-o" invisible="state not in ('draft', 'active')"/>
+                    <button name="action_open_renew_wizard" type="object" string="續約" icon="fa-refresh" invisible="state not in ('active', 'expired')"/>
                     <button name="action_terminate" type="object" string="提前終止" confirm="確定要提前終止這份租約？" invisible="state != 'active'"/>
                     <button name="action_cancel" type="object" string="取消租約" confirm="確定要取消這份租約？" invisible="state != 'draft'"/>
                     <button name="action_set_draft" type="object" string="退回草稿" invisible="state not in ('terminated', 'cancelled')"/>
@@ -214,6 +253,22 @@
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">建立第一份房客租約</p>
             <p>租約生效時可自動建立每月租金期次。</p>
+        </field>
+    </record>
+
+    <record id="action_ggandy_lease_renewal" model="ir.actions.act_window">
+        <field name="name">房客待續約</field>
+        <field name="res_model">ggandy.lease</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_ggandy_lease_renewal_list')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_ggandy_lease_form')})]"/>
+        <field name="search_view_id" ref="view_ggandy_lease_search"/>
+        <field name="domain">[('state', 'in', ('active', 'expired')), ('has_next_lease', '=', False)]</field>
+        <field name="context">{'search_default_ending_30': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">這段期間沒有要談續約的租約</p>
+            <p>可以在搜尋列改用 60／90／120 天內到期，或「近 30 天已到期」查看。同房間已經有下一份租約的不會列在這裡。</p>
         </field>
     </record>
 </odoo>

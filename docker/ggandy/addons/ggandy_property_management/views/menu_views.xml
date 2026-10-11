@@ -45,6 +45,11 @@
               parent="menu_ggandy_contracts"
               action="action_ggandy_rent_schedule"
               sequence="30"/>
+    <menuitem id="menu_ggandy_lease_renewal"
+              name="房客待續約"
+              parent="menu_ggandy_contracts"
+              action="action_ggandy_lease_renewal"
+              sequence="40"/>
 
     <menuitem id="menu_ggandy_contacts"
               name="關係人"
