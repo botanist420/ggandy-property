@@ -9,6 +9,7 @@ GGAndy 是給包租代管公司使用的 Odoo 19 客製化 ERP。它把「房東
   - `ggandy_property_management`：包租代管主模組
   - `ggandy_property_telegram`：Telegram 管理員 Bot
   - `ggandy_property_project`：包租物件整備專案（串接 Odoo 專案、銷售、採購與分析會計）
+- 後台主題：MuK Backend Theme（第三方，LGPL-3，見下方「後台主題」）
 
 ---
 
@@ -247,6 +248,26 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 
 ---
 
+## 後台主題（MuK）
+
+後台使用 MuK IT 的 **MuK Backend Theme 19.0.1.4.9**（[apps.odoo.com](https://apps.odoo.com/apps/themes/19.0/muk_web_theme)，LGPL-3，2026-10 導入），讓 Community 版有較好的手機版面與後台外觀。由 7 個模組組成，`muk_web_theme` 依賴其餘 6 個，安裝時會一併裝上；`muk_web_refresh` 另外會帶入 Odoo 官方的 `base_automation`。
+
+| 模組 | 功能 |
+| --- | --- |
+| `muk_web_theme` | 主題本體：手機友善版面、App 選單背景圖、公司 favicon |
+| `muk_web_appsbar` | 左側 App 側欄（每位使用者在「我的偏好」選大／小／隱藏） |
+| `muk_web_chatter` | 留言區放右側或底部（每位使用者自選） |
+| `muk_web_dialog` | 彈出視窗可切換全螢幕 |
+| `muk_web_group` | 列表／看板分組「全部展開／全部收合」（搜尋列下拉選單） |
+| `muk_web_refresh` | 控制列重新整理按鈕（雙擊每 30 秒自動刷新）；自動化規則可用「Reload Views」動作 |
+| `muk_web_colors` | 「設定 → 一般設定」用顏色選擇器改品牌色／主色／狀態色 |
+
+- **第三方程式碼不要直接修改**：要調整外觀寫在 `ggandy_property_management/static/src/scss/ggandy_backend.scss`；升級主題時整包換成 apps.odoo.com 的新版資料夾，再 `-u muk_web_theme`。
+- **未來若更換主題**：`muk_web_group`（全部展開／收合，日常作業很方便）與 `base_automation`（自動化規則，可設定續約提醒、報修分派等輕量規則）建議**保留**，兩者都不依賴 `muk_web_theme`，可單獨留著；只解除安裝 `muk_web_theme` 與其他不需要的 muk 模組即可。
+- Odoo Community 的 `ir.http.color_scheme()` 固定回傳 `light`，所以**沒有深色模式**；`muk_web_colors` 的深色配色設定只在 Enterprise 有作用。
+
+---
+
 ## 權限
 
 | 群組 | 權限 |
@@ -281,9 +302,10 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 │       ├── ggandy_property_telegram/
 │       │   ├── models/                ← Bot 紀錄與指令處理、使用者綁定、設定
 │       │   └── services/              ← Telegram Bot API client
-│       └── ggandy_property_project/
-│           ├── models/                ← 物件「開始整備」與整備專案連結
-│           └── data/                  ← 整備範本專案、階段與任務
+│       ├── ggandy_property_project/
+│       │   ├── models/                ← 物件「開始整備」與整備專案連結
+│       │   └── data/                  ← 整備範本專案、階段與任務
+│       └── muk_web_*/                 ← 第三方後台主題（7 個模組，不要直接修改）
 ├── scripts/
 │   ├── ggandy_common.sql              ← 常用 SQL 查詢（pgAdmin / psql）
 │   └── google_res_partner.py          ← Google Sheet / CSV 匯入聯絡人（XML-RPC，舊版；已由 Odoo 內的匯入精靈取代）
@@ -330,6 +352,36 @@ docker restart ggandy_odoo19_web
 ```
 
 改到其他模組時，把 `-u` 換成對應模組名稱（例如 `-u ggandy_property_project`，可用逗號一次升級多個）。
+
+### 正式機升級
+
+正式機與開發環境使用同一份 Docker Compose（`./addons` 掛載到 `/mnt/extra-addons`），所以 `git pull` 拿到新程式碼後升級模組即可。下面的 `CONTAINER`、`DB_CONTAINER`、`DB` 請換成正式機的名稱。
+
+```bash
+CONTAINER=ggandy_odoo19_web
+DB_CONTAINER=ggandy_postgres17_db
+DB=ggandy_prod   # 正式機資料庫名稱
+
+# 1. 備份資料庫與 filestore（升級前一定要做）
+docker exec "$DB_CONTAINER" sh -c "pg_dump -U \"\$POSTGRES_USER\" -Fc $DB" > "backup_${DB}_$(date +%Y%m%d_%H%M).dump"
+docker exec "$CONTAINER" tar czf - -C /var/lib/odoo/filestore "$DB" > "filestore_${DB}_$(date +%Y%m%d_%H%M).tgz"
+
+# 2. 取得新程式碼
+git pull
+
+# 3. 升級自訂模組 + 安裝（或升級）主題；未安裝的模組會被略過
+docker exec "$CONTAINER" sh -c "odoo -c /etc/odoo/odoo.conf -d $DB \
+  --db_host=\"\$HOST\" --db_port=\"\$PORT\" --db_user=\"\$POSTGRES_USER\" --db_password=\"\$POSTGRES_PASSWORD\" \
+  -u ggandy_property_management,ggandy_property_telegram,ggandy_property_project \
+  -i muk_web_theme --stop-after-init --no-http"
+docker restart "$CONTAINER"
+
+# 4. 確認模組狀態
+docker exec "$DB_CONTAINER" sh -c "psql -U \"\$POSTGRES_USER\" -d $DB -c \"select name, state, latest_version from ir_module_module where name like 'ggandy%' or name like 'muk%' or name = 'base_automation' order by name\""
+```
+
+- 主題已安裝過、之後只是升級主題版本時，把 `-i muk_web_theme` 改成 `-u muk_web_theme`。
+- 升級失敗時用備份還原：`pg_restore -U ... -d <新資料庫> --no-owner <dump 檔>`，filestore 解壓回 `/var/lib/odoo/filestore/<資料庫>`。
 
 更多開發指令（Odoo shell、SQL、除錯方式）請看 [notebook/docs/dev_workflow.md](notebook/docs/dev_workflow.md)；資料模型與計算邏輯請看 [notebook/docs/architecture.md](notebook/docs/architecture.md)。
 

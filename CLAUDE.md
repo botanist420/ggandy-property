@@ -11,6 +11,7 @@
   - `ggandy_property_telegram`：Telegram 管理員 Bot，depends 主模組。
   - `ggandy_property_project`：包租物件「開始整備」→ 建立整備專案，depends 主模組 + `sale_project, project_purchase, project_account, project_purchase_stock`。主模組刻意不依賴 project / stock。開始整備時也會建房東銷售單（已確認，預帶 0 元「包租服務費」，因為專案是從銷售明細反推銷售單，空單看不到）與 `WH/庫存/{物件}/{房間}` 庫存位置。
 - 會計本地化 `l10n_tw` 已安裝在 `ggandy_dev`；開帳單時需要 `sale` / `purchase` 日記帳。
+- 後台主題是第三方 **MuK Backend Theme**（`muk_web_*` 7 個模組，也放在 `addons/`，會帶入 `base_automation`）：**不要修改它們的程式碼**，外觀調整寫在 `ggandy_property_management/static/src/scss/ggandy_backend.scss`。未來若換主題，保留 `muk_web_group`（分組全部展開／收合）與 `base_automation`。Community 沒有深色模式。細節見 README「後台主題」。
 
 ## 常用指令
 
