@@ -73,12 +73,12 @@ class GgandyAccountingOverview(models.Model):
     owner_payable = fields.Monetary(
         string="應付房東",
         readonly=True,
-        help="本月房東 Vendor Bill 金額，會依房間的參考月租比例分攤；若沒有參考月租，則平均分攤。",
+        help="這個月房東帳單的金額，依各房間參考月租比例分攤到房間（沒有參考月租就平均分）。",
     )
     owner_paid = fields.Monetary(
         string="已付房東",
         readonly=True,
-        help="房東 Vendor Bill 中已實際付款的金額，同樣依房間比例分攤。還有待付款項時，這格會以橘色提醒。",
+        help="房東帳單已經付出去的金額，同樣依房間比例分攤；還有沒付的會顯示橘色。",
     )
     owner_unpaid = fields.Monetary(
         string="待付房東",

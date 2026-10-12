@@ -67,13 +67,13 @@ class GgandyOwnerContract(models.Model):
         ondelete="restrict",
         tracking=True,
         domain=[("is_ggandy_owner", "=", True)],
-        help="Vendor Bill 會開給這位房東。只能選聯絡人裡標記為「房東」的人；在這裡直接輸入新名字建立的聯絡人會自動標記。",
+        help="房東帳單開給這位房東。只能選標記為「房東」的聯絡人；直接輸入新名字建立的會自動標記。",
     )
     start_date = fields.Date(
         string="合約開始",
         required=True,
         tracking=True,
-        help="房東合約開始日。自動建立房東 Vendor Bill 時，會檢查當月是否落在合約期間內。",
+        help="合約從哪天開始。只有落在合約期間內的月份才會自動開房東帳單。",
     )
     end_date = fields.Date(
         string="合約結束",
@@ -85,7 +85,7 @@ class GgandyOwnerContract(models.Model):
         string="每月房東付款／結算日",
         default=10,
         required=True,
-        help="設定為 1 至 31；自動結算會等到當月這一天才建立房東 Vendor Bill。短月會使用當月最後一天。",
+        help="每月第幾號自動開房東帳單（1–31），短月用月底。",
     )
 
     guaranteed_rent = fields.Monetary(
@@ -153,11 +153,11 @@ class GgandyOwnerContract(models.Model):
     vendor_bill_ids = fields.One2many(
         "account.move",
         "ggandy_owner_contract_id",
-        string="房東 Vendor Bills",
+        string="房東帳單",
     )
     vendor_bill_count = fields.Integer(
         compute="_compute_vendor_bill_count",
-        help="這份房東合約已建立的房東 Vendor Bill 數量。數字不代表已付款，仍需查看付款狀態。",
+        help="這份合約已開的房東帳單數量（不代表已付款）。",
     )
 
     @api.model_create_multi
@@ -287,7 +287,7 @@ class GgandyOwnerContract(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": "房東 Vendor Bills",
+            "name": "房東帳單",
             "res_model": "account.move",
             "view_mode": "list,form",
             "domain": [
@@ -400,7 +400,7 @@ class GgandyOwnerContract(models.Model):
                 "invoice_line_ids": self._prepare_settlement_line_commands(lines),
             }
         )
-        self.message_post(body=f"已建立房東 Vendor Bill {bill.display_name}。")
+        self.message_post(body=f"已建立房東帳單 {bill.display_name}。")
         return bill
 
     def _prepare_settlement_line_commands(self, lines):

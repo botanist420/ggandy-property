@@ -104,6 +104,17 @@
 
 ---
 
+## 5-1. 檢視模式（kanban／pivot／graph）
+
+- 預設一律是列表；kanban、樞紐分析、圖表放在 `view_mode` 後面讓人切換，不搶預設。
+- kanban 卡片：上排名稱＋狀態 badge，中間 1～2 行灰字資訊，下排數字格（`o_ggandy_kanban_stats`）與進度條（`o_ggandy_progress`），footer 放編號與負責人頭像。
+- 樞紐分析：列＝物件、欄＝月份（`interval="month"`），量只放老闆看得懂的金額欄位。
+
+## 5-2. 統計名詞提示
+
+- 有專業名詞的地方用 `<span class="o_ggandy_term" title="一句白話">名詞</span>`（虛線底線＋問號游標）。
+- 說明一句話講完，先講「是什麼」，再講「怎麼看」，例如：「中位數：排序後正中間的值，不受極端值影響。」
+
 ## 6. 顏色與狀態
 
 | 用途 | class | 例子 |

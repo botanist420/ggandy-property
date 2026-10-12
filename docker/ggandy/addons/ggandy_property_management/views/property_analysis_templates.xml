@@ -5,7 +5,10 @@
         <div class="o_ggandy_analysis">
             <div class="o_ggandy_kpis">
                 <div t-foreach="kpis" t-as="kpi" class="o_ggandy_kpi">
-                    <div class="o_ggandy_kpi_label" t-out="kpi['label']"/>
+                    <div class="o_ggandy_kpi_label">
+                        <span t-if="kpi.get('hint')" class="o_ggandy_term" t-att-title="kpi['hint']" t-out="kpi['label']"/>
+                        <t t-else="" t-out="kpi['label']"/>
+                    </div>
                     <div class="o_ggandy_kpi_value" t-out="kpi['value']"/>
                     <div class="o_ggandy_kpi_sub" t-out="kpi['sub']"/>
                 </div>
@@ -17,8 +20,8 @@
                     <table class="table table-sm o_ggandy_analysis_table">
                         <thead>
                             <tr>
-                                <th>指標</th><th>n</th><th>平均</th><th>中位數</th><th>標準差</th><th>CV</th>
-                                <th>最小</th><th>Q1</th><th>Q3</th><th>最大</th><th>IQR 離群</th>
+                                <th>指標</th><th><span class="o_ggandy_term" t-att-title="glossary['n']">n</span></th><th><span class="o_ggandy_term" t-att-title="glossary['平均']">平均</span></th><th><span class="o_ggandy_term" t-att-title="glossary['中位數']">中位數</span></th><th><span class="o_ggandy_term" t-att-title="glossary['標準差']">標準差</span></th><th><span class="o_ggandy_term" t-att-title="glossary['CV']">CV</span></th>
+                                <th>最小</th><th><span class="o_ggandy_term" t-att-title="glossary['Q1／Q3']">Q1</span></th><th><span class="o_ggandy_term" t-att-title="glossary['Q1／Q3']">Q3</span></th><th>最大</th><th><span class="o_ggandy_term" t-att-title="glossary['IQR 離群']">IQR 離群</span></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -50,8 +53,8 @@
                     <thead>
                         <tr>
                             <th>房間</th><th>坪數</th><th>參考月租</th><th>目前月租</th><th>每坪月租</th>
-                            <th title="目前月租相對於本物件平均的標準化分數，|z| ≥ 1.5 標色">z 分數</th>
-                            <th>比參考月租</th><th>狀態</th><th>租期結束</th><th>平均用電（度）</th><th>準時率</th>
+                            <th><span class="o_ggandy_term" t-att-title="glossary['z 分數']">z 分數</span></th>
+                            <th>比參考月租</th><th>狀態</th><th>租期結束</th><th>平均用電（度）</th><th><span class="o_ggandy_term" t-att-title="glossary['準時率']">準時率</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -77,7 +80,7 @@
             <div t-if="monthly['rows']" class="table-responsive">
                 <table class="table table-sm o_ggandy_analysis_table">
                     <thead>
-                        <tr><th>帳單月份</th><th>應收</th><th>實收</th><th>收款率</th><th>應付房東</th><th>預計賺</th></tr>
+                        <tr><th>帳單月份</th><th>應收</th><th>實收</th><th><span class="o_ggandy_term" t-att-title="glossary['收款率']">收款率</span></th><th>應付房東</th><th>預計賺</th></tr>
                     </thead>
                     <tbody>
                         <tr t-foreach="monthly['rows']" t-as="row">
@@ -111,7 +114,7 @@
                     <h5>收款行為</h5>
                     <t t-if="payment['paid_count'] or payment['overdue_count']">
                         <ul class="o_ggandy_analysis_list">
-                            <li>已收款 <strong t-out="payment['paid_count']"/> 筆，延遲天數平均 <t t-out="payment['delay_mean']"/>、中位數 <t t-out="payment['delay_median']"/>、最長 <t t-out="payment['delay_max']"/> 天</li>
+                            <li>已收款 <strong t-out="payment['paid_count']"/> 筆，<span class="o_ggandy_term" t-att-title="glossary['延遲天數']">延遲天數</span>平均 <t t-out="payment['delay_mean']"/>、中位數 <t t-out="payment['delay_median']"/>、最長 <t t-out="payment['delay_max']"/> 天</li>
                             <li>目前逾期 <strong t-out="payment['overdue_count']"/> 筆，共 <t t-out="payment['overdue_amount']"/> 元</li>
                         </ul>
                         <table class="table table-sm o_ggandy_analysis_table">
@@ -132,7 +135,7 @@
                     <t t-if="utilities['has_data']">
                         <ul class="o_ggandy_analysis_list">
                             <li>依度數計費 <strong t-out="utilities['unit_count']"/> 間、抄表 <t t-out="utilities['readings']"/> 次</li>
-                            <li>每間每月平均用電 <strong t-out="utilities['mean']"/> 度（標準差 <t t-out="utilities['stdev']"/>）</li>
+                            <li>每間每月平均用電 <strong t-out="utilities['mean']"/> 度（<span class="o_ggandy_term" t-att-title="glossary['標準差']">標準差</span> <t t-out="utilities['stdev']"/>）；高於平均＋<span class="o_ggandy_term" t-att-title="glossary['2σ']">2σ</span>的房間會列在下面</li>
                             <li>實收平均每度 <t t-out="utilities['price_per_kwh']"/> 元</li>
                             <li t-if="utilities['pending_count']">還沒抄表 <strong t-out="utilities['pending_count']"/> 筆</li>
                         </ul>
@@ -162,18 +165,26 @@
                     <h5>包租經濟</h5>
                     <ul t-if="master_lease['has_contract']" class="o_ggandy_analysis_list">
                         <li>每月保底租金 <strong t-out="master_lease['guaranteed']"/>，目前實際月租合計 <t t-out="master_lease['actual']"/></li>
-                        <li>月價差 <strong t-att-class="'text-danger' if master_lease['spread_negative'] else None" t-out="master_lease['spread']"/>，毛利率 <t t-out="master_lease['margin']"/></li>
+                        <li>月價差 <strong t-att-class="'text-danger' if master_lease['spread_negative'] else None" t-out="master_lease['spread']"/>，<span class="o_ggandy_term" t-att-title="glossary['毛利率']">毛利率</span> <t t-out="master_lease['margin']"/></li>
                         <li>滿租潛在月租 <t t-out="master_lease['potential']"/>，滿租毛利率 <t t-out="master_lease['potential_margin']"/></li>
-                        <li>損益兩平出租率 <strong t-out="master_lease['breakeven']"/>（保底 ÷ 滿租潛在月租）</li>
+                        <li><span class="o_ggandy_term" t-att-title="glossary['損益兩平出租率']">損益兩平出租率</span> <strong t-out="master_lease['breakeven']"/>（保底 ÷ 滿租潛在月租）</li>
                     </ul>
                     <p t-else="" class="o_ggandy_analysis_empty">本月沒有生效中的房東合約，算不出包租價差。</p>
                 </div>
             </div>
 
+            <details class="o_ggandy_glossary">
+                <summary>名詞解釋</summary>
+                <dl>
+                    <t t-foreach="glossary.items()" t-as="entry">
+                        <dt t-out="entry[0]"/>
+                        <dd t-out="entry[1]"/>
+                    </t>
+                </dl>
+            </details>
             <p class="o_ggandy_analysis_note">
                 統計期間 <t t-out="period_label"/>；金額未稅，只算生效中、已到期、提前終止的租約。
-                準時率 = 到期日前付清 ÷（已付清＋目前逾期）；出租率依每間房被租約覆蓋的天數加權。
-                樣本數 n &lt; <t t-out="small_sample"/> 時統計僅供參考。
+                游標停在<span class="o_ggandy_term" title="像這樣有虛線底線的名詞，游標停上去就會看到說明。">虛線名詞</span>上可以看說明；樣本數 n &lt; <t t-out="small_sample"/> 時統計僅供參考。
             </p>
         </div>
     </template>

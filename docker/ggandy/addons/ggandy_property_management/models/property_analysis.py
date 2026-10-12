@@ -11,6 +11,25 @@ ANALYSIS_DAYS = 365
 DAYS_PER_MONTH = 30.4375
 Z_SCORE_FLAG = 1.5
 SMALL_SAMPLE = 5
+# Lucas統計的名詞說明：表頭游標提示與頁尾「名詞解釋」共用，一句白話講完。
+GLOSSARY = {
+    "n": "樣本數，算進統計的筆數。數字越小，結果越容易被單一房間影響。",
+    "平均": "全部加起來除以筆數，容易被特別高或特別低的值拉走。",
+    "中位數": "排序後正中間的那個值，不受極端值影響，比平均更能代表「一般」水準。",
+    "標準差": "數字分散的程度，越大代表各房間差越多（樣本標準差，除以 n−1）。",
+    "CV": "變異係數＝標準差 ÷ 平均，用百分比比較不同規模的分散程度；超過 30% 算差異大。",
+    "Q1／Q3": "第一、第三四分位數：排序後落在 25% 與 75% 位置的值，中間一半的房間在這個範圍內。",
+    "IQR 離群": "IQR＝Q3−Q1。低於 Q1−1.5×IQR 或高於 Q3+1.5×IQR 的值視為離群，值得單獨看一下。",
+    "z 分數": "（這間月租−平均）÷ 標準差，代表離平均幾個標準差；絕對值 ≥ 1.5 會標色。",
+    "時間加權出租率": "近 12 個月每間房實際有租約的天數加總 ÷（房間數 × 365），比今天的出租率更能看出長期空置。",
+    "收款率": "實收 ÷ 應收（依帳單月份），100% 代表該收的都收到了。",
+    "準時率": "到期日前付清的筆數 ÷（已付清＋目前逾期），逾期還沒繳的也算不準時。",
+    "延遲天數": "實際收款日（帳單沖銷日）減繳款期限，0 或負數代表準時。",
+    "2σ": "平均加兩個標準差；用電高於這條線的房間很少見，可能是異常耗電或抄錯表。",
+    "毛利率": "（房客月租合計−保底租金）÷ 房客月租合計，代表每收 100 元留下多少。",
+    "損益兩平出租率": "保底租金 ÷ 滿租時的月租合計；出租率要高於這個數字才不會賠。",
+}
+
 DELAY_BUCKETS = (
     ("準時", None, 0),
     ("晚 1–7 天", 1, 7),
@@ -170,6 +189,7 @@ class GgandyProperty(models.Model):
             "turnover": turnover,
             "master_lease": self._analysis_master_lease(context, rent),
             "small_sample": SMALL_SAMPLE,
+            "glossary": GLOSSARY,
         }
 
     def _analysis_rent_stats(self, context):
@@ -420,11 +440,17 @@ class GgandyProperty(models.Model):
         return [
             {"label": "房間數", "value": str(len(units)), "sub": f"總坪數 {_fmt_num(rent['total_area'])}"},
             {"label": "今日出租率", "value": _fmt_pct(_safe_div(occupied, len(units))), "sub": f"已出租 {occupied} 間"},
-            {"label": "近 12 個月出租率", "value": _fmt_pct(turnover["occupancy_rate"]), "sub": "依出租天數加權"},
+            {
+                "label": "近 12 個月出租率",
+                "value": _fmt_pct(turnover["occupancy_rate"]),
+                "sub": "依出租天數加權",
+                "hint": GLOSSARY["時間加權出租率"],
+            },
             {
                 "label": "平均月租",
                 "value": _fmt_money(rent["rent_stats"].get("mean")),
                 "sub": f"中位數 {_fmt_money(rent['rent_stats'].get('median'))}",
+                "hint": GLOSSARY["中位數"],
             },
             {
                 "label": "平均每坪月租",
@@ -435,13 +461,20 @@ class GgandyProperty(models.Model):
                 "label": "近 12 個月收款率",
                 "value": _fmt_pct(monthly["collection_rate"]),
                 "sub": f"實收 {monthly['total_collected']}",
+                "hint": GLOSSARY["收款率"],
             },
             {
                 "label": "準時繳款率",
                 "value": _fmt_pct(payment["on_time_rate"]),
                 "sub": f"目前逾期 {payment['overdue_count']} 筆",
+                "hint": GLOSSARY["準時率"],
             },
-            {"label": "近 12 個月預計賺", "value": monthly["total_profit"], "sub": f"每月平均 {monthly['avg_profit']}"},
+            {
+                "label": "近 12 個月預計賺",
+                "value": monthly["total_profit"],
+                "sub": f"每月平均 {monthly['avg_profit']}",
+                "hint": "房客租金應收 − 應付房東（依帳單月份），代表照收照付能賺多少。",
+            },
         ]
 
     def _analysis_master_lease(self, context, rent):

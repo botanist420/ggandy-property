@@ -83,7 +83,7 @@
                     <widget name="web_ribbon" title="已封存" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_vendor_bills" type="object" class="oe_stat_button" icon="fa-file-text-o">
-                            <field name="vendor_bill_count" widget="statinfo" string="Vendor Bills"/>
+                            <field name="vendor_bill_count" widget="statinfo" string="房東帳單"/>
                         </button>
                     </div>
                     <div class="oe_title">
@@ -130,8 +130,8 @@
                             <div class="o_ggandy_hint" colspan="2">
                                 <i class="fa fa-info-circle" role="img" title="說明"/>
                                 <div>
-                                    <div>目前只記錄<strong>代管費約定</strong>。</div>
-                                    <div>房東月結單與撥款，等金流規則確認後再加入。</div>
+                                    <div><strong>代管費</strong>從當月已收到的房客租金扣，剩下的轉給房東。</div>
+                                    <div>當月沒收到租金就不扣固定代管費。</div>
                                 </div>
                             </div>
                         </group>

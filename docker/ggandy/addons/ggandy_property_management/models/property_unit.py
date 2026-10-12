@@ -107,15 +107,14 @@ class GgandyPropertyUnit(models.Model):
         string="電費計費方式",
         default="metered",
         tracking=True,
-        help="這個房間的電費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度電價；"
-        "每月固定金額＝不看度數、每月收固定電費；含在租金內＝不另外收；房客自繳台電＝獨立電錶、帳單直接寄給房客。"
-        "空白代表還沒設定。建立租約時會複製到租約；之後改這裡只影響新租約和草稿租約，生效中的租約要改請到租約上改。",
+        help="怎麼跟房客收電費。依度數＝用電度數 × 每度電價；固定金額＝每月收固定電費。"
+        "建立租約時會複製過去，之後改這裡只影響新租約與草稿租約。",
     )
     electricity_rate = fields.Float(
         string="每度電價",
         digits=(10, 2),
         tracking=True,
-        help="依度數計費時，每一度電跟房客收多少元，例如 5 或 5.5。每間房可以不同，改動會記錄在下方 chatter，方便日後對帳。",
+        help="依度數計費時每度收多少元，例如 5 或 5.5；改動會記在下方 chatter。",
     )
     electricity_fixed_fee = fields.Monetary(
         string="每月固定電費",
@@ -131,15 +130,14 @@ class GgandyPropertyUnit(models.Model):
         string="水費計費方式",
         default="fixed",
         tracking=True,
-        help="這個房間的水費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度水價；"
-        "每月固定金額＝不看度數、每月收固定水費；含在租金內＝不另外收；房客自繳水公司＝獨立水錶、帳單直接寄給房客。"
-        "空白代表還沒設定。建立租約時會複製到租約；之後改這裡只影響新租約和草稿租約，生效中的租約要改請到租約上改。",
+        help="怎麼跟房客收水費。依度數＝用水度數 × 每度水價；固定金額＝每月收固定水費。"
+        "建立租約時會複製過去，之後改這裡只影響新租約與草稿租約。",
     )
     water_rate = fields.Float(
         string="每度水價",
         digits=(10, 2),
         tracking=True,
-        help="依度數計費時，每一度水跟房客收多少元。改動會記錄在下方 chatter。",
+        help="依度數計費時每度收多少元；改動會記在下方 chatter。",
     )
     water_fixed_fee = fields.Monetary(
         string="水費",
@@ -189,6 +187,21 @@ class GgandyPropertyUnit(models.Model):
         string="有進行中租約",
         compute="_compute_counts",
         help="這間房是否已有草稿或生效中的房客租約。沒有的話，「新增房客租約」按鈕會以主色提示。",
+    )
+    current_lease_id = fields.Many2one(
+        "ggandy.lease",
+        string="目前租約",
+        compute="_compute_current_lease",
+        help="今天落在租期內的生效中租約；預約入住的租約要到起租日才會算進來。",
+    )
+    current_tenant_id = fields.Many2one(
+        "res.partner",
+        string="目前房客",
+        compute="_compute_current_lease",
+    )
+    current_lease_end_date = fields.Date(
+        string="租期結束",
+        compute="_compute_current_lease",
     )
     maintenance_count = fields.Integer(
         compute="_compute_counts",
@@ -304,6 +317,20 @@ class GgandyPropertyUnit(models.Model):
         if any(field in values for field in UTILITY_SETTING_FIELDS):
             self._sync_utility_settings_to_schedules()
         return result
+
+    @api.depends("lease_ids.state", "lease_ids.start_date", "lease_ids.end_date", "lease_ids.tenant_id")
+    def _compute_current_lease(self):
+        today = fields.Date.context_today(self)
+        for unit in self:
+            lease = unit.lease_ids.filtered(
+                lambda lease: lease.state == "active"
+                and lease.start_date
+                and lease.start_date <= today
+                and (not lease.end_date or lease.end_date >= today)
+            ).sorted("start_date", reverse=True)[:1]
+            unit.current_lease_id = lease
+            unit.current_tenant_id = lease.tenant_id
+            unit.current_lease_end_date = lease.end_date
 
     def _get_utility_settings(self):
         """建立租約時要複製到租約上的水電設定。"""

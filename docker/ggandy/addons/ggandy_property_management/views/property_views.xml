@@ -45,6 +45,7 @@
                 <field name="manager_id" widget="many2one_avatar_user" optional="show"/>
                 <field name="owner_payment_day" optional="show"/>
                 <field name="unit_count" string="房間數" optional="show"/>
+                <field name="occupancy_rate" optional="show"/>
                 <field name="company_id" groups="base.group_multi_company" optional="hide"/>
             </list>
         </field>
@@ -214,12 +215,12 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="數據分析" name="analysis" invisible="not id">
+                        <page string="Lucas統計" name="analysis" invisible="not id">
                             <div class="o_ggandy_hint">
                                 <i class="fa fa-info-circle" role="img" title="說明"/>
                                 <div>
-                                    <div>這個物件<strong>近 12 個月</strong>的數據整理，開啟物件時即時計算。</div>
-                                    <div>每坪月租要房間有填坪數；樣本數太少時統計僅供參考。</div>
+                                    <div>這個物件<strong>近 12 個月</strong>的統計，開啟物件時即時計算。</div>
+                                    <div>虛線名詞可停游標看說明，最下方有完整的名詞解釋。</div>
                                 </div>
                             </div>
                             <field name="analysis_html" nolabel="1" readonly="1"/>
@@ -234,10 +235,55 @@
         </field>
     </record>
 
+    <record id="view_ggandy_property_kanban" model="ir.ui.view">
+        <field name="name">ggandy.property.kanban</field>
+        <field name="model">ggandy.property</field>
+        <field name="arch" type="xml">
+            <kanban class="o_ggandy_property_kanban">
+                <field name="occupancy_rate"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <field name="name" class="fw-bold fs-5 text-truncate"/>
+                            <field name="management_mode" widget="badge"
+                                   decoration-success="management_mode == 'master_lease'"
+                                   decoration-info="management_mode == 'agency'"/>
+                        </div>
+                        <field name="address_display" class="o_ggandy_kanban_muted text-truncate"/>
+                        <div class="o_ggandy_kanban_muted text-truncate">
+                            <i class="fa fa-user-o me-1" role="img" title="房東"/><field name="owner_id"/>
+                        </div>
+                        <div class="o_ggandy_kanban_stats">
+                            <div>
+                                <field name="unit_count" class="o_ggandy_kanban_stat_value"/>
+                                <span>房間</span>
+                            </div>
+                            <div>
+                                <field name="occupied_unit_count" class="o_ggandy_kanban_stat_value"/>
+                                <span>已出租</span>
+                            </div>
+                            <div>
+                                <span class="o_ggandy_kanban_stat_value"><t t-out="record.occupancy_rate.value"/>%</span>
+                                <span>出租率</span>
+                            </div>
+                        </div>
+                        <div class="o_ggandy_progress" role="img" t-att-title="'出租率 ' + record.occupancy_rate.value + '%'">
+                            <div t-attf-style="width: {{ record.occupancy_rate.raw_value }}%;"/>
+                        </div>
+                        <footer class="pt-2">
+                            <field name="code" class="o_ggandy_kanban_muted"/>
+                            <field name="manager_id" widget="many2one_avatar_user" class="ms-auto"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
     <record id="action_ggandy_property" model="ir.actions.act_window">
         <field name="name">物件</field>
         <field name="res_model">ggandy.property</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="view_ggandy_property_search"/>
         <field name="context">{'search_default_group_manager': 0}</field>
         <field name="help" type="html">

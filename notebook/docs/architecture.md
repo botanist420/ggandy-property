@@ -43,7 +43,8 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `owner_payment_day` | 匯款給房東的日期（1–31，0 = 未設定），房東合約 create / onchange 時預設帶入 |
 | `acquisition_date` / `management_end_date` | 房東合約生效時回寫 |
 | `has_open_owner_contract` | 非 stored compute：有 draft / active 房東合約即 True；False 時表單 header 顯示「新增房東合約」（`action_create_owner_contract`，與 `action_view_owner_contracts` 共用 `_get_owner_contract_default_context()`） |
-| `analysis_html` | `models/property_analysis.py`：非 stored compute、`sanitize=False`，`_get_analysis_data()` 蒐集後用 QWeb `property_analysis`（`views/property_analysis_templates.xml`）渲染。期間 = 今天往前 365 天；租約只算 `EFFECTIVE_LEASE_STATES`；統計用標準庫 `statistics`（樣本標準差、`quantiles(method="inclusive")`、IQR 1.5 倍離群、|z| ≥ 1.5 標色）。付款延遲 = 應收分錄 `matched_credit_ids.max_date` − `due_date`；準時率 = 準時付清 ÷（已付清＋目前逾期）；時間加權出租率 = 各房間有效租約覆蓋天數（合併重疊、提前終止用 `termination_date`）÷（非停用房間數 × 365）；月度趨勢 `_read_group` 帳務總表；包租價差用 `_get_month_owner_contract()` 的 `guaranteed_rent` |
+| `occupied_unit_count` / `occupancy_rate` | 非 stored compute（`_compute_occupancy`）：房間 `state == occupied` 的數量，出租率＝已出租 ÷ 非停用房間（整數 %），給物件 kanban 卡片與列表用 |
+| `analysis_html` | `models/property_analysis.py`：非 stored compute、`sanitize=False`，`_get_analysis_data()` 蒐集後用 QWeb `property_analysis`（`views/property_analysis_templates.xml`）渲染。期間 = 今天往前 365 天；租約只算 `EFFECTIVE_LEASE_STATES`；統計用標準庫 `statistics`（樣本標準差、`quantiles(method="inclusive")`、IQR 1.5 倍離群、|z| ≥ 1.5 標色）。付款延遲 = 應收分錄 `matched_credit_ids.max_date` − `due_date`；準時率 = 準時付清 ÷（已付清＋目前逾期）；時間加權出租率 = 各房間有效租約覆蓋天數（合併重疊、提前終止用 `termination_date`）÷（非停用房間數 × 365）；月度趨勢 `_read_group` 帳務總表；包租價差用 `_get_month_owner_contract()` 的 `guaranteed_rent` 。分頁標題暫名「Lucas統計」；名詞說明在 `GLOSSARY`（表頭 `title` 提示＋頁尾 `<details>` 名詞解釋） |
 | `state_id` / `city_id` / `zip` / `city` | 地址：`city_id` 是 `res.city`（台灣資料來自 `l10n_tw` 的 `data/res.city.csv`，所以 depends `l10n_tw`），view domain 限定 `state_id`；onchange `city_id` 帶入 `city`（區名 Char）、`zip`、`state_id`，onchange `state_id` 時不符的 `city_id` 清空。`city` Char 保留給 `address_display`、租約 PDF `_format_premises` 用 |
 | `current_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `property_id`），callable domain `_get_current_schedule_domain()`：租約非 cancelled、`period_month` = 本月（每次讀取時計算）；表單「當期帳單」分頁 `readonly="1"`、`default_order="unit_id"`，只供檢視 |
 | `internet_fee` | 網路第四台（Monetary，tracking），每月固定金額，算進本月收租概覽的合計並轉付給房東，不進房客帳單 |
@@ -68,6 +69,7 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `has_open_lease` / `action_create_lease()` | 有 draft / active 租約（與 `lease_count` 同一個 compute）；表單 header 兩顆「新增房客租約」按鈕依它切換 `btn-primary` / `btn-secondary`，開新 `ggandy.lease` form 並帶 `default_*`（與 `action_view_leases()` 同一組） |
 | `layout_photo_ids` | compute：本房間 chatter 上的 `image/*` 附件 |
 | `maintenance_photo_ids` | compute：本房間所有報修單（含封存）的 `image/*` 附件，依 `ggandy_request_date` desc |
+| `current_lease_id` / `current_tenant_id` / `current_lease_end_date` | 非 stored compute（`_compute_current_lease`）：今天落在租期內的生效租約與其房客、租期結束，給房間列表顯示 |
 
 `_refresh_from_active_leases()`：只在 `vacant` / `occupied` 狀態下自動切換；有 active 租約**且 `start_date <= today <= end_date`** 才算 occupied（預約入住的租約生效後房間仍是空房）。每日 `_cron_expire_ended_leases()` 最後會對所有 vacant／occupied 房間跑一次。
 
@@ -229,7 +231,7 @@ has_*            = 上面數字的 SQL 布林欄位，原生可搜尋
 
 - 欄位名稱：應付房東（`owner_payable`）、已付房東（`owner_paid`）、待付房東（`owner_unpaid`）。押金（`tenant_deposit`）、員工代墊（`employee_advance`）、備註（`note`）已移除；Vendor Bill 上的「公司員工代墊」費用類型仍可標記，只是不進總表。
 - list 只在單一欄位上色：`rent_collected` warning（`rent_uncollected > 0`）、`owner_paid` warning（`owner_unpaid > 0`）、`earned_profit` danger（< 0）。action 預設 `search_default_current_month` + `search_default_group_property`。
-- GGandy帳務選單：營運總表（10）、逾期未收（20，`ggandy.rent.schedule` + `search_default_overdue` + 依物件分組；收租明細 list 的金額欄都有 `sum`）、待付房東（30，`account.move` in_invoice 且有 `ggandy_owner_contract_id`，`search_default_open`，限 `account.group_account_invoice`）。
+- 帳務選單（2026-10-13 由「GGandy帳務」改名）：營運總表（10）、逾期未收（20，`ggandy.rent.schedule` + `search_default_overdue` + 依物件分組；收租明細 list 的金額欄都有 `sum`）、待付房東（30，`account.move` in_invoice 且有 `ggandy_owner_contract_id`，`search_default_open`，限 `account.group_account_invoice`）。
 
 ### Google Sheet 匯入（TransientModel）
 

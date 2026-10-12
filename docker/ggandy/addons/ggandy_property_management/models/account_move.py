@@ -35,7 +35,7 @@ class AccountMove(models.Model):
         copy=False,
         index=True,
         ondelete="restrict",
-        help="這張 Vendor Bill 對應的房東合約。房東自動結算會填入它，帳務總表也靠它找房東應付。",
+        help="這張房東帳單對應的房東合約，自動結算時會填入，營運總表靠它算應付房東。",
     )
     ggandy_owner_property_id = fields.Many2one(
         "ggandy.property",
@@ -75,13 +75,13 @@ class AccountMove(models.Model):
         string="GGAndy 結算開始",
         copy=False,
         index=True,
-        help="房東結算 Vendor Bill 對應期間的起始日，通常是該月 1 號。自動建立時會寫入，方便總表抓同一月份。",
+        help="這張房東帳單結算的是哪個月：月份第一天。自動建立時會寫入。",
     )
     ggandy_settlement_period_end = fields.Date(
         string="GGAndy 結算結束",
         copy=False,
         index=True,
-        help="房東結算 Vendor Bill 對應期間的結束日，通常是月底。它跟開始日一起把這張帳單釘在正確月份上。",
+        help="這張房東帳單結算月份的最後一天。",
     )
 
     def _invoice_paid_hook(self):

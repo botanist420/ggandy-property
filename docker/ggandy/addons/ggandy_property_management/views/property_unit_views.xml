@@ -38,6 +38,8 @@
                 <field name="floor" optional="show"/>
                 <field name="area" optional="show"/>
                 <field name="monthly_rent" widget="monetary"/>
+                <field name="current_tenant_id" optional="show"/>
+                <field name="current_lease_end_date" optional="show"/>
                 <field name="electricity_billing_type" optional="hide"/>
                 <field name="electricity_rate" optional="hide"/>
                 <field name="water_billing_type" optional="hide"/>
@@ -117,7 +119,7 @@
                         <page string="租約紀錄" name="lease_history">
                             <field name="lease_ids" readonly="1">
                                 <list>
-                                    <field name="name"/>
+                                    <field name="name" optional="hide"/>
                                     <field name="tenant_id"/>
                                     <field name="start_date"/>
                                     <field name="end_date"/>
@@ -131,9 +133,8 @@
                             <div class="o_ggandy_hint">
                                 <i class="fa fa-info-circle" role="img" title="說明"/>
                                 <div>
-                                    <div><strong>電表月份</strong>是這期帳單收哪個月的電費，例如 10 月帳單收 9 月電費。</div>
-                                    <div><strong>水費</strong>是那一期帳單收的固定水費，只改那一期；要改之後每個月的金額請改上方的水費設定。</div>
-                                    <div>抄表度數填該月月底讀數，填好會帶到下一期並更新草稿帳單，已過帳不能改。</div>
+                                    <div><strong>電表月份</strong>是這期帳單收哪個月的電，例如 10 月帳單收 9 月；度數填該月月底讀數。</div>
+                                    <div>這裡改的水費只影響那一期，已過帳不能改；之後每月的金額請改上方水費設定。</div>
                                 </div>
                             </div>
                             <field name="meter_schedule_ids" nolabel="1">
@@ -185,7 +186,7 @@
                         <page string="維修紀錄" name="maintenance_history">
                             <field name="maintenance_request_ids" readonly="1">
                                 <list default_order="request_date desc, id desc">
-                                    <field name="name"/>
+                                    <field name="name" optional="hide"/>
                                     <field name="title"/>
                                     <field name="request_date"/>
                                     <field name="category"/>

@@ -164,9 +164,7 @@ class GgandyGoogleSheetPropertyImportWizard(models.TransientModel):
     create_missing_owner = fields.Boolean(
         string="自動建立房東",
         default=True,
-        help="勾選時，Sheet 上的房東如果在聯絡人裡找不到，會自動新增一位房東聯絡人。"
-        "取消勾選則只對應既有聯絡人，找不到的會在匯入結果中列出。"
-        "管理人員不會自動建立：找不到對應的內部使用者時一律留空，並在匯入結果標記出來。",
+        help="勾選：聯絡人裡找不到的房東會自動新增；不勾：只對應既有聯絡人，找不到的列在匯入結果。管理人員一律不自動建立。",
     )
 
     def action_import_properties(self):

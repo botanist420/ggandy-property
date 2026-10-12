@@ -13,7 +13,7 @@
                     <field name="ggandy_owner_contract_count" widget="statinfo" string="房東合約"/>
                 </button>
                 <button name="action_view_ggandy_leases" type="object" class="oe_stat_button" icon="fa-file-text-o" invisible="ggandy_lease_count == 0">
-                    <field name="ggandy_lease_count" widget="statinfo" string="租約"/>
+                    <field name="ggandy_lease_count" widget="statinfo" string="房客租約"/>
                 </button>
                 <button name="action_view_ggandy_maintenance" type="object" class="oe_stat_button" icon="fa-wrench" invisible="ggandy_maintenance_count == 0">
                     <field name="ggandy_maintenance_count" widget="statinfo" string="報修單"/>
@@ -43,6 +43,10 @@
         <field name="view_mode">list,form</field>
         <field name="domain">[('is_ggandy_owner', '=', True)]</field>
         <field name="context">{'default_is_ggandy_owner': True}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">還沒有房東</p>
+            <p>建立物件或房東合約時選了房東，就會自動出現在這裡。</p>
+        </field>
     </record>
     <record id="action_ggandy_tenant" model="ir.actions.act_window">
         <field name="name">房客</field>
@@ -50,6 +54,10 @@
         <field name="view_mode">list,form</field>
         <field name="domain">[('is_ggandy_tenant', '=', True)]</field>
         <field name="context">{'default_is_ggandy_tenant': True, 'default_company_type': 'person'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">還沒有房客</p>
+            <p>建立房客租約時選了房客，就會自動出現在這裡。</p>
+        </field>
     </record>
     <record id="action_ggandy_vendor" model="ir.actions.act_window">
         <field name="name">合作廠商</field>
@@ -57,5 +65,9 @@
         <field name="view_mode">list,form</field>
         <field name="domain">[('is_ggandy_vendor', '=', True)]</field>
         <field name="context">{'default_is_ggandy_vendor': True}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">還沒有合作廠商</p>
+            <p>報修單或整備採購選了廠商，就會自動出現在這裡。</p>
+        </field>
     </record>
 </odoo>

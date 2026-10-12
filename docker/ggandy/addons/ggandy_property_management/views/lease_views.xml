@@ -207,7 +207,7 @@
                         <page string="報修紀錄" name="maintenance">
                             <field name="maintenance_request_ids" readonly="1">
                                 <list>
-                                    <field name="name"/>
+                                    <field name="name" optional="hide"/>
                                     <field name="title"/>
                                     <field name="request_date"/>
                                     <field name="priority" widget="priority"/>
@@ -279,7 +279,7 @@
         <field name="context">{'search_default_ending_30': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">這段期間沒有要談續約的租約</p>
-            <p>可以在搜尋列改用 60／90／120 天內到期，或「近 30 天已到期」查看。同房間已經有下一份租約的不會列在這裡。</p>
+            <p>可以在搜尋列改用「90 天內到期」或「最近 30 天剛到期」查看。同房間已經有下一份租約的不會列在這裡。</p>
         </field>
     </record>
 </odoo>

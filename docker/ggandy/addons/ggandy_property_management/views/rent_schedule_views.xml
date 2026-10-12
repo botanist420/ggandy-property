@@ -98,20 +98,6 @@
                             <field name="due_date" readonly="id"/>
                         </group>
                     </group>
-                    <group>
-                        <group string="應收金額">
-                            <field name="rent_amount" readonly="invoice_id"/>
-                            <field name="management_fee" readonly="invoice_id"/>
-                            <field name="total_amount"/>
-                            <field name="currency_id" invisible="1"/>
-                        </group>
-                        <group string="帳單">
-                            <field name="invoice_id" readonly="1"/>
-                            <field name="invoice_state" invisible="not invoice_id"/>
-                            <field name="payment_state" invisible="not invoice_id"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
-                        </group>
-                    </group>
                     <field name="invoice_state" invisible="1"/>
                     <group name="utility">
                         <group string="電費">
@@ -134,6 +120,20 @@
                             <field name="water_amount"/>
                         </group>
                     </group>
+                    <group>
+                        <group string="應收金額">
+                            <field name="rent_amount" readonly="invoice_id"/>
+                            <field name="management_fee" readonly="invoice_id"/>
+                            <field name="total_amount" string="應收合計（含水電）" class="fw-bold"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="帳單">
+                            <field name="invoice_id" readonly="1"/>
+                            <field name="invoice_state" invisible="not invoice_id"/>
+                            <field name="payment_state" invisible="not invoice_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
                     <group string="備註">
                         <field name="note" nolabel="1"/>
                     </group>
@@ -143,10 +143,22 @@
         </field>
     </record>
 
+    <record id="view_ggandy_rent_schedule_pivot" model="ir.ui.view">
+        <field name="name">ggandy.rent.schedule.pivot</field>
+        <field name="model">ggandy.rent.schedule</field>
+        <field name="arch" type="xml">
+            <pivot string="房客收租明細" sample="1">
+                <field name="property_id" type="row"/>
+                <field name="period_start" interval="month" type="col"/>
+                <field name="total_amount" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
     <record id="action_ggandy_rent_schedule" model="ir.actions.act_window">
         <field name="name">房客收租明細</field>
         <field name="res_model">ggandy.rent.schedule</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,pivot,form</field>
         <field name="search_view_id" ref="view_ggandy_rent_schedule_search"/>
         <field name="context">{'search_default_this_month': 1, 'search_default_group_property': 1}</field>
         <field name="help" type="html">

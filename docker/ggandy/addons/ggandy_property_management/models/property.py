@@ -58,8 +58,7 @@ class GgandyProperty(models.Model):
     owner_payment_day = fields.Integer(
         string="房東匯款日",
         tracking=True,
-        help="每月收完房客房租後，匯款給房東的日期（1 至 31），留空代表未設定。新增房東合約時會預設帶入合約的「每月房東付款／結算日」；"
-        "之後在這裡修改，也會同步更新生效中房東合約的結算日（草稿、已到期的合約不動）。",
+        help="每月幾號匯款給房東（1–31）。新增房東合約會帶入，之後改這裡也會同步生效中合約的結算日。",
     )
 
     owner_id = fields.Many2one(
@@ -165,8 +164,7 @@ class GgandyProperty(models.Model):
     month_owner_payout = fields.Monetary(
         string="應付房東",
         compute="_compute_month_summary",
-        help="本月房東帳單應付：包租是保底租金、代管是已收到的租金扣代管費，再加上管理費＋網路第四台＋電費＋水費"
-        "（照上面的金額原封不動轉付）。代管的租金只算目前已收款的部分；沒有生效中的房東合約時是 0。",
+        help="本月房東帳單的金額：包租＝保底租金，代管＝已收租金扣代管費，再加上管理費、網路、電費、水費轉付。",
     )
     current_meter_schedule_ids = fields.One2many(
         "ggandy.rent.schedule",
@@ -194,6 +192,16 @@ class GgandyProperty(models.Model):
     maintenance_count = fields.Integer(
         compute="_compute_counts",
         help="此物件累積的報修單數量。數字變多時，不一定是壞事，也可能只是你管理得比較有紀錄。",
+    )
+    occupied_unit_count = fields.Integer(
+        string="已出租房間",
+        compute="_compute_occupancy",
+        help="出租狀態是「已出租」的房間數。",
+    )
+    occupancy_rate = fields.Integer(
+        string="出租率 (%)",
+        compute="_compute_occupancy",
+        help="今天已出租的房間 ÷ 房間數（不含停用房間）。",
     )
     has_open_owner_contract = fields.Boolean(
         string="有進行中的房東合約",
@@ -352,6 +360,14 @@ class GgandyProperty(models.Model):
             record.owner_contract_count = len(record.owner_contract_ids)
             record.lease_count = len(record.lease_ids)
             record.maintenance_count = len(record.maintenance_request_ids)
+
+    @api.depends("unit_ids.state")
+    def _compute_occupancy(self):
+        for record in self:
+            units = record.unit_ids.filtered(lambda unit: unit.state != "inactive")
+            occupied = len(units.filtered(lambda unit: unit.state == "occupied"))
+            record.occupied_unit_count = occupied
+            record.occupancy_rate = round(occupied * 100 / len(units)) if units else 0
 
     @api.depends("owner_contract_ids.state")
     def _compute_has_open_owner_contract(self):

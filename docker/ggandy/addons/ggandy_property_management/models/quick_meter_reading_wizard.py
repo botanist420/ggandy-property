@@ -53,9 +53,7 @@ class GgandyQuickMeterReadingWizard(models.TransientModel):
     )
     reading_text = fields.Text(
         string="抄表度數",
-        help="從 Google Sheet 複製度數貼上，順序要跟上面的房間順序一致。"
-        "只貼一列時用上方選的電表月份；一次貼好幾個月時，每列第一格要是月份（例如 9月、2026/9、2026-09）。"
-        "千分位逗號會自動去掉；空白或 0 代表這間還沒抄，會略過。",
+        help="從 Google Sheet 複製度數貼上，順序跟上面的房間一致。一次貼好幾個月時，每列第一格寫月份（例如 2026-09）；空白或 0 會略過。",
     )
     bill_month_hint = fields.Char(
         string="寫進帳單",
