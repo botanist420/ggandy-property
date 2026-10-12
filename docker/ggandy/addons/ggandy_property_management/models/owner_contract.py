@@ -333,13 +333,13 @@ class GgandyOwnerContract(models.Model):
         if existing:
             return existing
 
-        amount, label = self._get_owner_settlement_amount(period_start, period_end)
-        if amount <= 0:
+        lines = self._get_owner_settlement_lines(period_start, period_end)
+        if sum(amount for _label, amount in lines) <= 0:
             return self.env["account.move"]
-        return self._create_settlement_bill(period_start, period_end, amount, label)
+        return self._create_settlement_bill(period_start, period_end, lines)
 
-    def _create_settlement_bill(self, period_start, period_end, amount, label):
-        """建立一張房東結算 Vendor Bill（不檢查同月是否已有帳單；代管補付也用這個）。"""
+    def _create_settlement_bill(self, period_start, period_end, lines):
+        """建立一張房東結算 Vendor Bill，lines 是 [(說明, 金額), ...]；不檢查同月是否已有帳單，補付也用這個。"""
         self.ensure_one()
         purchase_journal = self.env["account.journal"].search(
             [
@@ -351,10 +351,6 @@ class GgandyOwnerContract(models.Model):
         if not purchase_journal:
             raise UserError("目前公司尚未設定採購日記帳，無法建立房東 vendor bill。")
 
-        product = self.env.ref(
-            "ggandy_property_management.product_product_owner_settlement",
-            raise_if_not_found=False,
-        )
         bill = self.env["account.move"].create(
             {
                 "move_type": "in_invoice",
@@ -367,30 +363,43 @@ class GgandyOwnerContract(models.Model):
                 "ggandy_owner_contract_id": self.id,
                 "ggandy_settlement_period_start": period_start,
                 "ggandy_settlement_period_end": period_end,
-                "invoice_line_ids": [
-                    fields.Command.create(
-                        {
-                            "product_id": product.id if product else False,
-                            "name": label,
-                            "quantity": 1,
-                            "price_unit": amount,
-                        }
-                    )
-                ],
+                "invoice_line_ids": self._prepare_settlement_line_commands(lines),
             }
         )
         self.message_post(body=f"已建立房東 Vendor Bill {bill.display_name}。")
         return bill
 
-    def _recompute_settlement_bill(self, bill):
-        """代管帳單依同一個帳單月份重算：草稿直接改金額；已過帳就為差額另開一張補付帳單。
+    def _prepare_settlement_line_commands(self, lines):
+        product = self.env.ref(
+            "ggandy_property_management.product_product_owner_settlement",
+            raise_if_not_found=False,
+        )
+        return [
+            fields.Command.create(
+                {
+                    "product_id": product.id if product else False,
+                    "name": label,
+                    "quantity": 1,
+                    "price_unit": amount,
+                }
+            )
+            for label, amount in lines
+        ]
 
+    def _recompute_settlement_bill(self, bill):
+        """依同一個帳單月份重算房東帳單（包租、代管都適用）。
+
+        - 草稿、這個月唯一一張 → 明細整批換成重算結果（手動改過的明細會被覆蓋）。
+        - 草稿、這個月還有其他帳單（例如它是補付單）→ 改成單行差額。
+        - 已過帳 → 差額大於 0 就另開一張補付帳單。
         回傳 (補付帳單或空 recordset, 給使用者看的訊息)。
         """
         self.ensure_one()
         period_start = bill.ggandy_settlement_period_start
         period_end = bill.ggandy_settlement_period_end or period_start + relativedelta(months=1, days=-1)
-        amount, label = self._get_owner_settlement_amount(period_start, period_end)
+        period_label = period_start.strftime("%Y-%m")
+        lines = self._get_owner_settlement_lines(period_start, period_end)
+        total = sum(amount for _label, amount in lines)
         month_bills = self.env["account.move"].search(
             [
                 ("ggandy_owner_contract_id", "=", self.id),
@@ -402,47 +411,66 @@ class GgandyOwnerContract(models.Model):
         other_amount = sum((month_bills - bill).mapped("amount_untaxed"))
         currency = self.currency_id.symbol or ""
         if bill.state == "draft":
-            new_amount = amount - other_amount
+            if other_amount:
+                lines = [(f"{self.name} {period_label} 房東帳單補付（重新計算差額）", total - other_amount)]
+            new_amount = sum(amount for _label, amount in lines)
             if new_amount <= 0:
                 raise UserError(
                     f"重新計算後這張帳單應付 {currency}{new_amount:,.0f}，不需要付款；"
                     "如果確定這個月不用付，請直接取消這張帳單。"
                 )
-            line = bill.invoice_line_ids.filtered(lambda item: item.display_type == "product")[:1]
-            if len(bill.invoice_line_ids.filtered(lambda item: item.display_type == "product")) != 1:
-                raise UserError("這張帳單的明細已經手動改過（不只一行），請直接在帳單上調整金額。")
-            old_amount = line.price_unit
-            line.price_unit = new_amount
-            bill.message_post(body=f"重新計算代管結算：{currency}{old_amount:,.0f} → {currency}{new_amount:,.0f}。")
+            old_amount = bill.amount_untaxed
+            product_lines = bill.invoice_line_ids.filtered(lambda item: item.display_type == "product")
+            bill.invoice_line_ids = [fields.Command.unlink(line.id) for line in product_lines] + (
+                self._prepare_settlement_line_commands(lines)
+            )
+            bill.message_post(
+                body=f"重新計算房東帳單：{currency}{old_amount:,.0f} → {currency}{new_amount:,.0f}。"
+            )
             return self.env["account.move"], f"已更新為 {currency}{new_amount:,.0f}。"
 
-        difference = amount - other_amount - bill.amount_untaxed
+        difference = total - other_amount - bill.amount_untaxed
         if difference <= 0:
             return self.env["account.move"], (
-                f"重新計算後應付 {currency}{amount:,.0f}，這個月已開 {currency}{amount - difference:,.0f}，"
+                f"重新計算後應付 {currency}{total:,.0f}，這個月已開 {currency}{total - difference:,.0f}，"
                 "沒有需要補付的金額。"
             )
         supplement = self._create_settlement_bill(
             period_start,
             period_end,
-            difference,
-            f"{self.name} {period_start.strftime('%Y-%m')} 代管房東結算補付（晚收的租金）",
+            [(f"{self.name} {period_label} 房東帳單補付（重新計算差額）", difference)],
         )
         return supplement, f"已另開補付帳單 {currency}{difference:,.0f}。"
 
-    def _get_owner_settlement_amount(self, period_start, period_end):
+    def _get_owner_settlement_lines(self, period_start, period_end, summary=None):
+        """房東帳單的明細 [(說明, 金額), ...]，0 元的不列。
+
+        包租：保底租金；代管：已收到的租金扣代管費。再加上物件該月收租概覽的
+        管理費、網路第四台、電費、水費，原封不動轉付給房東。
+        summary 可以傳物件頁上還沒存檔的概覽（例如剛改網路第四台），沒傳就重新算。
+        """
         self.ensure_one()
         period_label = period_start.strftime("%Y-%m")
         if self.contract_type == "master_lease":
-            return self.guaranteed_rent, f"{self.name} {period_label} 包租保底租金"
-
-        rent_collected = self._get_agency_collected_rent(period_start, period_end)
-        if self.fee_type == "percentage":
-            management_fee = rent_collected * self.fee_rate / 100.0
+            lines = [(f"{self.name} {period_label} 包租保底租金", self.guaranteed_rent)]
         else:
-            management_fee = self.fixed_fee if rent_collected else 0.0
-        amount = max(rent_collected - management_fee, 0.0)
-        return amount, f"{self.name} {period_label} 代管房東結算"
+            rent_collected = self._get_agency_collected_rent(period_start, period_end)
+            if self.fee_type == "percentage":
+                management_fee = rent_collected * self.fee_rate / 100.0
+            else:
+                management_fee = self.fixed_fee if rent_collected else 0.0
+            lines = [
+                (f"{self.name} {period_label} 代管實收租金扣代管費", max(rent_collected - management_fee, 0.0))
+            ]
+        if summary is None:
+            summary = self.property_id._get_month_summary(period_start)
+        lines += [
+            (f"{period_label} 管理費（代收轉付）", summary["management_fee"]),
+            (f"{period_label} 網路第四台（代收轉付）", summary["internet"]),
+            (f"{period_label} 電費（代收轉付）", summary["electricity"]),
+            (f"{period_label} 水費（代收轉付）", summary["water"]),
+        ]
+        return [(label, amount) for label, amount in lines if amount]
 
     def _get_agency_collected_rent(self, period_start, period_end):
         self.ensure_one()

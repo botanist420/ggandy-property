@@ -6,10 +6,9 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
-                <field name="ggandy_owner_contract_type" invisible="1"/>
-                <button name="action_ggandy_recompute_owner_settlement" type="object" string="重新計算代管結算"
-                        invisible="ggandy_owner_contract_type != 'agency' or not ggandy_settlement_period_start or state == 'cancel'"
-                        help="依同一個帳單月份重算實收租金：草稿帳單直接更新金額；已過帳的帳單，晚收的部分另開一張補付帳單。"/>
+                <button name="action_ggandy_recompute_owner_bill" type="object" string="重新計算房東帳單"
+                        invisible="not ggandy_owner_contract_id or not ggandy_settlement_period_start or state == 'cancel'"
+                        help="依同一個帳單月份重算：保底租金（代管是已收到的租金扣代管費）＋管理費＋網路第四台＋電費＋水費。草稿帳單的明細會整批換成新算出來的（手動改過的會被覆蓋）；已過帳的帳單，多出來的部分另開一張補付帳單。"/>
             </xpath>
             <xpath expr="//group[@name='sale_info_group']" position="inside">
                 <field name="ggandy_lease_id" invisible="move_type not in ('out_invoice', 'out_refund')" readonly="state != 'draft'"/>

@@ -310,7 +310,7 @@ class GgandyTelegramLog(models.Model):
         occupied_count = Unit.search_count(company_domain + [("state", "=", "occupied")])
         vacant_count = Unit.search_count(company_domain + [("state", "=", "vacant")])
 
-        # 本月應收：帳單月份（期次開始日）在本月、有效租約的期次，和帳務總表、物件收入概覽一致。
+        # 本月應收：帳單月份（期次開始日）在本月、有效租約的期次，和帳務總表、物件收租概覽一致。
         schedules = Schedule.search(
             company_domain
             + Schedule._get_effective_domain()

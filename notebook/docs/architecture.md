@@ -44,8 +44,8 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `acquisition_date` / `management_end_date` | 房東合約生效時回寫 |
 | `state_id` / `city_id` / `zip` / `city` | 地址：`city_id` 是 `res.city`（台灣資料來自 `l10n_tw` 的 `data/res.city.csv`，所以 depends `l10n_tw`），view domain 限定 `state_id`；onchange `city_id` 帶入 `city`（區名 Char）、`zip`、`state_id`，onchange `state_id` 時不符的 `city_id` 清空。`city` Char 保留給 `address_display`、租約 PDF `_format_premises` 用 |
 | `current_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `property_id`），callable domain `_get_current_schedule_domain()`：租約非 cancelled、`period_month` = 本月（每次讀取時計算）；表單「當期帳單」分頁 `readonly="1"`、`default_order="unit_id"`，只供檢視 |
-| `internet_fee` | 網路第四台（Monetary，tracking），每月固定金額，只算進本月收入概覽的合計，不進房客帳單 |
-| `month_*_total` / `month_summary_label` | 「本月收入概覽」：非 stored compute（`_compute_month_summary`），加總 `current_schedule_ids` 的租金／管理費／電費／水費；`month_income_total` = 四項 + `internet_fee`。順序照老闆付房東 Sheet（2026-10-11 驗算：Sheet 的 N 月 = N 月帳單 `period_month`） |
+| `internet_fee` | 網路第四台（Monetary，tracking），每月固定金額，算進本月收租概覽的合計並轉付給房東，不進房客帳單 |
+| `month_*_total` / `month_summary_label` / `month_owner_payout` | 「本月收租概覽」：非 stored compute（`_compute_month_summary`）呼叫 `_get_month_summary(本月)`：搜尋該物件 `period_month` = 本月、租約狀態在 `EFFECTIVE_LEASE_STATES` 的期次，加總租金／管理費／電費／水費，加上 `internet_fee`。`month_owner_payout`「付房東」= 本月有效 active 房東合約（`_get_month_owner_contract`）的 `_get_owner_settlement_lines(..., summary)` 合計（傳入 in-memory summary，表單改網路第四台時即時更新）。順序照老闆付房東 Sheet（2026-10-11 驗算：Sheet 的 N 月 = N 月帳單 `period_month`） |
 | `current_meter_schedule_ids` | 同上再加「電費 metered 或水費 metered／fixed」（`_get_current_meter_schedule_domain()`）；表單「水電表維護」分頁 `default_order="unit_id"`（照房間 `_order`），直接編輯期次的 `electricity_curr_reading`、`water_fixed_fee`（欄名「水費」，fixed 才顯示）與 `water_curr_reading`（`optional="hide"`，metered 才顯示），連動走期次 `write()` |
 
 ### ggandy.property.unit（房間）
@@ -82,20 +82,22 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `fee_type` / `fee_rate` / `fixed_fee` | 代管費：百分比（填 10 = 10%）或每月固定金額 |
 | `owner_deposit` | 公司付給房東的押金（僅記錄，不進結算） |
 
-**每月房東應付計算** `_get_owner_settlement_amount`：
+**每月房東帳單明細** `_get_owner_settlement_lines(period_start, period_end, summary=None)` → `[(說明, 金額), ...]`，0 元不列：
 
 ```text
-包租：guaranteed_rent
+包租：「YYYY-MM 包租保底租金」 guaranteed_rent
 代管：collected = Σ(期次 rent_amount × 該期 invoice 已付比例)
         （只算 period_start 落在當月、invoice 已過帳的期次；不含管理費）
       fee = collected × fee_rate / 100        （percentage）
           = fixed_fee if collected else 0     （fixed）
-      amount = max(collected − fee, 0)
+      「YYYY-MM 代管實收租金扣代管費」 max(collected − fee, 0)
+＋ 代收轉付（property._get_month_summary(period_start)，和物件收租概覽同一個計算）：
+      管理費、網路第四台、電費、水費（各一行，名稱帶「（代收轉付）」）
 ```
 
-`_cron_create_owner_vendor_bills`：今天 ≥ 當月結算日（短月取月底）且合約期間涵蓋當月 → `_create_owner_vendor_bill()`：同合約同 `ggandy_settlement_period_start` 已有非取消帳單則跳過；金額 ≤ 0 不建立；否則 `_create_settlement_bill(period_start, period_end, amount, label)` 建 `in_invoice`（不做重複檢查，補付也用它）。
+`_cron_create_owner_vendor_bills`：今天 ≥ 當月結算日（短月取月底）且合約期間涵蓋當月 → `_create_owner_vendor_bill()`：同合約同 `ggandy_settlement_period_start` 已有非取消帳單則跳過；合計 ≤ 0 不建立；否則 `_create_settlement_bill(period_start, period_end, lines)` 建 `in_invoice`，每行都用房東結算產品（未稅），`name` 是說明（不做重複檢查，補付也用它）。
 
-**代管重新計算**（依帳單月份）：Vendor Bill header「重新計算代管結算」→ `account.move.action_ggandy_recompute_owner_settlement()` → `contract._recompute_settlement_bill(bill)`：重算 `_get_owner_settlement_amount()`，扣掉同月其他非取消帳單（含之前的補付）的 `amount_untaxed`。帳單 draft → 改唯一一行 product line 的 `price_unit`（多行就 `UserError`，請手動改）；posted → 差額 > 0 另開「YYYY-MM 代管房東結算補付」帳單（同 `ggandy_settlement_period_start`，總表自動加總），≤ 0 只通知。只有代管合約顯示按鈕（related `ggandy_owner_contract_type`）。
+**重新計算房東帳單**（包租、代管都適用，依帳單月份）：Vendor Bill header「重新計算房東帳單」（有 `ggandy_owner_contract_id` + `ggandy_settlement_period_start`、未取消才顯示）→ `account.move.action_ggandy_recompute_owner_bill()` → `contract._recompute_settlement_bill(bill)`：重算明細與合計，`other` = 同月其他非取消帳單（含補付）的 `amount_untaxed`。draft 且沒有 other → product lines 整批 unlink 後換成新明細；draft 且有 other（例如補付單本身）→ 單行差額 = 合計 − other（≤ 0 `UserError`）；posted → 差額 = 合計 − other − 本張，> 0 另開「YYYY-MM 房東帳單補付（重新計算差額）」（同 `ggandy_settlement_period_start`，總表自動加總），≤ 0 只通知。
 
 ### ggandy.lease（房客租約）
 
@@ -170,7 +172,7 @@ for 每個月 month_cursor（first_date 月 ~ end_date 月）:
 - `@api.constrains`：curr 不可小於 prev（換錶要手動改 prev）。
 - `_get_unpaid_domain()`、`_get_overdue_domain()`：共用的 domain，Telegram 也用。
 - `_cron_create_due_invoices`：租約 active 或 expired 的期次 → `_create_due_invoices()`（recordset 方法：`invoice_id = False`、`period_start <= today` → `action_create_invoice()`，逐筆 try/except）。
-- `EFFECTIVE_LEASE_STATES = (active, expired, terminated)` 與 `_get_effective_domain()`：會算進應收與收入的期次。物件「本月收入概覽」（`current_schedule_ids` 再 filter）、Telegram `/status`（依 `period_start` 月份）、帳務總表 SQL 都用這組狀態。
+- `EFFECTIVE_LEASE_STATES = (active, expired, terminated)` 與 `_get_effective_domain()`：會算進應收與收入的期次。物件「本月收租概覽」（`_get_month_summary`）、Telegram `/status`（依 `period_start` 月份）、帳務總表 SQL 都用這組狀態。
 - **登記收款** `action_register_rent_payment()`（期次 list header，`groups=account.group_account_invoice`）：拒絕非有效租約的期次 → 沒開單的 `action_create_invoice()` → 草稿帳單 `action_post()` → 未付清（排除 paid / in_payment / reversed）的帳單 `action_register_payment()` 回傳原生 `account.payment.register` action。設計是「帳單平常維持草稿、收款時才過帳」。
 - **逾期活動結案**：`account.move._invoice_paid_hook()`（Odoo 在帳單變 paid / in_payment 時呼叫）→ sudo 找對應期次 → `_close_overdue_activities()` 把摘要「逾期租金待處理」的活動 `action_feedback`。
 - `_cron_create_overdue_rent_activities`：符合 overdue domain → 建 `mail.mail_activity_data_todo` 活動（摘要「逾期租金待處理」，同人同期次不重複），指派給物件 `manager_id` → 租約建立者 → 目前使用者。

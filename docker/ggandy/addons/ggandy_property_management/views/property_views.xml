@@ -99,7 +99,7 @@
                             <field name="company_id" groups="base.group_multi_company"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
-                        <group string="本月收入概覽" name="month_income">
+                        <group string="本月收租概覽" name="month_income">
                             <field name="month_summary_label"/>
                             <field name="month_rent_total"/>
                             <field name="month_management_fee_total"/>
@@ -108,6 +108,7 @@
                             <field name="month_water_total"/>
                             <div colspan="2" class="border-top my-1"/>
                             <field name="month_income_total" class="fw-bold"/>
+                            <field name="month_owner_payout"/>
                         </group>
                     </group>
                     <notebook>

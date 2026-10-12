@@ -37,11 +37,6 @@ class AccountMove(models.Model):
         ondelete="restrict",
         help="這張 Vendor Bill 對應的房東合約。房東自動結算會填入它，帳務總表也靠它找房東應付。",
     )
-    ggandy_owner_contract_type = fields.Selection(
-        related="ggandy_owner_contract_id.contract_type",
-        string="GGAndy 合約類型",
-        help="房東合約是包租還是代管。代管帳單可以按「重新計算」補進晚收的租金。",
-    )
     ggandy_owner_property_id = fields.Many2one(
         "ggandy.property",
         related="ggandy_owner_contract_id.property_id",
@@ -96,18 +91,17 @@ class AccountMove(models.Model):
         schedules._close_overdue_activities()
         return result
 
-    def action_ggandy_recompute_owner_settlement(self):
-        """代管房東帳單：依同一個帳單月份重算實收租金。草稿直接改金額，已過帳就另開補付帳單。"""
+    def action_ggandy_recompute_owner_bill(self):
+        """房東帳單依同一個帳單月份重算（包租、代管都可以）：草稿換成新明細，已過帳就另開補付帳單。"""
         self.ensure_one()
         contract = self.ggandy_owner_contract_id
         if (
             not contract
-            or contract.contract_type != "agency"
             or not self.ggandy_settlement_period_start
             or self.move_type != "in_invoice"
             or self.state == "cancel"
         ):
-            raise UserError("只有代管合約、未取消的房東結算帳單可以重新計算。")
+            raise UserError("只有未取消的房東結算帳單可以重新計算。")
         supplement, message = contract._recompute_settlement_bill(self)
         if supplement:
             return {
@@ -121,7 +115,7 @@ class AccountMove(models.Model):
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
-                "title": "重新計算代管結算",
+                "title": "重新計算房東帳單",
                 "message": message,
                 "type": "info",
                 "sticky": False,

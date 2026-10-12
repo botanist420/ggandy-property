@@ -1,3 +1,5 @@
+from dateutil.relativedelta import relativedelta
+
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
@@ -142,7 +144,7 @@ class GgandyProperty(models.Model):
     internet_fee = fields.Monetary(
         string="網路第四台",
         tracking=True,
-        help="這個物件每月固定的網路第四台費用，算進「本月收入概覽」的合計，最後會一起付給房東。"
+        help="這個物件每月固定的網路第四台費用，算進「本月收租概覽」的合計，並原封不動加進每月的房東帳單。"
         "目前只記在物件上，不會開進房客帳單。",
     )
     month_summary_label = fields.Char(string="帳單月份", compute="_compute_month_summary")
@@ -157,7 +159,13 @@ class GgandyProperty(models.Model):
     month_income_total = fields.Monetary(
         string="合計",
         compute="_compute_month_summary",
-        help="租金＋管理費＋網路第四台＋電費＋水費。依本月各房間的租金期次即時加總（含草稿租約），還沒扣給房東的調整項目。",
+        help="租金＋管理費＋網路第四台＋電費＋水費。依本月各房間有效租約的租金期次即時加總（草稿租約不算）。",
+    )
+    month_owner_payout = fields.Monetary(
+        string="付房東",
+        compute="_compute_month_summary",
+        help="本月房東帳單應付：包租是保底租金、代管是已收到的租金扣代管費，再加上管理費＋網路第四台＋電費＋水費"
+        "（照上面的金額原封不動轉付）。代管的租金只算目前已收款的部分；沒有生效中的房東合約時是 0。",
     )
     current_meter_schedule_ids = fields.One2many(
         "ggandy.rent.schedule",
@@ -258,26 +266,60 @@ class GgandyProperty(models.Model):
         "current_schedule_ids.management_fee",
         "current_schedule_ids.electricity_amount",
         "current_schedule_ids.water_amount",
+        "owner_contract_ids.state",
+        "owner_contract_ids.guaranteed_rent",
     )
     def _compute_month_summary(self):
-        # 「當期帳單」分頁的本月期次，但金額只算有效租約（草稿還沒生效），跟帳務總表一致。
         today = fields.Date.context_today(self)
+        month_start = today.replace(day=1)
+        month_end = month_start + relativedelta(months=1, days=-1)
         for record in self:
-            schedules = record.current_schedule_ids.filtered(
-                lambda schedule: schedule.lease_id.state in EFFECTIVE_LEASE_STATES
-            )
+            summary = record._get_month_summary(month_start)
             record.month_summary_label = f"{today.year} 年 {today.month} 月"
-            record.month_rent_total = sum(schedules.mapped("rent_amount"))
-            record.month_management_fee_total = sum(schedules.mapped("management_fee"))
-            record.month_electricity_total = sum(schedules.mapped("electricity_amount"))
-            record.month_water_total = sum(schedules.mapped("water_amount"))
-            record.month_income_total = (
-                record.month_rent_total
-                + record.month_management_fee_total
-                + record.internet_fee
-                + record.month_electricity_total
-                + record.month_water_total
+            record.month_rent_total = summary["rent"]
+            record.month_management_fee_total = summary["management_fee"]
+            record.month_electricity_total = summary["electricity"]
+            record.month_water_total = summary["water"]
+            record.month_income_total = summary["total"]
+            contract = record._get_month_owner_contract(month_start, month_end)
+            record.month_owner_payout = sum(
+                amount
+                for _label, amount in contract._get_owner_settlement_lines(month_start, month_end, summary)
+            ) if contract else 0.0
+
+    def _get_month_summary(self, month_start):
+        """某個帳單月份的收租概覽：該月有效租約（草稿不算）的期次加總，再加上物件的網路第四台。
+
+        物件頁「本月收租概覽」和房東帳單的代收轉付項目都用這裡，數字才會一致。
+        """
+        self.ensure_one()
+        schedules = self.env["ggandy.rent.schedule"]
+        if self._origin.id:
+            schedules = schedules.search(
+                [
+                    ("property_id", "=", self._origin.id),
+                    ("period_month", "=", month_start.strftime("%Y-%m")),
+                    ("lease_id.state", "in", EFFECTIVE_LEASE_STATES),
+                ]
             )
+        summary = {
+            "rent": sum(schedules.mapped("rent_amount")),
+            "management_fee": sum(schedules.mapped("management_fee")),
+            "internet": self.internet_fee,
+            "electricity": sum(schedules.mapped("electricity_amount")),
+            "water": sum(schedules.mapped("water_amount")),
+        }
+        summary["total"] = sum(summary.values())
+        return summary
+
+    def _get_month_owner_contract(self, month_start, month_end):
+        """這個月份有效的生效中房東合約（期間有交集、最晚開始的那份）。"""
+        self.ensure_one()
+        return self.owner_contract_ids.filtered(
+            lambda contract: contract.state == "active"
+            and contract.start_date <= month_end
+            and contract.end_date >= month_start
+        ).sorted(lambda contract: (contract.start_date, contract.id), reverse=True)[:1]
 
     @api.depends("unit_ids", "owner_contract_ids", "lease_ids", "maintenance_request_ids")
     def _compute_counts(self):

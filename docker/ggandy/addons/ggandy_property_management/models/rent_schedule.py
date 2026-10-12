@@ -251,7 +251,7 @@ class GgandyRentSchedule(models.Model):
 
     @api.model
     def _get_effective_domain(self):
-        """物件收入概覽、Telegram 本月應收共用的期次條件，和帳務總表一致。"""
+        """物件收租概覽、Telegram 本月應收共用的期次條件，和帳務總表一致。"""
         return [("lease_id.state", "in", EFFECTIVE_LEASE_STATES)]
 
     @api.model
