@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 物件表單「數據分析」分頁：由 ggandy.property._compute_analysis_html 即時渲染 -->
+    <template id="property_analysis">
+        <div class="o_ggandy_analysis">
+            <div class="o_ggandy_kpis">
+                <div t-foreach="kpis" t-as="kpi" class="o_ggandy_kpi">
+                    <div class="o_ggandy_kpi_label" t-out="kpi['label']"/>
+                    <div class="o_ggandy_kpi_value" t-out="kpi['value']"/>
+                    <div class="o_ggandy_kpi_sub" t-out="kpi['sub']"/>
+                </div>
+            </div>
+
+            <h5>租金分布</h5>
+            <t t-if="rent['rows']">
+                <div class="table-responsive">
+                    <table class="table table-sm o_ggandy_analysis_table">
+                        <thead>
+                            <tr>
+                                <th>指標</th><th>n</th><th>平均</th><th>中位數</th><th>標準差</th><th>CV</th>
+                                <th>最小</th><th>Q1</th><th>Q3</th><th>最大</th><th>IQR 離群</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="rent['rows']" t-as="row">
+                                <td t-out="row['label']"/>
+                                <td t-out="row['n']"/>
+                                <td t-out="row['mean']"/>
+                                <td t-out="row['median']"/>
+                                <td t-out="row['stdev']"/>
+                                <td t-out="row['cv']"/>
+                                <td t-out="row['min']"/>
+                                <td t-out="row['q1']"/>
+                                <td t-out="row['q3']"/>
+                                <td t-out="row['max']"/>
+                                <td t-out="row['outliers']"/>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </t>
+            <p t-else="" class="o_ggandy_analysis_empty">還沒有生效中的租約，沒有租金可以統計。</p>
+            <p t-if="not rent['area_complete']" class="o_ggandy_analysis_note">
+                資料完整度：有填坪數的房間 <t t-out="rent['area_coverage']"/> 間；到房間補上坪數，每坪月租才會完整。
+            </p>
+
+            <h5>房間明細</h5>
+            <div t-if="unit_rows" class="table-responsive">
+                <table class="table table-sm o_ggandy_analysis_table">
+                    <thead>
+                        <tr>
+                            <th>房間</th><th>坪數</th><th>參考月租</th><th>目前月租</th><th>每坪月租</th>
+                            <th title="目前月租相對於本物件平均的標準化分數，|z| ≥ 1.5 標色">z 分數</th>
+                            <th>比參考月租</th><th>狀態</th><th>租期結束</th><th>平均用電（度）</th><th>準時率</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="unit_rows" t-as="row">
+                            <td t-out="row['name']"/>
+                            <td t-out="row['area']"/>
+                            <td t-out="row['reference_rent']"/>
+                            <td t-out="row['current_rent']"/>
+                            <td t-out="row['per_ping']"/>
+                            <td t-att-class="'o_ggandy_analysis_flag' if row['z_flag'] else None" t-out="row['z_score']"/>
+                            <td t-out="row['vs_reference']"/>
+                            <td t-out="row['state']"/>
+                            <td t-out="row['end_date']"/>
+                            <td t-out="row['avg_usage']"/>
+                            <td t-out="row['on_time']"/>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p t-else="" class="o_ggandy_analysis_empty">這個物件還沒有房間。</p>
+
+            <h5>月度趨勢</h5>
+            <div t-if="monthly['rows']" class="table-responsive">
+                <table class="table table-sm o_ggandy_analysis_table">
+                    <thead>
+                        <tr><th>帳單月份</th><th>應收</th><th>實收</th><th>收款率</th><th>應付房東</th><th>預計賺</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="monthly['rows']" t-as="row">
+                            <td t-out="row['month']"/>
+                            <td class="o_ggandy_analysis_bar_cell">
+                                <span class="o_ggandy_analysis_bar" t-attf-style="width: {{ row['bar'] }}%;"/>
+                                <span t-out="row['receivable']"/>
+                            </td>
+                            <td t-out="row['collected']"/>
+                            <td t-out="row['collection_rate']"/>
+                            <td t-out="row['owner_payable']"/>
+                            <td t-att-class="'text-danger' if row['profit_negative'] else None" t-out="row['profit']"/>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>合計</td>
+                            <td t-out="monthly['total_receivable']"/>
+                            <td t-out="monthly['total_collected']"/>
+                            <td/>
+                            <td t-out="monthly['total_owner_payable']"/>
+                            <td t-out="monthly['total_profit']"/>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <p t-else="" class="o_ggandy_analysis_empty">近 12 個月還沒有帳務資料。</p>
+
+            <div class="row">
+                <div class="col-lg-6">
+                    <h5>收款行為</h5>
+                    <t t-if="payment['paid_count'] or payment['overdue_count']">
+                        <ul class="o_ggandy_analysis_list">
+                            <li>已收款 <strong t-out="payment['paid_count']"/> 筆，延遲天數平均 <t t-out="payment['delay_mean']"/>、中位數 <t t-out="payment['delay_median']"/>、最長 <t t-out="payment['delay_max']"/> 天</li>
+                            <li>目前逾期 <strong t-out="payment['overdue_count']"/> 筆，共 <t t-out="payment['overdue_amount']"/> 元</li>
+                        </ul>
+                        <table class="table table-sm o_ggandy_analysis_table">
+                            <thead><tr><th>付款時間</th><th>筆數</th><th>占比</th></tr></thead>
+                            <tbody>
+                                <tr t-foreach="payment['buckets']" t-as="bucket">
+                                    <td t-out="bucket['label']"/>
+                                    <td t-out="bucket['count']"/>
+                                    <td t-out="bucket['share']"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </t>
+                    <p t-else="" class="o_ggandy_analysis_empty">近 12 個月還沒有到期的收租明細。</p>
+                </div>
+                <div class="col-lg-6">
+                    <h5>水電觀察</h5>
+                    <t t-if="utilities['has_data']">
+                        <ul class="o_ggandy_analysis_list">
+                            <li>依度數計費 <strong t-out="utilities['unit_count']"/> 間、抄表 <t t-out="utilities['readings']"/> 次</li>
+                            <li>每間每月平均用電 <strong t-out="utilities['mean']"/> 度（標準差 <t t-out="utilities['stdev']"/>）</li>
+                            <li>實收平均每度 <t t-out="utilities['price_per_kwh']"/> 元</li>
+                            <li t-if="utilities['pending_count']">還沒抄表 <strong t-out="utilities['pending_count']"/> 筆</li>
+                        </ul>
+                        <ul t-if="utilities['flags']" class="o_ggandy_analysis_list o_ggandy_analysis_flag">
+                            <li t-foreach="utilities['flags']" t-as="flag" t-out="flag"/>
+                        </ul>
+                    </t>
+                    <p t-else="" class="o_ggandy_analysis_empty">近 12 個月沒有依度數計費的抄表紀錄。</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6">
+                    <h5>租約與周轉</h5>
+                    <t t-if="turnover['lease_count']">
+                        <ul class="o_ggandy_analysis_list">
+                            <li>有效租約 <strong t-out="turnover['lease_count']"/> 份，平均租期 <t t-out="turnover['avg_length']"/> 個月（中位數 <t t-out="turnover['median_length']"/>）</li>
+                            <li t-if="turnover['gap_count']">換房客平均空 <strong t-out="turnover['avg_gap']"/> 天（<t t-out="turnover['gap_count']"/> 次）</li>
+                            <li t-foreach="turnover['vacant_rows']" t-as="vacant">
+                                空房 <t t-out="vacant['unit']"/>：<t t-if="vacant['days'] is not None">已空 <t t-out="vacant['days']"/> 天</t><t t-else="">還沒出租過</t>
+                            </li>
+                        </ul>
+                    </t>
+                    <p t-else="" class="o_ggandy_analysis_empty">還沒有有效租約。</p>
+                </div>
+                <div t-if="master_lease" class="col-lg-6">
+                    <h5>包租經濟</h5>
+                    <ul t-if="master_lease['has_contract']" class="o_ggandy_analysis_list">
+                        <li>每月保底租金 <strong t-out="master_lease['guaranteed']"/>，目前實際月租合計 <t t-out="master_lease['actual']"/></li>
+                        <li>月價差 <strong t-att-class="'text-danger' if master_lease['spread_negative'] else None" t-out="master_lease['spread']"/>，毛利率 <t t-out="master_lease['margin']"/></li>
+                        <li>滿租潛在月租 <t t-out="master_lease['potential']"/>，滿租毛利率 <t t-out="master_lease['potential_margin']"/></li>
+                        <li>損益兩平出租率 <strong t-out="master_lease['breakeven']"/>（保底 ÷ 滿租潛在月租）</li>
+                    </ul>
+                    <p t-else="" class="o_ggandy_analysis_empty">本月沒有生效中的房東合約，算不出包租價差。</p>
+                </div>
+            </div>
+
+            <p class="o_ggandy_analysis_note">
+                統計期間 <t t-out="period_label"/>；金額未稅，只算生效中、已到期、提前終止的租約。
+                準時率 = 到期日前付清 ÷（已付清＋目前逾期）；出租率依每間房被租約覆蓋的天數加權。
+                樣本數 n &lt; <t t-out="small_sample"/> 時統計僅供參考。
+            </p>
+        </div>
+    </template>
+</odoo>

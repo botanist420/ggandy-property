@@ -214,6 +214,16 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="數據分析" name="analysis" invisible="not id">
+                            <div class="o_ggandy_hint">
+                                <i class="fa fa-info-circle" role="img" title="說明"/>
+                                <div>
+                                    <div>這個物件<strong>近 12 個月</strong>的數據整理，開啟物件時即時計算。</div>
+                                    <div>每坪月租要房間有填坪數；樣本數太少時統計僅供參考。</div>
+                                </div>
+                            </div>
+                            <field name="analysis_html" nolabel="1" readonly="1"/>
+                        </page>
                         <page string="備註" name="notes">
                             <field name="note" placeholder="物件設備、管理注意事項、門禁資訊等……"/>
                         </page>

@@ -43,6 +43,7 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `owner_payment_day` | 匯款給房東的日期（1–31，0 = 未設定），房東合約 create / onchange 時預設帶入 |
 | `acquisition_date` / `management_end_date` | 房東合約生效時回寫 |
 | `has_open_owner_contract` | 非 stored compute：有 draft / active 房東合約即 True；False 時表單 header 顯示「新增房東合約」（`action_create_owner_contract`，與 `action_view_owner_contracts` 共用 `_get_owner_contract_default_context()`） |
+| `analysis_html` | `models/property_analysis.py`：非 stored compute、`sanitize=False`，`_get_analysis_data()` 蒐集後用 QWeb `property_analysis`（`views/property_analysis_templates.xml`）渲染。期間 = 今天往前 365 天；租約只算 `EFFECTIVE_LEASE_STATES`；統計用標準庫 `statistics`（樣本標準差、`quantiles(method="inclusive")`、IQR 1.5 倍離群、|z| ≥ 1.5 標色）。付款延遲 = 應收分錄 `matched_credit_ids.max_date` − `due_date`；準時率 = 準時付清 ÷（已付清＋目前逾期）；時間加權出租率 = 各房間有效租約覆蓋天數（合併重疊、提前終止用 `termination_date`）÷（非停用房間數 × 365）；月度趨勢 `_read_group` 帳務總表；包租價差用 `_get_month_owner_contract()` 的 `guaranteed_rent` |
 | `state_id` / `city_id` / `zip` / `city` | 地址：`city_id` 是 `res.city`（台灣資料來自 `l10n_tw` 的 `data/res.city.csv`，所以 depends `l10n_tw`），view domain 限定 `state_id`；onchange `city_id` 帶入 `city`（區名 Char）、`zip`、`state_id`，onchange `state_id` 時不符的 `city_id` 清空。`city` Char 保留給 `address_display`、租約 PDF `_format_premises` 用 |
 | `current_schedule_ids` | One2many `ggandy.rent.schedule`（inverse `property_id`），callable domain `_get_current_schedule_domain()`：租約非 cancelled、`period_month` = 本月（每次讀取時計算）；表單「當期帳單」分頁 `readonly="1"`、`default_order="unit_id"`，只供檢視 |
 | `internet_fee` | 網路第四台（Monetary，tracking），每月固定金額，算進本月收租概覽的合計並轉付給房東，不進房客帳單 |

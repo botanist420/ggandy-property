@@ -20,6 +20,7 @@
         "data/accounting_cron.xml",
         "report/lease_contract_report.xml",
         "views/quick_meter_reading_wizard_views.xml",
+        "views/property_analysis_templates.xml",
         "views/property_views.xml",
         "views/property_unit_views.xml",
         "views/owner_contract_views.xml",
