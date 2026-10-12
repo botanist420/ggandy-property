@@ -92,7 +92,7 @@ class AccountMove(models.Model):
         return result
 
     def action_ggandy_recompute_owner_bill(self):
-        """房東帳單依同一個帳單月份重算（包租、代管都可以）：草稿換成新明細，已過帳就另開補付帳單。"""
+        """房東帳單依同一個帳單月份重算（包租、代管都可以）：草稿換成新明細，已過帳只顯示差額。"""
         self.ensure_one()
         contract = self.ggandy_owner_contract_id
         if (
@@ -102,23 +102,15 @@ class AccountMove(models.Model):
             or self.state == "cancel"
         ):
             raise UserError("只有未取消的房東結算帳單可以重新計算。")
-        supplement, message = contract._recompute_settlement_bill(self)
-        if supplement:
-            return {
-                "type": "ir.actions.act_window",
-                "name": "補付帳單",
-                "res_model": "account.move",
-                "res_id": supplement.id,
-                "view_mode": "form",
-            }
+        message = contract._recompute_settlement_bill(self)
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
                 "title": "重新計算房東帳單",
                 "message": message,
-                "type": "info",
-                "sticky": False,
+                "type": "info" if self.state == "draft" else "warning",
+                "sticky": self.state != "draft",
                 "next": {"type": "ir.actions.client", "tag": "soft_reload"},
             },
         }

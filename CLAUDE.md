@@ -94,7 +94,7 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 - **金額一律未稅**：GGAndy 產品都不帶稅（`product_data.xml` + migrations 清掉）；帳務總表用 `amount_untaxed`。新增產品時記得 `taxes_id` / `supplier_taxes_id` 清空。
 - **有效期次**：`EFFECTIVE_LEASE_STATES = (active, expired, terminated)`（`rent_schedule.py`）。應收、物件收租概覽、Telegram 本月應收、帳務總表 SQL 都只算這些租約的期次；改狀態組合時四處一起改。
 - **帳單收款時才過帳**：租金帳單平常是草稿（可改），「登記收款」才 `action_post` + 原生付款；代管結算只算已過帳（= 已收款）的帳單。
-- **房東帳單 = 保底（或代管實收扣代管費）＋ 代收轉付**：管理費、網路第四台、電費、水費照物件「本月收租概覽」（`property._get_month_summary`）原封不動轉付，每項一行。數字事後有變，用帳單上的「重新計算房東帳單」：草稿換明細、已過帳開補付帳單。
+- **房東帳單 = 保底（或代管實收扣代管費）＋ 代收轉付**：管理費、網路第四台、電費、水費照物件「本月收租概覽」（`property._get_month_summary`）原封不動轉付，每項一行。**一個月只有一張**（`_create_owner_vendor_bill` 已有就回傳那張；合約上的「開立本月房東帳單」也走它）。數字事後有變，用帳單上的「重新計算房東帳單」：草稿換明細；已過帳不自動調整，只顯示差額。
 - **已到期 (`expired`) 的租約仍參與收款與抄表**：逾期、開帳單、抄表、水電同步的 domain 都是 `active` + `expired`；新增類似查詢時別只寫 `state = 'active'`。
 - **房間狀態**只會在 `vacant`↔`occupied` 之間自動切換（`_refresh_from_active_leases`：今天落在 active 租約租期內才算 occupied；每日到期 cron 會全部重算一次），`reserved / maintenance / inactive` 尊重手動設定。
 - **房東合約生效**會回寫物件的 `management_mode`、`owner_id`、`acquisition_date`、`management_end_date`。

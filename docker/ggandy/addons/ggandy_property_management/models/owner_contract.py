@@ -185,6 +185,11 @@ class GgandyOwnerContract(models.Model):
                 self.owner_payment_day = self.property_id.owner_payment_day
             if self.property_id.management_mode in ("master_lease", "agency"):
                 self.contract_type = self.property_id.management_mode
+            # 合約期間預設帶物件的管理期間；已經填了就不覆蓋
+            if not self.start_date and self.property_id.acquisition_date:
+                self.start_date = self.property_id.acquisition_date
+            if not self.end_date and self.property_id.management_end_date:
+                self.end_date = self.property_id.management_end_date
 
     @api.constrains("start_date", "end_date")
     def _check_dates(self):
@@ -319,7 +324,29 @@ class GgandyOwnerContract(models.Model):
             return False
         return self._create_owner_vendor_bill(period_start, period_end)
 
+    def action_create_current_month_bill(self):
+        """還沒到結算日也可以先開這個月的房東帳單；這個月已經有帳單就直接打開，一個月只會有一張。"""
+        self.ensure_one()
+        if self.state != "active":
+            raise UserError("只有生效中的房東合約可以開立房東帳單。")
+        today = fields.Date.context_today(self)
+        period_start = today.replace(day=1)
+        period_end = period_start + relativedelta(months=1, days=-1)
+        if self.start_date > period_end or self.end_date < period_start:
+            raise UserError("這份合約的期間沒有涵蓋本月，無法開立本月房東帳單。")
+        bill = self._create_owner_vendor_bill(period_start, period_end)
+        if not bill:
+            raise UserError("本月應付房東的金額是 0，不需要開立房東帳單。")
+        return {
+            "type": "ir.actions.act_window",
+            "name": "房東帳單",
+            "res_model": "account.move",
+            "res_id": bill.id,
+            "view_mode": "form",
+        }
+
     def _create_owner_vendor_bill(self, period_start, period_end):
+        """建立該月的房東帳單；同一個月已經有（未取消的）帳單就直接回傳那張，一個月只會有一張。"""
         self.ensure_one()
         existing = self.env["account.move"].search(
             [
@@ -339,7 +366,7 @@ class GgandyOwnerContract(models.Model):
         return self._create_settlement_bill(period_start, period_end, lines)
 
     def _create_settlement_bill(self, period_start, period_end, lines):
-        """建立一張房東結算 Vendor Bill，lines 是 [(說明, 金額), ...]；不檢查同月是否已有帳單，補付也用這個。"""
+        """建立一張房東結算 Vendor Bill，lines 是 [(說明, 金額), ...]。不檢查同月是否已有帳單，請透過 _create_owner_vendor_bill 呼叫。"""
         self.ensure_one()
         purchase_journal = self.env["account.journal"].search(
             [
@@ -387,60 +414,37 @@ class GgandyOwnerContract(models.Model):
         ]
 
     def _recompute_settlement_bill(self, bill):
-        """依同一個帳單月份重算房東帳單（包租、代管都適用）。
+        """依同一個帳單月份重算房東帳單（包租、代管都適用），一個月只維持一張帳單。
 
-        - 草稿、這個月唯一一張 → 明細整批換成重算結果（手動改過的明細會被覆蓋）。
-        - 草稿、這個月還有其他帳單（例如它是補付單）→ 改成單行差額。
-        - 已過帳 → 差額大於 0 就另開一張補付帳單。
-        回傳 (補付帳單或空 recordset, 給使用者看的訊息)。
+        - 草稿 → 明細整批換成重算結果（手動改過的明細會被覆蓋）。
+        - 已過帳 → 不自動調整，只回報和重算結果差多少，由同事決定怎麼處理。
+        回傳給使用者看的訊息。
         """
         self.ensure_one()
         period_start = bill.ggandy_settlement_period_start
         period_end = bill.ggandy_settlement_period_end or period_start + relativedelta(months=1, days=-1)
-        period_label = period_start.strftime("%Y-%m")
         lines = self._get_owner_settlement_lines(period_start, period_end)
         total = sum(amount for _label, amount in lines)
-        month_bills = self.env["account.move"].search(
-            [
-                ("ggandy_owner_contract_id", "=", self.id),
-                ("ggandy_settlement_period_start", "=", period_start),
-                ("move_type", "=", "in_invoice"),
-                ("state", "!=", "cancel"),
-            ]
-        )
-        other_amount = sum((month_bills - bill).mapped("amount_untaxed"))
         currency = self.currency_id.symbol or ""
-        if bill.state == "draft":
-            if other_amount:
-                lines = [(f"{self.name} {period_label} 房東帳單補付（重新計算差額）", total - other_amount)]
-            new_amount = sum(amount for _label, amount in lines)
-            if new_amount <= 0:
-                raise UserError(
-                    f"重新計算後這張帳單應付 {currency}{new_amount:,.0f}，不需要付款；"
-                    "如果確定這個月不用付，請直接取消這張帳單。"
-                )
-            old_amount = bill.amount_untaxed
-            product_lines = bill.invoice_line_ids.filtered(lambda item: item.display_type == "product")
-            bill.invoice_line_ids = [fields.Command.unlink(line.id) for line in product_lines] + (
-                self._prepare_settlement_line_commands(lines)
+        if bill.state != "draft":
+            difference = total - bill.amount_untaxed
+            if not difference:
+                return f"重新計算結果和帳單一樣（{currency}{total:,.0f}），不需要調整。"
+            return (
+                f"帳單已過帳，不會自動調整。重新計算應付 {currency}{total:,.0f}，"
+                f"帳單是 {currency}{bill.amount_untaxed:,.0f}，差 {currency}{difference:,.0f}，請自行決定怎麼處理。"
             )
-            bill.message_post(
-                body=f"重新計算房東帳單：{currency}{old_amount:,.0f} → {currency}{new_amount:,.0f}。"
+        if total <= 0:
+            raise UserError(
+                f"重新計算後應付 {currency}{total:,.0f}，不需要付款；如果確定這個月不用付，請直接取消這張帳單。"
             )
-            return self.env["account.move"], f"已更新為 {currency}{new_amount:,.0f}。"
-
-        difference = total - other_amount - bill.amount_untaxed
-        if difference <= 0:
-            return self.env["account.move"], (
-                f"重新計算後應付 {currency}{total:,.0f}，這個月已開 {currency}{total - difference:,.0f}，"
-                "沒有需要補付的金額。"
-            )
-        supplement = self._create_settlement_bill(
-            period_start,
-            period_end,
-            [(f"{self.name} {period_label} 房東帳單補付（重新計算差額）", difference)],
+        old_amount = bill.amount_untaxed
+        product_lines = bill.invoice_line_ids.filtered(lambda item: item.display_type == "product")
+        bill.invoice_line_ids = [fields.Command.unlink(line.id) for line in product_lines] + (
+            self._prepare_settlement_line_commands(lines)
         )
-        return supplement, f"已另開補付帳單 {currency}{difference:,.0f}。"
+        bill.message_post(body=f"重新計算房東帳單：{currency}{old_amount:,.0f} → {currency}{total:,.0f}。")
+        return f"已更新為 {currency}{total:,.0f}。"
 
     def _get_owner_settlement_lines(self, period_start, period_end, summary=None):
         """房東帳單的明細 [(說明, 金額), ...]，0 元的不列。

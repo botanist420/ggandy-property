@@ -364,6 +364,8 @@ class GgandyProperty(models.Model):
                 "default_owner_id": self.owner_id.id,
                 "default_company_id": self.company_id.id,
                 "default_contract_type": self.management_mode,
+                "default_start_date": self.acquisition_date,
+                "default_end_date": self.management_end_date,
             },
         }
 

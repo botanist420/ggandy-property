@@ -95,9 +95,13 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
       管理費、網路第四台、電費、水費（各一行，名稱帶「（代收轉付）」）
 ```
 
-`_cron_create_owner_vendor_bills`：今天 ≥ 當月結算日（短月取月底）且合約期間涵蓋當月 → `_create_owner_vendor_bill()`：同合約同 `ggandy_settlement_period_start` 已有非取消帳單則跳過；合計 ≤ 0 不建立；否則 `_create_settlement_bill(period_start, period_end, lines)` 建 `in_invoice`，每行都用房東結算產品（未稅），`name` 是說明（不做重複檢查，補付也用它）。
+`_cron_create_owner_vendor_bills`：今天 ≥ 當月結算日（短月取月底）且合約期間涵蓋當月 → `_create_owner_vendor_bill()`：同合約同 `ggandy_settlement_period_start` 已有非取消帳單則跳過；合計 ≤ 0 不建立；否則 `_create_settlement_bill(period_start, period_end, lines)` 建 `in_invoice`，每行都用房東結算產品（未稅），`name` 是說明（本身不做重複檢查，一律透過 `_create_owner_vendor_bill` 呼叫）。
 
-**重新計算房東帳單**（包租、代管都適用，依帳單月份）：Vendor Bill header「重新計算房東帳單」（有 `ggandy_owner_contract_id` + `ggandy_settlement_period_start`、未取消才顯示）→ `account.move.action_ggandy_recompute_owner_bill()` → `contract._recompute_settlement_bill(bill)`：重算明細與合計，`other` = 同月其他非取消帳單（含補付）的 `amount_untaxed`。draft 且沒有 other → product lines 整批 unlink 後換成新明細；draft 且有 other（例如補付單本身）→ 單行差額 = 合計 − other（≤ 0 `UserError`）；posted → 差額 = 合計 − other − 本張，> 0 另開「YYYY-MM 房東帳單補付（重新計算差額）」（同 `ggandy_settlement_period_start`，總表自動加總），≤ 0 只通知。
+**一個月一張房東帳單**：`_create_owner_vendor_bill()` 同合約同月份已有非取消帳單就直接回傳那張。合約 header「開立本月房東帳單」→ `action_create_current_month_bill()`（active、合約期間涵蓋本月、`groups=account.group_account_invoice`）走同一個方法，回傳帳單 form；之後排程到結算日會看到已有帳單而略過。
+
+**重新計算房東帳單**（包租、代管都適用，依帳單月份）：Vendor Bill header「重新計算房東帳單」（有 `ggandy_owner_contract_id` + `ggandy_settlement_period_start`、未取消才顯示）→ `account.move.action_ggandy_recompute_owner_bill()` → `contract._recompute_settlement_bill(bill)` 回傳訊息：draft → product lines 整批 unlink 後換成新明細（合計 ≤ 0 `UserError`）；posted → 不改帳單、不開新帳單，只回報重算合計與差額（sticky warning 通知）。
+
+`_onchange_property_id()`：帶 owner、company、owner_payment_day、contract_type，以及 start_date ← `acquisition_date`、end_date ← `management_end_date`（只在空白時）；物件的房東合約 smart button context 也帶 `default_start_date` / `default_end_date`。
 
 ### ggandy.lease（房客租約）
 
@@ -209,7 +213,7 @@ paid_ratio       = max(amount_total − amount_residual, 0) / amount_total（amo
 rent_collected   = Σ 這些期次 invoice：posted 才算，sign × amount_untaxed × paid_ratio，refund sign = −1
 contract         = 物件當月有交集、state=active、start_date desc, id desc 的第一份房東合約
 ratio            = 本房間 monthly_rent / 物件所有 active 房間 monthly_rent 合計（合計為 0 → 1/房間數）
-owner_payable    = Σ 該合約、ggandy_settlement_period_start = 當月 1 號、in_invoice/in_refund、非 cancel 的 sign × amount_untaxed × ratio（含補付帳單）
+owner_payable    = Σ 該合約、ggandy_settlement_period_start = 當月 1 號、in_invoice/in_refund、非 cancel 的 sign × amount_untaxed × ratio
 owner_paid       = 同一批帳單 posted 的 amount_untaxed × paid_ratio × ratio
 rent_uncollected = max(receivable − collected, 0)；owner_unpaid = max(payable − paid, 0)
 expected_profit  = receivable − owner_payable（預計賺）
