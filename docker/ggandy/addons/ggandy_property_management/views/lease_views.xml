@@ -106,7 +106,7 @@
                     <widget name="web_ribbon" title="已封存" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_schedules" type="object" class="oe_stat_button" icon="fa-calendar-check-o">
-                            <field name="schedule_count" widget="statinfo" string="租金期次"/>
+                            <field name="schedule_count" widget="statinfo" string="收租明細"/>
                         </button>
                         <button name="action_view_invoices" type="object" class="oe_stat_button" icon="fa-money">
                             <field name="invoice_count" widget="statinfo" string="租金帳單"/>
@@ -143,14 +143,18 @@
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
                         <group string="水電計費" name="utility">
-                            <field name="electricity_billing_type"/>
+                            <field name="electricity_billing_type" readonly="state in ('terminated', 'cancelled')"/>
+                            <field name="electricity_rate" invisible="electricity_billing_type != 'metered'" readonly="state in ('terminated', 'cancelled')"/>
+                            <field name="electricity_fixed_fee" invisible="electricity_billing_type != 'fixed'" readonly="state in ('terminated', 'cancelled')"/>
                             <field name="electricity_start_reading" invisible="electricity_billing_type != 'metered'"/>
-                            <field name="water_billing_type"/>
+                            <field name="water_billing_type" readonly="state in ('terminated', 'cancelled')"/>
+                            <field name="water_rate" invisible="water_billing_type != 'metered'" readonly="state in ('terminated', 'cancelled')"/>
+                            <field name="water_fixed_fee" invisible="water_billing_type != 'fixed'" readonly="state in ('terminated', 'cancelled')"/>
                             <field name="water_start_reading" invisible="water_billing_type != 'metered'"/>
                         </group>
                     </group>
                     <notebook>
-                        <page string="租金期次" name="rent_schedule">
+                        <page string="收租明細" name="rent_schedule">
                             <div class="o_ggandy_hint" invisible="not auto_generate_schedule">
                                 <i class="fa fa-info-circle" role="img" title="說明"/>
                                 <div>
@@ -251,9 +255,10 @@
         <field name="res_model">ggandy.lease</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_ggandy_lease_search"/>
+        <field name="context">{'search_default_group_property': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">建立第一份房客租約</p>
-            <p>租約生效時可自動建立每月租金期次。</p>
+            <p>租約生效時可自動建立每月收租明細。</p>
         </field>
     </record>
 

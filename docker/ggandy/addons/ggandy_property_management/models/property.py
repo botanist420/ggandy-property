@@ -58,7 +58,8 @@ class GgandyProperty(models.Model):
     owner_payment_day = fields.Integer(
         string="匯款日期",
         tracking=True,
-        help="每月收完房客房租後，匯款給房東的日期（1 至 31），留空代表未設定。新增房東合約時會預設帶入合約的「每月房東付款／結算日」。",
+        help="每月收完房客房租後，匯款給房東的日期（1 至 31），留空代表未設定。新增房東合約時會預設帶入合約的「每月房東付款／結算日」；"
+        "之後在這裡修改，也會同步更新生效中房東合約的結算日（草稿、已到期的合約不動）。",
     )
 
     owner_id = fields.Many2one(
@@ -139,7 +140,7 @@ class GgandyProperty(models.Model):
         "property_id",
         string="當期帳單",
         domain=lambda self: self._get_current_schedule_domain(),
-        help="此物件所有房間本月的租金期次，只供檢視；要建立帳單或修改金額請到租金期次或租約。",
+        help="此物件所有房間本月的收租明細，只供檢視；要建立帳單或修改金額請到收租明細或租約。",
     )
     internet_fee = fields.Monetary(
         string="網路第四台",
@@ -159,7 +160,7 @@ class GgandyProperty(models.Model):
     month_income_total = fields.Monetary(
         string="合計",
         compute="_compute_month_summary",
-        help="租金＋管理費＋網路第四台＋電費＋水費。依本月各房間有效租約的租金期次即時加總（草稿租約不算）。",
+        help="租金＋管理費＋網路第四台＋電費＋水費。依本月各房間有效租約的收租明細即時加總（草稿租約不算）。",
     )
     month_owner_payout = fields.Monetary(
         string="付房東",
@@ -172,8 +173,8 @@ class GgandyProperty(models.Model):
         "property_id",
         string="水電表維護",
         domain=lambda self: self._get_current_meter_schedule_domain(),
-        help="此物件本月、電費依度數計費或水費要另外收的租金期次。在這裡填抄表度數、調整這個月的水費，"
-        "跟租約裡的租金期次是同一筆資料；過去月份請到房間的水電表維護分頁查看。",
+        help="此物件本月、電費依度數計費或水費要另外收的收租明細。在這裡填抄表度數、調整這個月的水費，"
+        "跟租約裡的收租明細是同一筆資料；過去月份請到房間的水電表維護分頁查看。",
     )
     maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request", "property_id", string="報修單"
@@ -210,7 +211,23 @@ class GgandyProperty(models.Model):
         result = super().write(values)
         if "owner_id" in values:
             self.mapped("owner_id").write({"is_ggandy_owner": True})
+        if values.get("owner_payment_day"):
+            self._sync_owner_payment_day_to_contracts()
         return result
+
+    def _sync_owner_payment_day_to_contracts(self):
+        """匯款日改了，生效中房東合約的結算日跟著改；草稿、已到期的合約不動。"""
+        for record in self:
+            contracts = record.owner_contract_ids.filtered(
+                lambda contract: contract.state == "active"
+                and contract.owner_payment_day != record.owner_payment_day
+            )
+            for contract in contracts:
+                old_day = contract.owner_payment_day
+                contract.owner_payment_day = record.owner_payment_day
+                contract.message_post(
+                    body=f"物件匯款日期改了，結算日由每月 {old_day} 號同步為 {record.owner_payment_day} 號。"
+                )
 
     @api.model
     def _get_current_schedule_domain(self):
@@ -268,6 +285,8 @@ class GgandyProperty(models.Model):
         "current_schedule_ids.water_amount",
         "owner_contract_ids.state",
         "owner_contract_ids.guaranteed_rent",
+        "owner_contract_ids.adjustment_ids.amount",
+        "owner_contract_ids.adjustment_ids.period_start",
     )
     def _compute_month_summary(self):
         today = fields.Date.context_today(self)
@@ -288,7 +307,7 @@ class GgandyProperty(models.Model):
             ) if contract else 0.0
 
     def _get_month_summary(self, month_start):
-        """某個帳單月份的收租概覽：該月有效租約（草稿不算）的期次加總，再加上物件的網路第四台。
+        """某個帳單月份的收租概覽：該月有效租約（草稿不算）的收租明細加總，再加上物件的網路第四台。
 
         物件頁「本月收租概覽」和房東帳單的代收轉付項目都用這裡，數字才會一致。
         """

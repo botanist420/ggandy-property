@@ -58,7 +58,7 @@ class GgandyAccountingOverview(models.Model):
     rent_receivable = fields.Monetary(
         string="租金應收",
         readonly=True,
-        help="本月該房間所有租金期次的應收合計（租金 + 管理費 + 水電費）。請搭配租金實收一起判讀。",
+        help="本月該房間所有收租明細的應收合計（租金 + 管理費 + 水電費）。請搭配租金實收一起判讀。",
     )
     rent_collected = fields.Monetary(
         string="租金實收",
@@ -200,7 +200,7 @@ class GgandyAccountingOverview(models.Model):
                     ORDER BY oc.start_date DESC, oc.id DESC
                     LIMIT 1
                 ) contract ON TRUE
-                -- 只算有效租約（生效中、已到期、提前終止）的期次；草稿還沒生效、取消的不算。
+                -- 只算有效租約（生效中、已到期、提前終止）的收租明細；草稿還沒生效、取消的不算。
                 -- 已收／已付都換算成未稅：未稅金額 × 已付比例（含稅總額扣掉未付餘額）。
                 CROSS JOIN LATERAL (
                     SELECT

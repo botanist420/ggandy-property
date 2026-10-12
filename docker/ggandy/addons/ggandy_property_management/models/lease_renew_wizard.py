@@ -28,14 +28,14 @@ class GgandyLeaseRenewWizard(models.TransientModel):
         compute="_compute_new_end_date",
         store=True,
         readonly=False,
-        help="續約後的租期最後一天，預設延長一年。確認後會從原結束日隔天起，按月補建延長期間的租金期次。",
+        help="續約後的租期最後一天，預設延長一年。確認後會從原結束日隔天起，按月補建延長期間的收租明細。",
     )
     rent_amount = fields.Monetary(
         string="續約後每月租金",
         compute="_compute_rent_amount",
         store=True,
         readonly=False,
-        help="預設沿用目前月租。只套用在延長的期間，已經建立的期次金額不會變；租約上的「每月租金」會改成這個金額。",
+        help="預設沿用目前月租。只套用在延長的期間，已經建立的收租明細金額不會變；租約上的「每月租金」會改成這個金額。",
     )
     management_fee = fields.Monetary(
         string="續約後每月管理費",

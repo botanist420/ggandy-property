@@ -14,6 +14,7 @@
                         <li>確認下方<strong>房間順序</strong>跟 Google Sheet 一致（不一致請到房間分頁拖曳調整）</li>
                         <li>從 Google Sheet 複製該月的<strong>度數那一列</strong>，貼到「抄表度數」，再按「預覽」</li>
                     </ol>
+                    <div class="small mt-1">一次補好幾個月：連 A 欄的月份（例如 9月、2026/9）一起複製多列貼上，上方的電表月份就不用選，系統會依每列的月份由舊到新寫入。</div>
                 </div>
                 <div class="alert alert-info py-2 mb-3" role="alert" invisible="state != 'preview' or write_count or not unchanged_count">
                     系統裡已經是這些度數，不需要再寫入。如果數字對但月份不對，請按「返回修改」換電表月份。

@@ -132,6 +132,23 @@
                         </group>
                     </group>
                     <notebook>
+                        <page string="帳單調整" name="adjustments">
+                            <div class="o_ggandy_hint">
+                                依月份記錄要加進房東帳單的調整（正數多付、負數扣回），每筆會在那個月的房東帳單多一行，重新計算也不會被蓋掉。
+                            </div>
+                            <field name="adjustment_ids" context="{'default_contract_id': id}">
+                                <list editable="bottom" default_order="period_start desc, id desc">
+                                    <control>
+                                        <create string="新增調整"/>
+                                    </control>
+                                    <field name="period_start" width="120px"/>
+                                    <field name="name"/>
+                                    <field name="amount" sum="合計" width="120px"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                    <field name="note" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="合約條款與備註" name="notes">
                             <field name="note" placeholder="續約條件、修繕責任、提前終止、空置期約定等……"/>
                         </page>

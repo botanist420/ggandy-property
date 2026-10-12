@@ -19,12 +19,12 @@ class GgandyLeaseTerminateWizard(models.TransientModel):
     termination_date = fields.Date(
         string="終止日",
         default=fields.Date.context_today,
-        help="房客最後租用的那一天。這天之後還沒開帳單的期次會被刪掉；這天所在那個月的期次不會自動按日重算，請到租金期次手動調整。",
+        help="房客最後租用的那一天。這天之後還沒開帳單的收租明細會被刪掉；這天所在那個月的收租明細不會自動按日重算，請到收租明細手動調整。",
     )
     removed_schedule_count = fields.Integer(
-        string="會刪除的期次",
+        string="會刪除的收租明細",
         compute="_compute_removed_schedule_count",
-        help="終止日之後、還沒開帳單的租金期次數量。已經開了帳單的期次不會刪，要另外處理帳單。",
+        help="終止日之後、還沒開帳單的收租明細數量。已經開了帳單的收租明細不會刪，要另外處理帳單。",
     )
 
     @api.depends("lease_id", "termination_date")

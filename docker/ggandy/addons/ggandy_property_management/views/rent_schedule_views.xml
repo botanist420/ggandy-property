@@ -4,14 +4,17 @@
         <field name="name">ggandy.rent.schedule.search</field>
         <field name="model">ggandy.rent.schedule</field>
         <field name="arch" type="xml">
-            <search string="搜尋租金期次">
+            <search string="搜尋收租明細">
                 <field name="name"/>
                 <field name="lease_id"/>
                 <field name="property_id"/>
                 <field name="unit_id"/>
                 <field name="tenant_id"/>
-                <filter name="due_this_month" string="本月"
-                        domain="[('due_date', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')), ('due_date', '&lt;', (context_today() + relativedelta(day=1, months=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="this_month" string="本月"
+                        domain="[('period_start', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')), ('period_start', '&lt;', (context_today() + relativedelta(day=1, months=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="last_month" string="上月"
+                        domain="[('period_start', '&gt;=', (context_today() + relativedelta(day=1, months=-1)).strftime('%Y-%m-%d')), ('period_start', '&lt;', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+                <separator/>
                 <filter name="overdue" string="逾期"
                         domain="[('due_date', '&lt;', context_today().strftime('%Y-%m-%d')), ('lease_id.state', 'in', ('active', 'expired')), '|', ('invoice_id', '=', False), '&amp;', ('invoice_id.state', '!=', 'cancel'), '|', ('invoice_id.state', '=', 'draft'), '&amp;', ('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'not in', ('paid', 'reversed'))]"/>
                 <filter name="uninvoiced" string="尚未開單" domain="[('invoice_id', '=', False)]"/>
@@ -33,7 +36,7 @@
         <field name="name">ggandy.rent.schedule.list</field>
         <field name="model">ggandy.rent.schedule</field>
         <field name="arch" type="xml">
-            <list string="租金期次" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
+            <list string="收租明細" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
                 <header>
                     <button name="action_register_rent_payment" type="object" string="登記收款" class="btn-primary"
                             groups="account.group_account_invoice"/>
@@ -66,7 +69,7 @@
         <field name="name">ggandy.rent.schedule.form</field>
         <field name="model">ggandy.rent.schedule</field>
         <field name="arch" type="xml">
-            <form string="租金期次">
+            <form string="收租明細">
                 <header>
                     <button name="action_create_invoice" type="object" string="建立租金帳單" class="btn-primary" invisible="invoice_id"/>
                     <button name="action_open_invoice" type="object" string="開啟帳單" invisible="not invoice_id"/>
@@ -136,13 +139,14 @@
     </record>
 
     <record id="action_ggandy_rent_schedule" model="ir.actions.act_window">
-        <field name="name">房客租金期次</field>
+        <field name="name">房客收租明細</field>
         <field name="res_model">ggandy.rent.schedule</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_ggandy_rent_schedule_search"/>
+        <field name="context">{'search_default_this_month': 1, 'search_default_group_property': 1}</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">尚未建立租金期次</p>
-            <p>開啟租約並按「建立租金期次」，或讓租約在生效時自動產生。</p>
+            <p class="o_view_nocontent_smiling_face">尚未建立收租明細</p>
+            <p>租約勾選「生效時建立收租明細」後，按「租約生效」就會自動按月份產生。</p>
         </field>
     </record>
 </odoo>

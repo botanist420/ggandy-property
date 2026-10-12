@@ -113,26 +113,25 @@ class ReportGgandyLeaseContract(models.AbstractModel):
 
     @api.model
     def _get_utility_terms(self, lease):
-        """第二條第 3 點的水電文字，依房間的計費方式產生。"""
-        unit = lease.unit_id
+        """第二條第 3 點的水電文字，依租約上的水電設定產生（簽約後房間改單價不影響重印）。"""
         reading = lease.electricity_start_reading
         electricity = {
             "metered": (
                 f"乙方電費依照獨立電表計算，由乙方匯入甲方指定帳戶中，電費（含網路費、第四台）以每度收 "
-                f"{unit.electricity_rate:g} 元。電表起度 {f'{reading:g}' if reading else '＿＿＿＿'} 度。"
+                f"{lease.electricity_rate:g} 元。電表起度 {f'{reading:g}' if reading else '＿＿＿＿'} 度。"
             ),
-            "fixed": f"電費（含網路費、第四台）每個月固定 {self._format_amount(unit.electricity_fixed_fee)} 元。",
+            "fixed": f"電費（含網路費、第四台）每個月固定 {self._format_amount(lease.electricity_fixed_fee)} 元。",
             "included": "電費（含網路費、第四台）已含在租金內，乙方不另行支付。",
             "tenant_paid": "電費由乙方自行向台灣電力公司繳納。",
-        }.get(unit.electricity_billing_type, "電費計算方式：＿＿＿＿＿＿＿＿＿＿＿＿。")
+        }.get(lease.electricity_billing_type, "電費計算方式：＿＿＿＿＿＿＿＿＿＿＿＿。")
         reading = lease.water_start_reading
         water = {
             "metered": (
-                f"水費依照獨立水錶計算，以每度收 {unit.water_rate:g} 元。"
+                f"水費依照獨立水錶計算，以每度收 {lease.water_rate:g} 元。"
                 f"水錶起度 {f'{reading:g}' if reading else '＿＿＿＿'} 度。"
             ),
-            "fixed": f"水費每個月固定 {self._format_amount(unit.water_fixed_fee)} 元。",
+            "fixed": f"水費每個月固定 {self._format_amount(lease.water_fixed_fee)} 元。",
             "included": "水費已含在租金內，乙方不另行支付。",
             "tenant_paid": "水費由乙方自行向自來水公司繳納。",
-        }.get(unit.water_billing_type, "水費計算方式：＿＿＿＿＿＿＿＿＿＿＿＿。")
+        }.get(lease.water_billing_type, "水費計算方式：＿＿＿＿＿＿＿＿＿＿＿＿。")
         return electricity, water

@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <form string="續約">
                 <div class="alert alert-info py-2 mb-3" role="alert">
-                    延長這份租約的租期：確認後會從原結束日隔天起補建租金期次，新月租只套用在延長的期間。
+                    延長這份租約的租期：確認後會從原結束日隔天起補建收租明細，新月租只套用在延長的期間。
                     已到期的租約會改回「生效中」。
                 </div>
                 <group>

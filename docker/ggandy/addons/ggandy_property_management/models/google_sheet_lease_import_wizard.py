@@ -42,12 +42,12 @@ class GgandyGoogleSheetLeaseImportWizard(models.TransientModel):
     lease_sheet_url = fields.Char(
         string="房間租約",
         default=lambda self: self._default_sheet_url("ggandy_property_management.lease_sheet_url", ""),
-        help="一間房一列：房客、租期、月租、水電計費方式與入住度數。會建立或更新「草稿」租約並產生租金期次。",
+        help="一間房一列：房客、租期、月租、水電計費方式與入住度數。會建立或更新「草稿」租約並產生收租明細。",
     )
     meter_sheet_url = fields.Char(
         string="抄表度數",
         default=lambda self: self._default_sheet_url("ggandy_property_management.meter_sheet_url", ""),
-        help="每間房每月一列，填該月月底的電錶（水錶）度數。M 月底的讀數會寫進 M+1 月期次的本期度數。",
+        help="每間房每月一列，填該月月底的電錶（水錶）度數。M 月底的讀數會寫進 M+1 月收租明細的本期度數。",
     )
     adjustment_sheet_url = fields.Char(
         string="帳單調整",
@@ -115,7 +115,7 @@ class GgandyGoogleSheetLeaseImportWizard(models.TransientModel):
         stats = run["stats"]
         summary = (
             f"租約：新增 {stats['lease_created']}、更新 {stats['lease_updated']}、未變更 {stats['lease_unchanged']}，"
-            f"新增租金期次 {stats['schedule_created']}；"
+            f"新增收租明細 {stats['schedule_created']}；"
             f"抄表：寫入 {stats['reading_written']}、未變更 {stats['reading_unchanged']}、略過 {stats['reading_skipped']}；"
             f"帳單調整：寫入 {stats['adjust_written']}、未變更 {stats['adjust_unchanged']}、略過 {stats['adjust_skipped']}。"
         )
@@ -260,7 +260,7 @@ class GgandyGoogleSheetLeaseImportWizard(models.TransientModel):
         return values
 
     def _resync_uninvoiced_schedules(self, lease, changed):
-        """草稿租約的月租或入住度數改了，把還沒開帳單的期次一起更新（帳單調整分頁會在之後再覆蓋例外月份）。"""
+        """草稿租約的月租或入住度數改了，把還沒開帳單的收租明細一起更新（帳單調整分頁會在之後再覆蓋例外月份）。"""
         schedules = lease.schedule_ids.filtered(lambda schedule: not schedule.invoice_id).sorted("period_start")
         if "rent_amount" in changed:
             for schedule in schedules:
@@ -329,7 +329,7 @@ class GgandyGoogleSheetLeaseImportWizard(models.TransientModel):
             schedule = self.env["ggandy.rent.schedule"]._find_unit_month_schedule(unit, bill_month)
             if not schedule:
                 run["stats"]["reading_skipped"] += 1
-                run["messages"].append(f"{label}：{bill_month:%Y-%m} 沒有租金期次（租期外），略過。")
+                run["messages"].append(f"{label}：{bill_month:%Y-%m} 沒有收租明細（租期外），略過。")
                 continue
             for kind, reading in readings.items():
                 if reading is None:
@@ -390,7 +390,7 @@ class GgandyGoogleSheetLeaseImportWizard(models.TransientModel):
             if not schedule:
                 run["stats"]["adjust_skipped"] += 1
                 if unit:
-                    run["warnings"].append(f"{label}：找不到這個月的租金期次，略過。")
+                    run["warnings"].append(f"{label}：找不到這個月的收租明細，略過。")
                 continue
 
             values = {}
@@ -461,7 +461,7 @@ class GgandyGoogleSheetLeaseImportWizard(models.TransientModel):
     def _write_changed(self, record, values):
         """只寫入真的有變的欄位，回傳變更的欄位名稱。
 
-        避免重新匯入時，例如房間的水電設定被整批重寫，把期次上手動調整過的金額蓋回預設值。
+        避免重新匯入時，例如房間的水電設定被整批重寫，把收租明細上手動調整過的金額蓋回預設值。
         """
         changed = {}
         for field_name, value in values.items():

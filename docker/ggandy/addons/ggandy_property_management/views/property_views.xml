@@ -51,7 +51,7 @@
                 <header>
                     <button name="action_open_quick_meter_reading" type="object" string="快速抄表" class="btn-secondary"
                             invisible="not unit_ids"
-                            help="把 Google Sheet 某個月的房號與電表度數整列貼上，一次寫進各房間的租金期次。"/>
+                            help="把 Google Sheet 某個月的房號與電表度數整列貼上，一次寫進各房間的收租明細。"/>
                 </header>
                 <sheet>
                     <field name="active" invisible="1"/>
@@ -88,8 +88,8 @@
                             <field name="city_id" domain="[('state_id', '=', state_id)]" options="{'no_create': True, 'no_open': True}"/>
                             <field name="zip"/>
                             <field name="street" placeholder="路、街、段、巷、弄、號"/>
-                            <field name="street2"/>
-                            <field name="country_id"/>
+                            <field name="street2" invisible="1"/>
+                            <field name="country_id" invisible="1"/>
                         </group>
                     </group>
                     <group>
@@ -138,7 +138,7 @@
                                     <button name="action_open_unit" type="object" string="房間" icon="fa-home"
                                             class="btn-link o_ggandy_icon_tight" title="開啟房間資料"/>
                                     <button name="action_view_current_lease" type="object" string="租約帳單" icon="fa-file-text-o"
-                                            class="btn-link o_ggandy_icon_tight" title="開啟這間房目前的租約，可在租金期次分頁修改管理費、帳單等"/>
+                                            class="btn-link o_ggandy_icon_tight" title="開啟這間房目前的租約，可在收租明細分頁修改管理費、帳單等"/>
                                 </list>
                             </field>
                         </page>
@@ -146,8 +146,8 @@
                             <div class="o_ggandy_hint">
                                 <i class="fa fa-info-circle" role="img" title="說明"/>
                                 <div>
-                                    <div>本月各房間的<strong>租金期次</strong>，只供檢視。</div>
-                                    <div>要開帳單或改金額，請到該房客租約的「租金期次」分頁。</div>
+                                    <div>本月各房間的<strong>收租明細</strong>，只供檢視。</div>
+                                    <div>要開帳單或改金額，請到該房客租約的「收租明細」分頁。</div>
                                 </div>
                             </div>
                             <field name="current_schedule_ids" readonly="1" nolabel="1">

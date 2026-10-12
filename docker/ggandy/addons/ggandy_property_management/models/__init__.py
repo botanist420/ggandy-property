@@ -8,6 +8,7 @@ from . import lease_renew_wizard
 from . import lease_terminate_wizard
 from . import maintenance_request
 from . import master_lease_profit_wizard
+from . import owner_adjustment
 from . import owner_contract
 from . import property
 from . import property_unit

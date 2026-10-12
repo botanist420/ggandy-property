@@ -11,7 +11,7 @@ class AccountMove(models.Model):
         copy=False,
         index=True,
         ondelete="restrict",
-        help="這張客戶發票對應的 GGAndy 租約。租金期次建立帳單時會自動填入；若手動開單，請記得補上，報表才串得起來。",
+        help="這張客戶發票對應的 GGAndy 租約。收租明細建立帳單時會自動填入；若手動開單，請記得補上，報表才串得起來。",
     )
     ggandy_property_id = fields.Many2one(
         "ggandy.property",
@@ -86,7 +86,7 @@ class AccountMove(models.Model):
 
     def _invoice_paid_hook(self):
         result = super()._invoice_paid_hook()
-        # 會計人員不一定有包租代管權限，找期次用 sudo；只用來結束活動，不回傳資料
+        # 會計人員不一定有包租代管權限，找收租明細用 sudo；只用來結束活動，不回傳資料
         schedules = self.env["ggandy.rent.schedule"].sudo().search([("invoice_id", "in", self.ids)])
         schedules._close_overdue_activities()
         return result

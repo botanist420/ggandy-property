@@ -12,7 +12,7 @@ from .property_unit import ELECTRICITY_BILLING_TYPES, UTILITY_KINDS, WATER_BILLI
 
 _logger = logging.getLogger(__name__)
 
-# 會算進應收與收入的期次：租約生效中、已到期或提前終止；草稿還沒生效、取消的不算。
+# 會算進應收與收入的收租明細：租約生效中、已到期或提前終止；草稿還沒生效、取消的不算。
 # 帳務總表的 SQL 也用同一組狀態，改這裡要一起改 accounting_overview.py。
 EFFECTIVE_LEASE_STATES = ("active", "expired", "terminated")
 
@@ -29,7 +29,7 @@ UTILITY_INPUT_FIELDS = tuple(
 )
 
 
-# M 月底抄的表，算進 M+1 月帳單（例：9 月電表讀數 → 10 月期次的本期度數，10 月帳單收 9 月電費）。
+# M 月底抄的表，算進 M+1 月帳單（例：9 月電表讀數 → 10 月收租明細的本期度數，10 月帳單收 9 月電費）。
 READING_TO_BILL_MONTH_OFFSET = 1
 
 
@@ -39,18 +39,18 @@ def _format_number(value):
 
 class GgandyRentSchedule(models.Model):
     _name = "ggandy.rent.schedule"
-    _description = "租金期次"
+    _description = "收租明細"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "due_date desc, id desc"
 
-    name = fields.Char(string="期次名稱", compute="_compute_name", store=True)
+    name = fields.Char(string="名稱", compute="_compute_name", store=True)
     lease_id = fields.Many2one(
         "ggandy.lease",
         string="租約",
         required=True,
         ondelete="cascade",
         index=True,
-        help="這一期租金屬於哪份租約。刪掉租約時，相關期次也會一起移除。",
+        help="這一期租金屬於哪份租約。刪掉租約時，相關收租明細也會一起移除。",
     )
     property_id = fields.Many2one(
         "ggandy.property",
@@ -99,7 +99,7 @@ class GgandyRentSchedule(models.Model):
         string="帳單月份",
         compute="_compute_period_month",
         store=True,
-        help="這一期租金所屬的月份（計費開始日的年-月）。物件頁的當期帳單、水電表維護分頁用它篩出本月的期次。",
+        help="這一期租金所屬的月份（計費開始日的年-月）。物件頁的當期帳單、水電表維護分頁用它篩出本月的收租明細。",
     )
     meter_month = fields.Char(
         string="電表月份",
@@ -118,7 +118,7 @@ class GgandyRentSchedule(models.Model):
         string="租金",
         required=True,
         tracking=True,
-        help="這一期的租金本金。預設從租約每月租金帶入，但可針對單一期次調整，像臨時折讓或補收就不用改整份租約。",
+        help="這一期的租金本金。預設從租約每月租金帶入，但可針對單一月份調整，像臨時折讓或補收就不用改整份租約。",
     )
     management_fee = fields.Monetary(
         string="管理費",
@@ -128,7 +128,7 @@ class GgandyRentSchedule(models.Model):
     electricity_billing_type = fields.Selection(
         ELECTRICITY_BILLING_TYPES,
         string="電費計費方式",
-        help="建立期次時從房間帶入。房間改設定後，帳單還沒過帳的期次會跟著更新；只想調整這一期也可以直接改。",
+        help="建立收租明細時從租約帶入。租約的水電設定改了，帳單還沒過帳的月份會跟著更新；只想調整這個月也可以直接改。",
     )
     electricity_rate = fields.Float(
         string="每度電價",
@@ -167,7 +167,7 @@ class GgandyRentSchedule(models.Model):
     water_billing_type = fields.Selection(
         WATER_BILLING_TYPES,
         string="水費計費方式",
-        help="建立期次時從房間帶入。房間改設定後，帳單還沒過帳的期次會跟著更新；只想調整這一期也可以直接改。",
+        help="建立收租明細時從租約帶入。租約的水電設定改了，帳單還沒過帳的月份會跟著更新；只想調整這個月也可以直接改。",
     )
     water_rate = fields.Float(
         string="每度水價",
@@ -251,7 +251,7 @@ class GgandyRentSchedule(models.Model):
 
     @api.model
     def _get_effective_domain(self):
-        """物件收租概覽、Telegram 本月應收共用的期次條件，和帳務總表一致。"""
+        """物件收租概覽、Telegram 本月應收共用的收租明細條件，和帳務總表一致。"""
         return [("lease_id.state", "in", EFFECTIVE_LEASE_STATES)]
 
     @api.model
@@ -301,7 +301,7 @@ class GgandyRentSchedule(models.Model):
 
     @api.model
     def _find_unit_month_schedule(self, unit, month):
-        """month 是該月任一天；回傳這個房間在該月、草稿／生效中／已到期租約的租金期次（已到期才能抄退租當月）。"""
+        """month 是該月任一天；回傳這個房間在該月、草稿／生效中／已到期租約的收租明細（已到期才能抄退租當月）。"""
         month_start = month.replace(day=1)
         return self.search(
             [
@@ -425,7 +425,7 @@ class GgandyRentSchedule(models.Model):
         utility_changed = any(field in values for field in UTILITY_INPUT_FIELDS)
         if utility_changed and self.filtered(lambda record: record.invoice_id.state == "posted"):
             raise UserError(
-                "帳單已過帳的期次不能再修改水電度數或費率。"
+                "帳單已過帳的收租明細不能再修改水電度數或費率。"
                 "若抄錯表，請在下一期調整，或另外開立補收／折讓帳單。"
             )
         result = super().write(values)
@@ -443,7 +443,7 @@ class GgandyRentSchedule(models.Model):
         return ((self.period_end - self.period_start).days + 1) / days_in_month
 
     def _propagate_meter_reading(self, kind):
-        """把這一期最後的讀數帶到之後期次的上期度數，直到遇到下一筆已抄表的期次。"""
+        """把這一期最後的讀數帶到之後收租明細的上期度數，直到遇到下一筆已抄表的收租明細。"""
         for record in self.sorted("period_start"):
             reading = record[f"{kind}_curr_reading"] or record[f"{kind}_prev_reading"]
             later = self.search(
@@ -456,7 +456,7 @@ class GgandyRentSchedule(models.Model):
             later._apply_previous_reading(kind, reading)
 
     def _apply_previous_reading(self, kind, reading):
-        """self 需依 period_start 排序；已過帳的期次不動。"""
+        """self 需依 period_start 排序；已過帳的收租明細不動。"""
         prev_field = f"{kind}_prev_reading"
         for record in self:
             if record.invoice_id.state != "posted" and record[prev_field] != reading:
@@ -493,7 +493,7 @@ class GgandyRentSchedule(models.Model):
         }
 
     def _sync_draft_invoice_utility_lines(self):
-        """帳單還是草稿時，讓帳單上的水電明細跟期次一致。"""
+        """帳單還是草稿時，讓帳單上的水電明細跟收租明細一致。"""
         for record in self.filtered(lambda item: item.invoice_id.state == "draft"):
             commands = []
             for kind in UTILITY_KINDS:
@@ -592,7 +592,7 @@ class GgandyRentSchedule(models.Model):
         self.search([("lease_id.state", "in", ("active", "expired"))])._create_due_invoices()
 
     def _create_due_invoices(self):
-        """替這批期次裡、計費開始日已到且還沒開單的開立帳單；單筆失敗不影響其他筆。"""
+        """替這批收租明細裡、計費開始日已到且還沒開單的開立帳單；單筆失敗不影響其他筆。"""
         today = fields.Date.context_today(self)
         for schedule in self.filtered(lambda item: not item.invoice_id and item.period_start <= today):
             try:
@@ -640,16 +640,16 @@ class GgandyRentSchedule(models.Model):
             )
 
     def action_register_rent_payment(self):
-        """勾選的期次一次登記收款：還沒開單的先開單、草稿帳單先確認（過帳），再開 Odoo 原生的「付款」視窗。
+        """勾選的收租明細一次登記收款：還沒開單的先開單、草稿帳單先確認（過帳），再開 Odoo 原生的「付款」視窗。
 
         帳單平常維持草稿，抄表、調整都還能改；房客付了錢才正式過帳。
         """
         if not self:
-            raise UserError("請先勾選要登記收款的租金期次。")
+            raise UserError("請先勾選要登記收款的收租明細。")
         not_effective = self.filtered(lambda schedule: schedule.lease_id.state not in EFFECTIVE_LEASE_STATES)
         if not_effective:
             raise UserError(
-                "草稿或已取消租約的期次不能收款，請先讓租約生效：\n"
+                "草稿或已取消租約的收租明細不能收款，請先讓租約生效：\n"
                 + "\n".join(not_effective.mapped("display_name"))
             )
         for schedule in self.filtered(lambda item: not item.invoice_id):
@@ -660,7 +660,7 @@ class GgandyRentSchedule(models.Model):
             lambda move: move.state == "posted" and move.payment_state not in ("paid", "in_payment", "reversed")
         )
         if not to_pay:
-            raise UserError("勾選的期次都已經收款了。")
+            raise UserError("勾選的收租明細都已經收款了。")
         return to_pay.action_register_payment()
 
     def _close_overdue_activities(self):

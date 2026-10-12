@@ -7,7 +7,12 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import SQL, float_round
 
-from .property_unit import UTILITY_KINDS
+from .property_unit import (
+    ELECTRICITY_BILLING_TYPES,
+    UTILITY_KINDS,
+    UTILITY_SETTING_FIELDS,
+    WATER_BILLING_TYPES,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -82,19 +87,19 @@ class GgandyLease(models.Model):
         string="租期開始",
         required=True,
         tracking=True,
-        help="租約正式開始日。建立租金期次時，第一期會從這天開始，不會硬從月初起算。",
+        help="租約正式開始日。建立收租明細時，第一期會從這天開始，不會硬從月初起算。",
     )
     end_date = fields.Date(
         string="租期結束",
         required=True,
         tracking=True,
-        help="租約最後一天。建立期次時，最後一期會切到這天為止，短租或提前結束比較不會算歪。",
+        help="租約最後一天。建立收租明細時，最後一期會切到這天為止，短租或提前結束比較不會算歪。",
     )
     rent_amount = fields.Monetary(
         string="每月租金",
         required=True,
         tracking=True,
-        help="每月固定租金，建立租金期次時會複製到每一期；月中入住或退租的那一期，會依當月實際天數按日計算（四捨五入到元）。若只是某一期特殊折讓，建議只調整該期次。",
+        help="每月固定租金，建立收租明細時會複製到每一期；月中入住或退租的那一期，會依當月實際天數按日計算（四捨五入到元）。若只是某一期特殊折讓，建議只調整該月的收租明細。",
     )
     deposit_amount = fields.Monetary(
         string="押金",
@@ -104,17 +109,43 @@ class GgandyLease(models.Model):
     management_fee = fields.Monetary(
         string="每月管理費",
         tracking=True,
-        help="每月向房客收取的管理費。建立期次時會和租金相加成應收合計；月中入住或退租的那一期，和租金一樣按日計算。",
+        help="每月向房客收取的管理費。建立收租明細時會和租金相加成應收合計；月中入住或退租的那一期，和租金一樣按日計算。",
     )
     electricity_billing_type = fields.Selection(
-        related="unit_id.electricity_billing_type",
+        ELECTRICITY_BILLING_TYPES,
         string="電費計費方式",
-        help="從房間帶出來的電費設定；要修改請到房間。",
+        tracking=True,
+        help="這份租約的電費怎麼收。建立租約時從房間複製，之後就以租約為準：收租明細和合約 PDF 都照這裡。"
+        "改了會更新這份租約還沒過帳的收租明細；房間的設定之後再改，不會影響已生效的租約。",
+    )
+    electricity_rate = fields.Float(
+        string="每度電價",
+        digits=(10, 2),
+        tracking=True,
+        help="依度數計費時，每一度電跟房客收多少元。建立租約時從房間複製，改了會更新這份租約還沒過帳的收租明細。",
+    )
+    electricity_fixed_fee = fields.Monetary(
+        string="每月固定電費",
+        tracking=True,
+        help="電費選「每月固定金額」時，每個月跟房客收的電費；月中入住或退租的那個月按日計算。",
     )
     water_billing_type = fields.Selection(
-        related="unit_id.water_billing_type",
+        WATER_BILLING_TYPES,
         string="水費計費方式",
-        help="從房間帶出來的水費設定；要修改請到房間。",
+        tracking=True,
+        help="這份租約的水費怎麼收。建立租約時從房間複製，之後就以租約為準：收租明細和合約 PDF 都照這裡。"
+        "改了會更新這份租約還沒過帳的收租明細；房間的設定之後再改，不會影響已生效的租約。",
+    )
+    water_rate = fields.Float(
+        string="每度水價",
+        digits=(10, 2),
+        tracking=True,
+        help="依度數計費時，每一度水跟房客收多少元。建立租約時從房間複製，改了會更新這份租約還沒過帳的收租明細。",
+    )
+    water_fixed_fee = fields.Monetary(
+        string="每月固定水費",
+        tracking=True,
+        help="水費選「每月固定金額」時，每個月跟房客收的水費，例如每月 200 元；月中入住或退租的那個月按日計算。",
     )
     electricity_start_reading = fields.Float(
         string="入住電錶度數",
@@ -135,9 +166,9 @@ class GgandyLease(models.Model):
         help="設定為 1 至 31；若該月沒有此日期，系統會使用當月最後一天，例如二月會自動順到月底。",
     )
     auto_generate_schedule = fields.Boolean(
-        string="生效時建立租金期次",
+        string="生效時建立收租明細",
         default=True,
-        help="租約生效時自動按月份建立租金期次，從租期開始一路排到租期結束，可少很多手動排表時間。",
+        help="租約生效時自動按月份建立收租明細，從租期開始一路排到租期結束，可少很多手動排表時間。",
     )
     company_id = fields.Many2one(
         "res.company",
@@ -153,7 +184,7 @@ class GgandyLease(models.Model):
         readonly=True,
     )
     schedule_ids = fields.One2many(
-        "ggandy.rent.schedule", "lease_id", string="租金期次"
+        "ggandy.rent.schedule", "lease_id", string="收租明細"
     )
     invoice_ids = fields.One2many("account.move", "ggandy_lease_id", string="租金帳單")
     maintenance_request_ids = fields.One2many(
@@ -161,7 +192,7 @@ class GgandyLease(models.Model):
     )
     schedule_count = fields.Integer(
         compute="_compute_counts",
-        help="這份租約底下的租金期次數量。若數字少一截，通常是期次還沒產生或租期日期要檢查。",
+        help="這份租約底下的收租明細數量。若數字少一截，通常是收租明細還沒產生或租期日期要檢查。",
     )
     invoice_count = fields.Integer(
         compute="_compute_counts",
@@ -184,7 +215,7 @@ class GgandyLease(models.Model):
         copy=False,
         readonly=True,
         tracking=True,
-        help="提前終止時填的最後租用日。終止後，這天之後還沒開帳單的期次會被刪掉，帳務總表也不再計算。",
+        help="提前終止時填的最後租用日。終止後，這天之後還沒開帳單的收租明細會被刪掉，帳務總表也不再計算。",
     )
     tenant_phone = fields.Char(
         related="tenant_id.phone",
@@ -211,6 +242,10 @@ class GgandyLease(models.Model):
                 values["name"] = self.env["ir.sequence"].next_by_code(
                     "ggandy.lease"
                 ) or "New"
+            # 沒帶水電設定時從房間複製（例如 Google Sheet 匯入、程式建立的租約）
+            if values.get("unit_id") and not any(field in values for field in UTILITY_SETTING_FIELDS):
+                unit = self.env["ggandy.property.unit"].browse(values["unit_id"])
+                values.update(unit._get_utility_settings())
         records = super().create(vals_list)
         records.mapped("tenant_id").write({"is_ggandy_tenant": True})
         records.mapped("co_tenant_ids").write({"is_ggandy_tenant": True})
@@ -227,7 +262,27 @@ class GgandyLease(models.Model):
                     lease.schedule_ids.sorted("period_start")._apply_previous_reading(
                         kind, lease[f"{kind}_start_reading"]
                     )
+        if any(field in values for field in UTILITY_SETTING_FIELDS):
+            self._sync_utility_settings_to_schedules()
         return result
+
+    def _get_utility_schedule_values(self, ratio=1.0):
+        """建立／更新收租明細時要帶入的水電設定（照租約）；固定水電費和租金一樣按日計算。"""
+        self.ensure_one()
+        values = {}
+        for kind in UTILITY_KINDS:
+            values[f"{kind}_billing_type"] = self[f"{kind}_billing_type"]
+            values[f"{kind}_rate"] = self[f"{kind}_rate"]
+            values[f"{kind}_fixed_fee"] = self._prorate_amount(self[f"{kind}_fixed_fee"], ratio)
+        return values
+
+    def _sync_utility_settings_to_schedules(self):
+        """把租約的水電設定同步到這份租約還沒過帳的收租明細。"""
+        schedules = self.schedule_ids.filtered(
+            lambda schedule: not schedule.invoice_id or schedule.invoice_id.state == "draft"
+        )
+        for schedule in schedules:
+            schedule.write(schedule.lease_id._get_utility_schedule_values(schedule._get_period_ratio()))
 
     @api.onchange("property_id")
     def _onchange_property_id(self):
@@ -246,6 +301,7 @@ class GgandyLease(models.Model):
         for kind in UTILITY_KINDS:
             if not self[f"{kind}_start_reading"]:
                 self[f"{kind}_start_reading"] = self.unit_id._get_last_meter_reading(kind)
+        self.update(self.unit_id._get_utility_settings())
 
     @api.depends("schedule_ids", "invoice_ids", "maintenance_request_ids")
     def _compute_counts(self):
@@ -378,7 +434,7 @@ class GgandyLease(models.Model):
         }
 
     def action_terminate(self, termination_date=None):
-        """提前終止：記錄終止日，刪掉終止日之後還沒開帳單的期次；終止日所在那期不動，由同事手動調整。"""
+        """提前終止：記錄終止日，刪掉終止日之後還沒開帳單的收租明細；終止日所在那期不動，由同事手動調整。"""
         if self.filtered(lambda record: record.state != "active"):
             raise UserError("只有生效中的租約可以提前終止。")
         termination_date = termination_date or fields.Date.context_today(self)
@@ -392,7 +448,7 @@ class GgandyLease(models.Model):
             future_schedules.unlink()
             lease.write({"state": "terminated", "termination_date": termination_date})
             lease.message_post(
-                body=f"提前終止：終止日 {termination_date}，刪除 {removed_count} 筆終止日之後還沒開帳單的期次。"
+                body=f"提前終止：終止日 {termination_date}，刪除 {removed_count} 筆終止日之後還沒開帳單的收租明細。"
             )
         self._refresh_unit_state()
         return True
@@ -442,7 +498,7 @@ class GgandyLease(models.Model):
         return self.action_view_schedules()
 
     def _generate_rent_schedule(self, from_date=None):
-        """按月建立租金期次，已存在（同期次開始日）的會略過。
+        """按月建立收租明細，已存在（同一個計費開始日）的會略過。
 
         from_date：續約時傳入舊結束日的隔天，只補建延長的期間。
         """
@@ -478,7 +534,7 @@ class GgandyLease(models.Model):
                         "due_date": due_date,
                         "rent_amount": lease._prorate_amount(lease.rent_amount, ratio),
                         "management_fee": lease._prorate_amount(lease.management_fee, ratio),
-                        **lease.unit_id._get_utility_schedule_values(ratio),
+                        **lease._get_utility_schedule_values(ratio),
                     }
                     for kind in UTILITY_KINDS:
                         values[f"{kind}_prev_reading"] = lease._get_meter_reading_before(kind, period_start)
@@ -486,7 +542,7 @@ class GgandyLease(models.Model):
                 month_cursor += relativedelta(months=1)
 
     def _get_meter_reading_before(self, kind, date):
-        """某期次開始前最後的讀數：前一期的本期度數（沒抄就沿用它的上期度數），第一期用入住度數。"""
+        """某筆收租明細開始前最後的讀數：前一期的本期度數（沒抄就沿用它的上期度數），第一期用入住度數。"""
         self.ensure_one()
         previous = self.env["ggandy.rent.schedule"].search(
             [("lease_id", "=", self.id), ("period_start", "<", date)],
@@ -506,7 +562,7 @@ class GgandyLease(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": "租金期次",
+            "name": "收租明細",
             "res_model": "ggandy.rent.schedule",
             "view_mode": "list,form",
             "domain": [("lease_id", "=", self.id)],

@@ -14,7 +14,7 @@ WATER_BILLING_TYPES = [
     ("included", "含在租金內"),
     ("tenant_paid", "房客自繳水公司"),
 ]
-# 這些設定改變時，要同步到尚未過帳的租金期次。
+# 水電設定：建立租約時從房間複製到租約，之後收租明細照租約；房間改了只同步到草稿租約。
 UTILITY_SETTING_FIELDS = tuple(
     f"{kind}_{suffix}" for kind in UTILITY_KINDS for suffix in ("billing_type", "rate", "fixed_fee")
 )
@@ -109,7 +109,7 @@ class GgandyPropertyUnit(models.Model):
         tracking=True,
         help="這個房間的電費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度電價；"
         "每月固定金額＝不看度數、每月收固定電費；含在租金內＝不另外收；房客自繳台電＝獨立電錶、帳單直接寄給房客。"
-        "空白代表還沒設定。改動後，生效中租約尚未過帳的租金期次會跟著更新。",
+        "空白代表還沒設定。建立租約時會複製到租約；之後改這裡只影響新租約和草稿租約，生效中的租約要改請到租約上改。",
     )
     electricity_rate = fields.Float(
         string="每度電價",
@@ -133,7 +133,7 @@ class GgandyPropertyUnit(models.Model):
         tracking=True,
         help="這個房間的水費怎麼跟房客收。依度數計費＝（本月度數－上月度數）× 每度水價；"
         "每月固定金額＝不看度數、每月收固定水費；含在租金內＝不另外收；房客自繳水公司＝獨立水錶、帳單直接寄給房客。"
-        "空白代表還沒設定。改動後，生效中租約尚未過帳的租金期次會跟著更新。",
+        "空白代表還沒設定。建立租約時會複製到租約；之後改這裡只影響新租約和草稿租約，生效中的租約要改請到租約上改。",
     )
     water_rate = fields.Float(
         string="每度水價",
@@ -175,8 +175,8 @@ class GgandyPropertyUnit(models.Model):
             ("electricity_billing_type", "=", "metered"),
             ("water_billing_type", "in", ("metered", "fixed")),
         ],
-        help="這個房間電費依度數計費或水費要另外收的租金期次，涵蓋每份租約開始到結束的月份。"
-        "在這裡填抄表度數、調整某個月的水費，跟租約裡的租金期次是同一筆資料。",
+        help="這個房間電費依度數計費或水費要另外收的收租明細，涵蓋每份租約開始到結束的月份。"
+        "在這裡填抄表度數、調整某個月的水費，跟租約裡的收租明細是同一筆資料。",
     )
     maintenance_request_ids = fields.One2many(
         "ggandy.maintenance.request", "unit_id", string="報修紀錄"
@@ -305,30 +305,19 @@ class GgandyPropertyUnit(models.Model):
             self._sync_utility_settings_to_schedules()
         return result
 
-    def _get_utility_schedule_values(self, ratio=1.0):
-        """建立／更新租金期次時要帶入的水電設定；固定水電費和租金一樣按日計算。"""
+    def _get_utility_settings(self):
+        """建立租約時要複製到租約上的水電設定。"""
         self.ensure_one()
-        Lease = self.env["ggandy.lease"]
-        values = {}
-        for kind in UTILITY_KINDS:
-            values[f"{kind}_billing_type"] = self[f"{kind}_billing_type"]
-            values[f"{kind}_rate"] = self[f"{kind}_rate"]
-            values[f"{kind}_fixed_fee"] = Lease._prorate_amount(self[f"{kind}_fixed_fee"], ratio)
-        return values
+        return {field: self[field] for field in UTILITY_SETTING_FIELDS}
 
     def _sync_utility_settings_to_schedules(self):
-        """把房間的水電設定同步到草稿／生效中／已到期租約、帳單還沒過帳的期次。"""
-        schedules = self.env["ggandy.rent.schedule"].search(
-            [
-                ("unit_id", "in", self.ids),
-                ("lease_id.state", "in", ("draft", "active", "expired")),
-                "|",
-                ("invoice_id", "=", False),
-                ("invoice_id.state", "=", "draft"),
-            ]
-        )
-        for schedule in schedules:
-            schedule.write(schedule.unit_id._get_utility_schedule_values(schedule._get_period_ratio()))
+        """房間的水電設定改了，只同步到這個房間的草稿租約（再由租約同步它的收租明細）。
+
+        生效中、已到期的租約以租約上的設定為準，不跟著房間變。
+        """
+        leases = self.env["ggandy.lease"].search([("unit_id", "in", self.ids), ("state", "=", "draft")])
+        for lease in leases:
+            lease.write(lease.unit_id._get_utility_settings())
 
     def _get_last_meter_reading(self, kind):
         """這個房間最近一次抄表的度數（跨租約），新租約的入住度數會預設帶入這個值。"""

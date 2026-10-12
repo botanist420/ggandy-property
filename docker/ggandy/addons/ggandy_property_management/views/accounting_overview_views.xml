@@ -101,7 +101,7 @@
         <field name="context">{'search_default_current_month': 1, 'search_default_group_property': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">目前沒有帳務資料</p>
-            <p>每個啟用中的房間每個月會自動有一列，金額即時從租金期次與帳單算出，不需要手動更新。</p>
+            <p>每個啟用中的房間每個月會自動有一列，金額即時從收租明細與帳單算出，不需要手動更新。</p>
         </field>
     </record>
 
@@ -113,7 +113,7 @@
         <field name="context">{'search_default_overdue': 1, 'search_default_group_property': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">目前沒有逾期未收的租金</p>
-            <p>生效中租約的租金期次過了繳款期限、帳單還沒收齊，就會出現在這裡。</p>
+            <p>生效中租約的收租明細過了繳款期限、帳單還沒收齊，就會出現在這裡。</p>
         </field>
     </record>
 

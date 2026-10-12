@@ -135,6 +135,12 @@ class GgandyOwnerContract(models.Model):
         store=True,
         readonly=True,
     )
+    adjustment_ids = fields.One2many(
+        "ggandy.owner.adjustment",
+        "contract_id",
+        string="帳單調整",
+        help="依月份記錄要加進房東帳單的調整，例如押金退還、租金扣回。每筆會在那個月的房東帳單多一行。",
+    )
     manager_id = fields.Many2one(
         "res.users",
         string="合約負責人",
@@ -450,7 +456,7 @@ class GgandyOwnerContract(models.Model):
         """房東帳單的明細 [(說明, 金額), ...]，0 元的不列。
 
         包租：保底租金；代管：已收到的租金扣代管費。再加上物件該月收租概覽的
-        管理費、網路第四台、電費、水費，原封不動轉付給房東。
+        管理費、網路第四台、電費、水費，原封不動轉付給房東；最後是合約上這個月的帳單調整項（可為負數）。
         summary 可以傳物件頁上還沒存檔的概覽（例如剛改網路第四台），沒傳就重新算。
         """
         self.ensure_one()
@@ -473,6 +479,12 @@ class GgandyOwnerContract(models.Model):
             (f"{period_label} 網路第四台（代收轉付）", summary["internet"]),
             (f"{period_label} 電費（代收轉付）", summary["electricity"]),
             (f"{period_label} 水費（代收轉付）", summary["water"]),
+        ]
+        lines += [
+            (f"{period_label} 調整：{adjustment.name}", adjustment.amount)
+            for adjustment in self.adjustment_ids.filtered(
+                lambda item: item.period_start == period_start
+            ).sorted("id")
         ]
         return [(label, amount) for label, amount in lines if amount]
 

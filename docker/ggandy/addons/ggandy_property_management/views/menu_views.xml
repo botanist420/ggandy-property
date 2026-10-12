@@ -41,7 +41,7 @@
               action="action_ggandy_lease"
               sequence="20"/>
     <menuitem id="menu_ggandy_rent_schedule"
-              name="房客租金期次"
+              name="房客收租明細"
               parent="menu_ggandy_contracts"
               action="action_ggandy_rent_schedule"
               sequence="30"/>

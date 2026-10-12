@@ -310,7 +310,7 @@ class GgandyTelegramLog(models.Model):
         occupied_count = Unit.search_count(company_domain + [("state", "=", "occupied")])
         vacant_count = Unit.search_count(company_domain + [("state", "=", "vacant")])
 
-        # 本月應收：帳單月份（期次開始日）在本月、有效租約的期次，和帳務總表、物件收租概覽一致。
+        # 本月應收：帳單月份（計費開始日）在本月、有效租約的收租明細，和帳務總表、物件收租概覽一致。
         schedules = Schedule.search(
             company_domain
             + Schedule._get_effective_domain()
@@ -379,7 +379,7 @@ class GgandyTelegramLog(models.Model):
                 f"  到期：{schedule.due_date}｜未收：{currency}{unpaid:,.0f}"
             )
         if len(schedules) > limit:
-            lines.append(f"\n另有 {len(schedules) - limit} 筆未列出，請回 Odoo 查看租金期次。")
+            lines.append(f"\n另有 {len(schedules) - limit} 筆未列出，請回 Odoo 查看收租明細。")
         lines.append(f"\n未收合計：{currency}{total:,.0f}")
         return "\n".join(lines)
 

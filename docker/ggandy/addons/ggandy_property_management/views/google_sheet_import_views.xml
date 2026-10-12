@@ -254,14 +254,14 @@
                                     電費方式<span class="text-danger">*</span>、每度電價、固定電費、入住電錶度數、
                                     水費方式<span class="text-danger">*</span>、每度水價、固定水費、入住水錶度數
                                 </td>
-                                <td>一間房一列。更新房間的水電設定，建立或更新<strong>草稿租約</strong>並產生租金期次。
+                                <td>一間房一列。更新房間的水電設定，建立或更新<strong>草稿租約</strong>並產生收租明細。
                                     以「房號＋起租日」辨識同一份租約；房客先比電話、再比名稱，找不到就新增。</td>
                             </tr>
                             <tr>
                                 <td class="text-nowrap"><strong>抄表度數</strong></td>
                                 <td>物件編號<span class="text-danger">*</span>、房號<span class="text-danger">*</span>、抄表月份<span class="text-danger">*</span>、電錶度數、水錶度數</td>
                                 <td>每間房每月一列，填<strong>該月月底</strong>的讀數。
-                                    <code>2026-09</code> 的讀數會寫進 <strong>10 月期次</strong>的本期度數（下個月帳單收上個月水電）。</td>
+                                    <code>2026-09</code> 的讀數會寫進 <strong>10 月收租明細</strong>的本期度數（下個月帳單收上個月水電）。</td>
                             </tr>
                             <tr>
                                 <td class="text-nowrap"><strong>帳單調整</strong></td>
@@ -299,7 +299,7 @@
                             invisible="last_run_mode != 'preview'"/>
                     <button name="action_import" type="object" string="匯入"
                             class="btn-primary" invisible="last_run_mode != 'preview'"
-                            confirm="確定要寫入嗎？會建立／更新草稿租約、租金期次與抄表度數。"/>
+                            confirm="確定要寫入嗎？會建立／更新草稿租約、收租明細與抄表度數。"/>
                     <button name="action_import" type="object" string="不預覽直接匯入"
                             class="btn-secondary" invisible="last_run_mode == 'preview'"
                             confirm="確定要不預覽直接寫入嗎？"/>
