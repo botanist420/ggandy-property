@@ -73,15 +73,13 @@
                     <div class="oe_title">
                         <label for="name"/>
                         <h1><field name="name" placeholder="例如：大安信義館"/></h1>
-                        <div><field name="code" class="oe_inline"/></div>
+                        <div invisible="1"><field name="code" class="oe_inline"/></div>
                     </div>
                     <group>
-                        <group string="管理資訊">
+                        <group string="物件資訊">
                             <field name="management_mode" widget="radio"/>
                             <field name="property_type"/>
                             <field name="owner_id" context="{'default_is_ggandy_owner': True}"/>
-                            <field name="manager_id" widget="many2one_avatar_user"/>
-                            <field name="owner_payment_day"/>
                         </group>
                         <group string="地址">
                             <field name="state_id" domain="[('country_id', '=', country_id)]"/>
@@ -93,7 +91,9 @@
                         </group>
                     </group>
                     <group>
-                        <group string="管理期間">
+                        <group string="管理資訊">
+                            <field name="manager_id" widget="many2one_avatar_user"/>
+                            <field name="owner_payment_day"/>
                             <field name="acquisition_date"/>
                             <field name="management_end_date"/>
                             <field name="company_id" groups="base.group_multi_company"/>

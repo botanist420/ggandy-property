@@ -56,7 +56,7 @@ class GgandyProperty(models.Model):
     )
 
     owner_payment_day = fields.Integer(
-        string="匯款日期",
+        string="房東匯款日",
         tracking=True,
         help="每月收完房客房租後，匯款給房東的日期（1 至 31），留空代表未設定。新增房東合約時會預設帶入合約的「每月房東付款／結算日」；"
         "之後在這裡修改，也會同步更新生效中房東合約的結算日（草稿、已到期的合約不動）。",
@@ -95,7 +95,7 @@ class GgandyProperty(models.Model):
     country_id = fields.Many2one(
         "res.country",
         string="國家",
-        default=lambda self: self.env.company.country_id,
+        default=lambda self: self.env.company.country_id or self.env.ref("base.tw", raise_if_not_found=False),
         ondelete="restrict",
     )
     address_display = fields.Char(
@@ -149,7 +149,7 @@ class GgandyProperty(models.Model):
         "目前只記在物件上，不會開進房客帳單。",
     )
     month_summary_label = fields.Char(string="帳單月份", compute="_compute_month_summary")
-    month_rent_total = fields.Monetary(string="租金", compute="_compute_month_summary")
+    month_rent_total = fields.Monetary(string="房客租金", compute="_compute_month_summary")
     month_management_fee_total = fields.Monetary(string="管理費", compute="_compute_month_summary")
     month_electricity_total = fields.Monetary(
         string="電費",
@@ -163,7 +163,7 @@ class GgandyProperty(models.Model):
         help="租金＋管理費＋網路第四台＋電費＋水費。依本月各房間有效租約的收租明細即時加總（草稿租約不算）。",
     )
     month_owner_payout = fields.Monetary(
-        string="付房東",
+        string="應付房東",
         compute="_compute_month_summary",
         help="本月房東帳單應付：包租是保底租金、代管是已收到的租金扣代管費，再加上管理費＋網路第四台＋電費＋水費"
         "（照上面的金額原封不動轉付）。代管的租金只算目前已收款的部分；沒有生效中的房東合約時是 0。",
@@ -226,7 +226,7 @@ class GgandyProperty(models.Model):
                 old_day = contract.owner_payment_day
                 contract.owner_payment_day = record.owner_payment_day
                 contract.message_post(
-                    body=f"物件匯款日期改了，結算日由每月 {old_day} 號同步為 {record.owner_payment_day} 號。"
+                    body=f"房東匯款日改了，結算日由每月 {old_day} 號同步為 {record.owner_payment_day} 號。"
                 )
 
     @api.model
@@ -274,7 +274,7 @@ class GgandyProperty(models.Model):
     def _check_owner_payment_day(self):
         for record in self:
             if record.owner_payment_day and not 1 <= record.owner_payment_day <= 31:
-                raise ValidationError("匯款日期必須介於 1 到 31。")
+                raise ValidationError("房東匯款日必須介於 1 到 31。")
 
     @api.depends(
         "internet_fee",

@@ -29,10 +29,10 @@
                     </div>
                 </button>
             </xpath>
-            <xpath expr="//field[@name='owner_payment_day']" position="after">
+            <xpath expr="//field[@name='owner_id']" position="after">
                 <field name="preparation_project_id" invisible="not preparation_project_id"
                        groups="project.group_project_user"/>
-                <field name="stock_location_id" invisible="not stock_location_id"
+                <field name="stock_location_id" invisible="1"
                        groups="stock.group_stock_multi_locations"/>
             </xpath>
         </field>
