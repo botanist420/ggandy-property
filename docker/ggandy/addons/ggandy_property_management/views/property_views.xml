@@ -49,6 +49,10 @@
         <field name="arch" type="xml">
             <form string="物件">
                 <header>
+                    <field name="has_open_owner_contract" invisible="1"/>
+                    <button name="action_create_owner_contract" type="object" string="新增房東合約" class="btn-primary"
+                            invisible="has_open_owner_contract or not id"
+                            help="這個物件還沒有草稿或生效中的房東合約。按這裡建立，物件的房東、經營模式、管理期間、匯款日會自動帶入。"/>
                     <button name="action_open_quick_meter_reading" type="object" string="快速抄表" class="btn-secondary"
                             invisible="not unit_ids"
                             help="把 Google Sheet 某個月的房號與電表度數整列貼上，一次寫進各房間的收租明細。"/>
@@ -57,11 +61,11 @@
                     <field name="active" invisible="1"/>
                     <widget name="web_ribbon" title="已封存" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_view_units" type="object" class="oe_stat_button" icon="fa-building">
-                            <field name="unit_count" widget="statinfo" string="房間"/>
-                        </button>
                         <button name="action_view_owner_contracts" type="object" class="oe_stat_button" icon="fa-handshake-o">
                             <field name="owner_contract_count" widget="statinfo" string="房東合約"/>
+                        </button>
+                        <button name="action_view_units" type="object" class="oe_stat_button" icon="fa-building">
+                            <field name="unit_count" widget="statinfo" string="房間"/>
                         </button>
                         <button name="action_view_leases" type="object" class="oe_stat_button" icon="fa-file-text-o">
                             <field name="lease_count" widget="statinfo" string="房客租約"/>

@@ -195,6 +195,11 @@ class GgandyProperty(models.Model):
         compute="_compute_counts",
         help="此物件累積的報修單數量。數字變多時，不一定是壞事，也可能只是你管理得比較有紀錄。",
     )
+    has_open_owner_contract = fields.Boolean(
+        string="有進行中的房東合約",
+        compute="_compute_has_open_owner_contract",
+        help="有草稿或生效中的房東合約時勾起來；沒有時物件表單上方會出現「新增房東合約」按鈕。",
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -348,6 +353,13 @@ class GgandyProperty(models.Model):
             record.lease_count = len(record.lease_ids)
             record.maintenance_count = len(record.maintenance_request_ids)
 
+    @api.depends("owner_contract_ids.state")
+    def _compute_has_open_owner_contract(self):
+        for record in self:
+            record.has_open_owner_contract = any(
+                contract.state in ("draft", "active") for contract in record.owner_contract_ids
+            )
+
     def action_open_quick_meter_reading(self):
         self.ensure_one()
         return {
@@ -370,6 +382,17 @@ class GgandyProperty(models.Model):
             "context": {"default_property_id": self.id},
         }
 
+    def _get_owner_contract_default_context(self):
+        self.ensure_one()
+        return {
+            "default_property_id": self.id,
+            "default_owner_id": self.owner_id.id,
+            "default_company_id": self.company_id.id,
+            "default_contract_type": self.management_mode,
+            "default_start_date": self.acquisition_date,
+            "default_end_date": self.management_end_date,
+        }
+
     def action_view_owner_contracts(self):
         self.ensure_one()
         return {
@@ -378,14 +401,18 @@ class GgandyProperty(models.Model):
             "res_model": "ggandy.owner.contract",
             "view_mode": "list,form",
             "domain": [("property_id", "=", self.id)],
-            "context": {
-                "default_property_id": self.id,
-                "default_owner_id": self.owner_id.id,
-                "default_company_id": self.company_id.id,
-                "default_contract_type": self.management_mode,
-                "default_start_date": self.acquisition_date,
-                "default_end_date": self.management_end_date,
-            },
+            "context": self._get_owner_contract_default_context(),
+        }
+
+    def action_create_owner_contract(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "新增房東合約",
+            "res_model": "ggandy.owner.contract",
+            "view_mode": "form",
+            "target": "current",
+            "context": self._get_owner_contract_default_context(),
         }
 
     def action_view_leases(self):
