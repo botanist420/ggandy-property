@@ -14,9 +14,9 @@
                 <filter name="previous_month" string="上月"
                         domain="[('period_start', '=', (context_today() + relativedelta(day=1, months=-1)).strftime('%Y-%m-%d'))]"/>
                 <separator/>
-                <filter name="uncollected_rent" string="租金未收" domain="[('has_uncollected_rent', '=', True)]"/>
-                <filter name="owner_unpaid" string="待付房東" domain="[('has_owner_unpaid', '=', True)]"/>
-                <filter name="negative_earned" string="已經賺到為負" domain="[('has_negative_earned', '=', True)]"/>
+                <filter name="uncollected_rent" string="還有租金沒收" domain="[('has_uncollected_rent', '=', True)]"/>
+                <filter name="owner_unpaid" string="還沒付房東" domain="[('has_owner_unpaid', '=', True)]"/>
+                <filter name="negative_earned" string="目前賠錢" domain="[('has_negative_earned', '=', True)]"/>
                 <group>
                     <filter name="group_period" string="月份" context="{'group_by': 'period_start:month'}"/>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>

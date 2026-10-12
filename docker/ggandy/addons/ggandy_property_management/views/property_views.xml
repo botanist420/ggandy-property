@@ -10,14 +10,21 @@
                 <field name="owner_id"/>
                 <field name="manager_id"/>
                 <field name="address_display"/>
+                <filter name="my_properties" string="我負責的" domain="[('manager_id', '=', uid)]"/>
+                <separator/>
                 <filter name="master_lease" string="包租" domain="[('management_mode', '=', 'master_lease')]"/>
                 <filter name="agency" string="代管" domain="[('management_mode', '=', 'agency')]"/>
+                <separator/>
+                <filter name="no_owner_contract" string="還沒有房東合約"
+                        domain="[('owner_contract_ids', 'not any', [('state', 'in', ('draft', 'active'))])]"/>
+                <filter name="has_vacant_unit" string="有空房" domain="[('unit_ids', 'any', [('state', '=', 'vacant')])]"/>
                 <separator/>
                 <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
                 <group>
                     <filter name="group_owner" string="房東" context="{'group_by': 'owner_id'}"/>
                     <filter name="group_manager" string="管理人員" context="{'group_by': 'manager_id'}"/>
                     <filter name="group_mode" string="經營模式" context="{'group_by': 'management_mode'}"/>
+                    <filter name="group_state" string="縣市" context="{'group_by': 'state_id'}"/>
                 </group>
             </search>
         </field>
@@ -28,7 +35,7 @@
         <field name="model">ggandy.property</field>
         <field name="arch" type="xml">
             <list string="物件" multi_edit="1">
-                <field name="code"/>
+                <field name="code" optional="hide"/>
                 <field name="name"/>
                 <field name="management_mode" widget="badge"
                        decoration-info="management_mode == 'agency'"
@@ -86,7 +93,7 @@
                             <field name="owner_id" context="{'default_is_ggandy_owner': True}"/>
                         </group>
                         <group string="地址">
-                            <field name="state_id" domain="[('country_id', '=', country_id)]"/>
+                            <field name="state_id" domain="[('country_id', '=', country_id)]" context="{'ggandy_state_priority': True}"/>
                             <field name="city_id" domain="[('state_id', '=', state_id)]" options="{'no_create': True, 'no_open': True}"/>
                             <field name="zip"/>
                             <field name="street" placeholder="路、街、段、巷、弄、號"/>

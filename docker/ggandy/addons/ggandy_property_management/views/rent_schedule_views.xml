@@ -5,28 +5,31 @@
         <field name="model">ggandy.rent.schedule</field>
         <field name="arch" type="xml">
             <search string="搜尋收租明細">
-                <field name="name"/>
-                <field name="lease_id"/>
                 <field name="property_id"/>
                 <field name="unit_id"/>
                 <field name="tenant_id"/>
+                <field name="lease_id"/>
+                <field name="name"/>
                 <filter name="this_month" string="本月"
                         domain="[('period_start', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')), ('period_start', '&lt;', (context_today() + relativedelta(day=1, months=1)).strftime('%Y-%m-%d'))]"/>
                 <filter name="last_month" string="上月"
                         domain="[('period_start', '&gt;=', (context_today() + relativedelta(day=1, months=-1)).strftime('%Y-%m-%d')), ('period_start', '&lt;', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="next_month" string="下個月"
+                        domain="[('period_start', '&gt;=', (context_today() + relativedelta(day=1, months=1)).strftime('%Y-%m-%d')), ('period_start', '&lt;', (context_today() + relativedelta(day=1, months=2)).strftime('%Y-%m-%d'))]"/>
                 <separator/>
-                <filter name="overdue" string="逾期"
+                <filter name="overdue" string="逾期未繳"
                         domain="[('due_date', '&lt;', context_today().strftime('%Y-%m-%d')), ('lease_id.state', 'in', ('active', 'expired')), '|', ('invoice_id', '=', False), '&amp;', ('invoice_id.state', '!=', 'cancel'), '|', ('invoice_id.state', '=', 'draft'), '&amp;', ('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'not in', ('paid', 'reversed'))]"/>
-                <filter name="uninvoiced" string="尚未開單" domain="[('invoice_id', '=', False)]"/>
-                <filter name="meter_reading_pending" string="待抄表"
-                        domain="[('meter_reading_pending', '=', True), ('lease_id.state', 'in', ('active', 'expired')), ('period_start', '&lt;=', context_today().strftime('%Y-%m-%d')), '|', ('invoice_id', '=', False), ('invoice_id.state', '=', 'draft')]"/>
-                <filter name="unpaid" string="未收款"
+                <filter name="unpaid" string="還沒收到錢"
                         domain="[('invoice_id', '!=', False), ('invoice_id.state', '!=', 'cancel'), '|', ('invoice_id.state', '=', 'draft'), '&amp;', ('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'not in', ('paid', 'reversed'))]"/>
-                <filter name="invoiced" string="已建立帳單" domain="[('invoice_id', '!=', False)]"/>
+                <filter name="paid" string="已收款"
+                        domain="[('invoice_id.state', '=', 'posted'), ('invoice_id.payment_state', 'in', ('paid', 'in_payment'))]"/>
+                <filter name="uninvoiced" string="還沒開帳單" domain="[('invoice_id', '=', False)]"/>
+                <filter name="meter_reading_pending" string="還沒抄表"
+                        domain="[('meter_reading_pending', '=', True), ('lease_id.state', 'in', ('active', 'expired')), ('period_start', '&lt;=', context_today().strftime('%Y-%m-%d')), '|', ('invoice_id', '=', False), ('invoice_id.state', '=', 'draft')]"/>
                 <group>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
                     <filter name="group_tenant" string="房客" context="{'group_by': 'tenant_id'}"/>
-                    <filter name="group_due_month" string="繳款月份" context="{'group_by': 'due_date:month'}"/>
+                    <filter name="group_period_month" string="帳單月份" context="{'group_by': 'period_start:month'}"/>
                 </group>
             </search>
         </field>
@@ -36,12 +39,14 @@
         <field name="name">ggandy.rent.schedule.list</field>
         <field name="model">ggandy.rent.schedule</field>
         <field name="arch" type="xml">
-            <list string="收租明細" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
+            <list string="收租明細" default_order="period_start desc, property_id, unit_id"
+                  decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
                 <header>
                     <button name="action_register_rent_payment" type="object" string="登記收款" class="btn-primary"
                             groups="account.group_account_invoice"/>
                 </header>
-                <field name="name"/>
+                <field name="name" optional="hide"/>
+                <field name="period_month" width="90px"/>
                 <field name="property_id"/>
                 <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
                 <field name="tenant_id"/>

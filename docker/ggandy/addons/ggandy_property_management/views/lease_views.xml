@@ -14,16 +14,14 @@
                 <separator/>
                 <filter name="ending_30" string="30 天內到期"
                         domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=30)).strftime('%Y-%m-%d'))]"/>
-                <filter name="ending_60" string="60 天內到期"
-                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=60)).strftime('%Y-%m-%d'))]"/>
                 <filter name="ending_90" string="90 天內到期"
                         domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=90)).strftime('%Y-%m-%d'))]"/>
-                <filter name="ending_120" string="120 天內到期"
-                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=120)).strftime('%Y-%m-%d'))]"/>
-                <filter name="expired_recent" string="近 30 天已到期"
+                <filter name="expired_recent" string="最近 30 天剛到期"
                         domain="[('state', '=', 'expired'), ('end_date', '&gt;=', (context_today() - relativedelta(days=30)).strftime('%Y-%m-%d')), ('end_date', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
                 <separator/>
-                <filter name="no_next_lease" string="尚未有下一份租約" domain="[('has_next_lease', '=', False)]"/>
+                <filter name="no_next_lease" string="還沒找到下一位房客" domain="[('has_next_lease', '=', False)]"/>
+                <separator/>
+                <filter name="my_properties" string="我負責的物件" domain="[('property_id.manager_id', '=', uid)]"/>
                 <separator/>
                 <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
                 <group>
@@ -40,16 +38,23 @@
         <field name="name">ggandy.lease.list</field>
         <field name="model">ggandy.lease</field>
         <field name="arch" type="xml">
-            <list string="租約"
-                  decoration-success="state == 'active'"
+            <list string="租約" default_order="property_id, unit_id, start_date desc"
                   decoration-muted="state in ('expired', 'terminated', 'cancelled')">
-                <field name="name"/>
+                <field name="name" optional="hide"/>
                 <field name="property_id"/>
                 <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
                 <field name="tenant_id"/>
+                <field name="tenant_phone" optional="show"/>
                 <field name="start_date"/>
-                <field name="end_date"/>
+                <field name="has_next_lease" column_invisible="True"/>
+                <field name="end_date"
+                       decoration-danger="state == 'active' and days_to_end &lt;= 30 and not has_next_lease"
+                       decoration-bf="state == 'active' and days_to_end &lt;= 30 and not has_next_lease"/>
+                <field name="days_to_end" string="剩餘天數" optional="hide"/>
                 <field name="rent_amount" widget="monetary"/>
+                <field name="management_fee" widget="monetary" optional="show"/>
+                <field name="deposit_amount" widget="monetary" optional="hide"/>
+                <field name="rent_due_day" optional="hide"/>
                 <field name="currency_id" column_invisible="True"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'active'"

@@ -112,8 +112,9 @@ class GgandyOwnerContract(models.Model):
     fee_rate = fields.Float(
         string="代管費率 (%)",
         digits=(5, 2),
+        default=8.0,
         tracking=True,
-        help="代管費採百分比時使用。房東結算會以實收租金乘上此比例扣除；填 10 代表 10%，不是 0.10。",
+        help="代管費採百分比時使用。房東結算會以實收租金乘上此比例扣除；新合約預設 8%；填 8 代表 8%，不是 0.08。",
     )
     fixed_fee = fields.Monetary(
         string="每月固定代管費",

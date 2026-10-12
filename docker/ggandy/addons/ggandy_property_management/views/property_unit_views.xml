@@ -9,15 +9,19 @@
                 <field name="property_id"/>
                 <filter name="vacant" string="空房" domain="[('state', '=', 'vacant')]"/>
                 <filter name="occupied" string="已出租" domain="[('state', '=', 'occupied')]"/>
+                <filter name="reserved" string="已保留" domain="[('state', '=', 'reserved')]"/>
                 <filter name="maintenance" string="維修中" domain="[('state', '=', 'maintenance')]"/>
+                <separator/>
+                <filter name="vacating_30" string="30 天內會空出來"
+                        domain="[('lease_ids', 'any', [('state', '=', 'active'), ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=30)).strftime('%Y-%m-%d'))])]"/>
                 <separator/>
                 <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
                 <group>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
                     <filter name="group_state" string="出租狀態" context="{'group_by': 'state'}"/>
                     <filter name="group_type" string="房間類型" context="{'group_by': 'unit_type'}"/>
-                    <filter name="group_electricity_billing" string="電費計費方式" context="{'group_by': 'electricity_billing_type'}"/>
-                    <filter name="group_water_billing" string="水費計費方式" context="{'group_by': 'water_billing_type'}"/>
+                    <filter name="group_electricity_billing" string="電費怎麼收" context="{'group_by': 'electricity_billing_type'}"/>
+                    <filter name="group_water_billing" string="水費怎麼收" context="{'group_by': 'water_billing_type'}"/>
                 </group>
             </search>
         </field>

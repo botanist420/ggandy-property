@@ -11,16 +11,21 @@
                 <field name="manager_id"/>
                 <filter name="active_contract" string="生效中" domain="[('state', '=', 'active')]"/>
                 <filter name="draft" string="草稿" domain="[('state', '=', 'draft')]"/>
+                <filter name="ended" string="已結束" domain="[('state', 'in', ('expired', 'terminated'))]"/>
+                <separator/>
                 <filter name="master_lease" string="包租" domain="[('contract_type', '=', 'master_lease')]"/>
                 <filter name="agency" string="代管" domain="[('contract_type', '=', 'agency')]"/>
-                <filter name="ending_soon" string="90 天內到期"
-                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today()), ('end_date', '&lt;=', (context_today() + relativedelta(days=90)).strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="ending_soon" string="3 個月內到期"
+                        domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=90)).strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="my_contracts" string="我負責的" domain="[('manager_id', '=', uid)]"/>
                 <separator/>
                 <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
                 <group>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
                     <filter name="group_owner" string="房東" context="{'group_by': 'owner_id'}"/>
-                    <filter name="group_type" string="合約類型" context="{'group_by': 'contract_type'}"/>
+                    <filter name="group_type" string="包租／代管" context="{'group_by': 'contract_type'}"/>
                     <filter name="group_state" string="狀態" context="{'group_by': 'state'}"/>
                     <filter name="group_end_month" string="到期月份" context="{'group_by': 'end_date:month'}"/>
                 </group>
@@ -35,7 +40,7 @@
             <list string="房東合約"
                   decoration-success="state == 'active'"
                   decoration-muted="state in ('expired', 'terminated', 'cancelled')">
-                <field name="name"/>
+                <field name="name" optional="hide"/>
                 <field name="contract_type" widget="badge"
                        decoration-success="contract_type == 'master_lease'"
                        decoration-info="contract_type == 'agency'"/>
@@ -134,7 +139,11 @@
                     <notebook>
                         <page string="帳單調整" name="adjustments">
                             <div class="o_ggandy_hint">
-                                依月份記錄要加進房東帳單的調整（正數多付、負數扣回），每筆會在那個月的房東帳單多一行，重新計算也不會被蓋掉。
+                                <i class="fa fa-info-circle" role="img" title="說明"/>
+                                <div>
+                                    <div>這裡記<strong>某個月房東帳單要多付或少付</strong>的錢，會自動在那個月的房東帳單多一行。</div>
+                                    <div>少付填負數，例如不付 9F 租金＋管理費填 <strong>-32000</strong>；多付填正數，例如退 R2 押金填 29000。</div>
+                                </div>
                             </div>
                             <field name="adjustment_ids" context="{'default_contract_id': id}">
                                 <list editable="bottom" default_order="period_start desc, id desc">
@@ -142,7 +151,7 @@
                                         <create string="新增調整"/>
                                     </control>
                                     <field name="period_start" width="120px"/>
-                                    <field name="name"/>
+                                    <field name="name" placeholder="例如：9F 租金＋管理費扣回"/>
                                     <field name="amount" sum="合計" width="120px"/>
                                     <field name="currency_id" column_invisible="True"/>
                                     <field name="note" optional="show"/>

@@ -15,4 +15,5 @@ from . import property_unit
 from . import quick_meter_reading_wizard
 from . import rent_schedule
 from . import res_config_settings
+from . import res_country_state
 from . import res_partner

@@ -12,9 +12,12 @@
                 <field name="tenant_id"/>
                 <field name="vendor_id"/>
                 <field name="user_id"/>
-                <filter name="open" string="未完成" domain="[('state', 'not in', ('done', 'cancelled'))]"/>
-                <filter name="urgent" string="緊急" domain="[('priority', 'in', ('2', '3'))]"/>
                 <filter name="my_requests" string="我負責的" domain="[('user_id', '=', uid)]"/>
+                <separator/>
+                <filter name="open" string="還沒處理完" domain="[('state', 'not in', ('done', 'cancelled'))]"/>
+                <filter name="urgent" string="緊急" domain="[('priority', 'in', ('2', '3'))]"/>
+                <filter name="this_month" string="本月報修"
+                        domain="[('request_date', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')), ('request_date', '&lt;', (context_today() + relativedelta(day=1, months=1)).strftime('%Y-%m-%d'))]"/>
                 <separator/>
                 <filter name="archived" string="已封存" domain="[('active', '=', False)]"/>
                 <group>
@@ -36,7 +39,7 @@
                   decoration-danger="priority == '3' and state not in ('done', 'cancelled')"
                   decoration-muted="state in ('done', 'cancelled')">
                 <field name="priority" widget="priority"/>
-                <field name="name"/>
+                <field name="name" optional="hide"/>
                 <field name="title"/>
                 <field name="property_id"/>
                 <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>

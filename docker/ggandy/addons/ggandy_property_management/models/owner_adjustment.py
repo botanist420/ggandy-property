@@ -42,8 +42,8 @@ class GgandyOwnerAdjustment(models.Model):
     amount = fields.Monetary(
         string="金額",
         required=True,
-        help="正數是多付給房東、負數是從房東帳單扣回。會加進那個月的房東帳單，"
-        "按「重新計算房東帳單」也不會被蓋掉；帳單已經過帳才新增的話，重新計算只會告訴你差多少。",
+        help="少付給房東填負數，例如不付 9F 租金＋管理費填 -32000；多付填正數，例如退 R2 押金填 29000。"
+        "會加進那個月的房東帳單，按「重新計算房東帳單」也不會被蓋掉；帳單已經過帳才新增的話，重新計算只會告訴你差多少。",
     )
     note = fields.Char(string="備註", help="內部備註，不會出現在房東帳單上。")
 
