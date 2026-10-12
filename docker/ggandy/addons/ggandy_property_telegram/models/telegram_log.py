@@ -310,28 +310,22 @@ class GgandyTelegramLog(models.Model):
         occupied_count = Unit.search_count(company_domain + [("state", "=", "occupied")])
         vacant_count = Unit.search_count(company_domain + [("state", "=", "vacant")])
 
+        # 本月應收：帳單月份（期次開始日）在本月、有效租約的期次，和帳務總表、物件收入概覽一致。
         schedules = Schedule.search(
             company_domain
-            + [("due_date", ">=", month_start), ("due_date", "<", next_month)]
+            + Schedule._get_effective_domain()
+            + [("period_start", ">=", month_start), ("period_start", "<", next_month)]
         )
         receivable = sum(schedules.mapped("total_amount"))
         collected = 0.0
         for schedule in schedules.filtered("invoice_id"):
             invoice = schedule.invoice_id
-            if invoice.state == "posted":
-                collected += max(invoice.amount_total - invoice.amount_residual, 0.0)
+            if invoice.state == "posted" and invoice.amount_total:
+                paid = max(invoice.amount_total - invoice.amount_residual, 0.0)
+                collected += invoice.amount_untaxed * paid / invoice.amount_total
         uncollected = max(receivable - collected, 0.0)
 
-        overdue_count = len(
-            Schedule.search(company_domain + [("due_date", "<", today)]).filtered(
-                lambda schedule: not schedule.invoice_id
-                or schedule.invoice_id.state == "draft"
-                or (
-                    schedule.invoice_id.state == "posted"
-                    and schedule.invoice_id.payment_state not in ("paid", "reversed")
-                )
-            )
-        )
+        overdue_count = Schedule.search_count(company_domain + Schedule._get_overdue_domain())
         maintenance_count = Maintenance.search_count(
             company_domain + [("state", "not in", ("done", "cancelled"))]
         )

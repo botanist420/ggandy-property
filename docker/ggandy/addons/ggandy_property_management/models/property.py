@@ -1,6 +1,8 @@
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
+from .rent_schedule import EFFECTIVE_LEASE_STATES
+
 
 class GgandyProperty(models.Model):
     _name = "ggandy.property"
@@ -251,16 +253,19 @@ class GgandyProperty(models.Model):
 
     @api.depends(
         "internet_fee",
+        "current_schedule_ids.lease_id.state",
         "current_schedule_ids.rent_amount",
         "current_schedule_ids.management_fee",
         "current_schedule_ids.electricity_amount",
         "current_schedule_ids.water_amount",
     )
     def _compute_month_summary(self):
-        # 跟「當期帳單」分頁同一批期次：本月帳單、租約未取消。
+        # 「當期帳單」分頁的本月期次，但金額只算有效租約（草稿還沒生效），跟帳務總表一致。
         today = fields.Date.context_today(self)
         for record in self:
-            schedules = record.current_schedule_ids
+            schedules = record.current_schedule_ids.filtered(
+                lambda schedule: schedule.lease_id.state in EFFECTIVE_LEASE_STATES
+            )
             record.month_summary_label = f"{today.year} 年 {today.month} 月"
             record.month_rent_total = sum(schedules.mapped("rent_amount"))
             record.month_management_fee_total = sum(schedules.mapped("management_fee"))

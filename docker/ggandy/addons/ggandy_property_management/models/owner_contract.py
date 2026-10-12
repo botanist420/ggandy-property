@@ -336,7 +336,11 @@ class GgandyOwnerContract(models.Model):
         amount, label = self._get_owner_settlement_amount(period_start, period_end)
         if amount <= 0:
             return self.env["account.move"]
+        return self._create_settlement_bill(period_start, period_end, amount, label)
 
+    def _create_settlement_bill(self, period_start, period_end, amount, label):
+        """建立一張房東結算 Vendor Bill（不檢查同月是否已有帳單；代管補付也用這個）。"""
+        self.ensure_one()
         purchase_journal = self.env["account.journal"].search(
             [
                 ("type", "=", "purchase"),
@@ -377,6 +381,54 @@ class GgandyOwnerContract(models.Model):
         )
         self.message_post(body=f"已建立房東 Vendor Bill {bill.display_name}。")
         return bill
+
+    def _recompute_settlement_bill(self, bill):
+        """代管帳單依同一個帳單月份重算：草稿直接改金額；已過帳就為差額另開一張補付帳單。
+
+        回傳 (補付帳單或空 recordset, 給使用者看的訊息)。
+        """
+        self.ensure_one()
+        period_start = bill.ggandy_settlement_period_start
+        period_end = bill.ggandy_settlement_period_end or period_start + relativedelta(months=1, days=-1)
+        amount, label = self._get_owner_settlement_amount(period_start, period_end)
+        month_bills = self.env["account.move"].search(
+            [
+                ("ggandy_owner_contract_id", "=", self.id),
+                ("ggandy_settlement_period_start", "=", period_start),
+                ("move_type", "=", "in_invoice"),
+                ("state", "!=", "cancel"),
+            ]
+        )
+        other_amount = sum((month_bills - bill).mapped("amount_untaxed"))
+        currency = self.currency_id.symbol or ""
+        if bill.state == "draft":
+            new_amount = amount - other_amount
+            if new_amount <= 0:
+                raise UserError(
+                    f"重新計算後這張帳單應付 {currency}{new_amount:,.0f}，不需要付款；"
+                    "如果確定這個月不用付，請直接取消這張帳單。"
+                )
+            line = bill.invoice_line_ids.filtered(lambda item: item.display_type == "product")[:1]
+            if len(bill.invoice_line_ids.filtered(lambda item: item.display_type == "product")) != 1:
+                raise UserError("這張帳單的明細已經手動改過（不只一行），請直接在帳單上調整金額。")
+            old_amount = line.price_unit
+            line.price_unit = new_amount
+            bill.message_post(body=f"重新計算代管結算：{currency}{old_amount:,.0f} → {currency}{new_amount:,.0f}。")
+            return self.env["account.move"], f"已更新為 {currency}{new_amount:,.0f}。"
+
+        difference = amount - other_amount - bill.amount_untaxed
+        if difference <= 0:
+            return self.env["account.move"], (
+                f"重新計算後應付 {currency}{amount:,.0f}，這個月已開 {currency}{amount - difference:,.0f}，"
+                "沒有需要補付的金額。"
+            )
+        supplement = self._create_settlement_bill(
+            period_start,
+            period_end,
+            difference,
+            f"{self.name} {period_start.strftime('%Y-%m')} 代管房東結算補付（晚收的租金）",
+        )
+        return supplement, f"已另開補付帳單 {currency}{difference:,.0f}。"
 
     def _get_owner_settlement_amount(self, period_start, period_end):
         self.ensure_one()

@@ -8,13 +8,13 @@
 - [ ] **Vendor Bill 上看不到 GGAndy 欄位**
   `views/account_move_views.xml` 把所有 GGAndy 欄位塞進 `sale_info_group`，但 Odoo 19 這個 group 設了 `invisible="move_type not in ('out_invoice', 'out_refund')"`。結果房東合約、**費用歸屬物件／單位／費用類型**在 Vendor Bill 上都看不到，使用者沒辦法手動標記採購費用與員工代墊，帳務總表的「採購費用」「員工代墊」永遠是 0。
   → 另開一個 vendor bill 專用 group（例如 xpath 到 `//group[@name='accounting_info_group']` 前面，`invisible="move_type not in ('in_invoice','in_refund')"`）。
-- [ ] **終止／取消的租約，未來期次還被算進帳務總表的「租金應收」**
+- [x] **終止／取消的租約，未來期次還被算進帳務總表的「租金應收」**（2026-10-12：總表、物件收入概覽、Telegram 只算 active/expired/terminated 租約的期次；提前終止填終止日並刪除之後未開單的期次）
   `accounting_overview._table_query` 的 `rent` LATERAL 用單位 + 月份抓期次，沒過濾 `lease_id.state`。租約提前終止後，剩下的期次還在，會讓應收、未收、現金流判讀失真。
   → 終止時刪除（或標記）`period_start > 終止日` 且未開單的期次，並在總表排除 `cancelled` 租約的期次。
 - [x] **租約沒有辦法變成「已到期」**（2026-10-12：每日 cron `_cron_expire_ended_leases`、續約 wizard、「房客待續約」選單、Telegram `/renew` 改列近 30 天已到期；房東合約仍是手動「標記到期」）
   `ggandy.lease` 有 `expired` 狀態，但沒有按鈕也沒有排程會設定它。租期結束後租約永遠是 `active`，單位也一直是「已出租」。（Telegram `/renew` 目前靠「end_date 已過但仍 active」另列一段提醒；做了自動到期後，要記得改成列出近期轉 `expired` 的租約，否則這段提醒會消失。）
   → 新增 `action_mark_expired` + 每日 cron：`end_date < today` 的 active 租約 → expired，並 `_refresh_from_active_leases()`。房東合約也一樣只有手動「標記到期」，可以一起處理。
-- [ ] **Telegram `/status` 的逾期戶數和 `/overdue` 對不起來**
+- [x] **Telegram `/status` 的逾期戶數和 `/overdue` 對不起來**（2026-10-12：改用 `_get_overdue_domain()`；本月應收改依帳單月份與有效租約）
   `_build_status_message` 自己寫篩選，沒排除非 active 租約、也沒排除已取消發票；`/overdue` 用的是 `_get_overdue_domain()`。
   → 改成 `Schedule.search_count(company_domain + Schedule._get_overdue_domain())`。
 
@@ -26,13 +26,24 @@
 - [x] **從 Google Sheet 匯入聯絡人**：已搬進 wizard（2026-10-06），表頭沿用舊腳本的英文欄位。
 - [ ] **聯絡人匯入表頭優化**：改成中文表頭（與物件匯入一致）。電話已統一用 `phone`，`mobile` 停用。
 - [ ] **報修費用沒有進帳務**：`charged_to`、`actual_cost` 只是記錄。可在完成報修時依費用歸屬：公司／房東負擔 → 建 vendor bill（帶 `ggandy_expense_*`），房客負擔 → 加到下一期租金或另開 invoice；房東負擔的部分從代管結算扣除。
-- [ ] **逾期活動不會自動結案**：收款後「逾期租金待處理」活動還在，需在付款後（或 cron 中）`action_feedback` 關掉。
+- [x] **逾期活動不會自動結案**（2026-10-12：`_invoice_paid_hook` 收款後自動 `action_feedback`）：收款後「逾期租金待處理」活動還在，需在付款後（或 cron 中）`action_feedback` 關掉。
 - [x] **月中入住／退租的期次按天數計算**：租金與管理費 = 月額 × 期次天數 ÷ 當月實際天數，四捨五入到元；既有期次不重算（2026-10-05）
 - [ ] **房東端月中起訖不按天數計算**：包租保底租金 `guaranteed_rent` 每月固定付整月，房東合約月中開始／結束也一樣。代管結算讀期次 `rent_amount`，已自動跟著按日比例。包租端要不要按日比例，待確認。
-- [ ] **租約生效會觸發全域開帳單**：`lease.action_activate` 最後呼叫 `_cron_create_due_invoices()`，會順便替**所有**租約開帳單。改成只處理 `self.schedule_ids`。
-- [ ] **`action_terminate` 沒檢查狀態**：可以對 draft / cancelled 租約呼叫（UI 有擋，RPC 沒擋），也沒記錄實際終止日。考慮加 `termination_date` 欄位。
+- [x] **租約生效會觸發全域開帳單**（2026-10-12：改成 `self.schedule_ids._create_due_invoices()`）：`lease.action_activate` 最後呼叫 `_cron_create_due_invoices()`，會順便替**所有**租約開帳單。改成只處理 `self.schedule_ids`。
+- [x] **`action_terminate` 沒檢查狀態**（2026-10-12：只接受 active，提前終止 wizard 記錄 `termination_date`）：可以對 draft / cancelled 租約呼叫（UI 有擋，RPC 沒擋），也沒記錄實際終止日。考慮加 `termination_date` 欄位。
 - [ ] **押金退還流程**：目前押金只記在租約上（2026-10-11 起帳務總表也不再計入），沒有收押金 / 退押金的帳單或負債科目。
 - [ ] **房東押金 `owner_deposit`** 只是記錄欄位，沒有付款流程。
+
+## 🟠 房客與房東收付（2026-10-12 流程研究後收斂）
+
+- [x] GGAndy 產品一律未稅（房東結算產品原本被套 5% 進項稅，會多付房東）；帳務總表改用未稅金額（2026-10-12）
+- [x] 帳務總表拿掉「採購費用」，「現金流小計」改成「預計賺」「已經賺到」（2026-10-12）
+- [x] 房間「已出租」看日期：今天落在生效租約租期內才算（2026-10-12）
+- [x] 租金期次「登記收款」：收款時才過帳，接原生付款視窗（2026-10-12）
+- [x] 代管晚收租金：房東帳單「重新計算代管結算」，草稿改金額、已過帳開補付帳單（依帳單月份）（2026-10-12）
+- [ ] **中信銀行明細 CSV 對帳**：等拿到 CSV 範例（欄位：日期、金額、轉出帳號、備註）。流程：上傳 CSV → 依「金額 = 帳單未收」+「轉出帳號末 5 碼 = 房客 `res.partner.bank`」自動配對／只有金額對上且唯一的建議配對／其他人工挑選 → 預覽三組 → 確認後過帳並登記付款；配對成功的帳號回存房客。
+- [ ] 整備的採購費用之後要顯示時，以整備專案（分析帳戶）為單位，不放回帳務總表；方式再討論。
+- [ ] 部署正式區前：SQL 查 `amount_tax > 0` 的房東帳單（產品清稅前建立的，要人工處理）、草稿租約數量（不再算進應收）。
 
 ## 🟠 合約資料（2026-10-04 與老闆討論）
 

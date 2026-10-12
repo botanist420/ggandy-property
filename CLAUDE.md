@@ -57,7 +57,8 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `ggandy.owner.contract` | `models/owner_contract.py` | 房東合約（包租 / 代管）；cron 建房東 Vendor Bill |
 | `ggandy.lease` | `models/lease.py` | 房客租約；生效時拆月建期次；每日 cron 過期自動 `expired`；`has_next_lease`（可搜尋）給「房客待續約」選單 |
 | `ggandy.lease.renew.wizard` | `models/lease_renew_wizard.py` | TransientModel；續約＝延長同一份租約，`_generate_rent_schedule(from_date=舊結束日+1)` 補期次 |
-| `ggandy.rent.schedule` | `models/rent_schedule.py` | 租金期次；建客戶 Invoice；逾期活動 |
+| `ggandy.lease.terminate.wizard` | `models/lease_terminate_wizard.py` | TransientModel；提前終止填終止日，刪除終止日後未開單的期次 |
+| `ggandy.rent.schedule` | `models/rent_schedule.py` | 租金期次；建客戶 Invoice；逾期活動；list header「登記收款」（草稿帳單收款時才過帳，接原生付款視窗） |
 | `ggandy.maintenance.request` | `models/maintenance_request.py` | 報修單 |
 | `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每房間 × 每月一列**，`_auto = False` + `_table_query` 即時 SQL（可分組加總），唯讀 |
 | `ggandy.google.sheet.*.import.wizard` | `models/google_sheet_import_wizard.py` | TransientModel；物件／聯絡人匯入（pandas 讀 CSV export），共用 `ggandy.google.sheet.import.mixin` |
@@ -89,9 +90,12 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 ### 改程式時要知道的連動
 
 - **身分旗標是在 `create`/`write` 裡自動寫的**：物件/房東合約 → `is_ggandy_owner`；租約 → `is_ggandy_tenant`；報修單廠商 → `is_ggandy_vendor`。`ggandy.property.owner_id` 的 domain 是 `is_ggandy_owner = True`。
-- **租約生效** (`action_activate`)：房間 → `occupied`、`_generate_rent_schedule()`、然後呼叫**全域**的 `_cron_create_due_invoices()`。續約 wizard 也一樣。
+- **租約生效** (`action_activate`)：`_generate_rent_schedule()`、`_refresh_unit_state()`、只替這份租約的期次 `_create_due_invoices()`。續約 wizard 也一樣。
+- **金額一律未稅**：GGAndy 產品都不帶稅（`product_data.xml` + migrations 清掉）；帳務總表用 `amount_untaxed`。新增產品時記得 `taxes_id` / `supplier_taxes_id` 清空。
+- **有效期次**：`EFFECTIVE_LEASE_STATES = (active, expired, terminated)`（`rent_schedule.py`）。應收、收入概覽、Telegram 本月應收、帳務總表 SQL 都只算這些租約的期次；改狀態組合時四處一起改。
+- **帳單收款時才過帳**：租金帳單平常是草稿（可改），「登記收款」才 `action_post` + 原生付款；代管結算只算已過帳（= 已收款）的帳單，晚收的用帳單上的「重新計算代管結算」補付。
 - **已到期 (`expired`) 的租約仍參與收款與抄表**：逾期、開帳單、抄表、水電同步的 domain 都是 `active` + `expired`；新增類似查詢時別只寫 `state = 'active'`。
-- **房間狀態**只會在 `vacant`↔`occupied` 之間自動切換（`_refresh_from_active_leases`），`reserved / maintenance / inactive` 尊重手動設定。
+- **房間狀態**只會在 `vacant`↔`occupied` 之間自動切換（`_refresh_from_active_leases`：今天落在 active 租約租期內才算 occupied；每日到期 cron 會全部重算一次），`reserved / maintenance / inactive` 尊重手動設定。
 - **房東合約生效**會回寫物件的 `management_mode`、`owner_id`、`acquisition_date`、`management_end_date`。
 - **重疊檢查**：同物件同期間只能一份 active 房東合約；同房間同期間只能一份 active 租約（`@api.constrains`）。
 - **帳單用的產品**以 xmlid 取得：`product_product_rent`、`product_product_management_fee`、`product_product_owner_settlement`（`data/product_data.xml`）。

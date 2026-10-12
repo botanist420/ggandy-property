@@ -1,4 +1,5 @@
 from odoo import fields, models
+from odoo.exceptions import UserError
 
 
 class AccountMove(models.Model):
@@ -35,6 +36,11 @@ class AccountMove(models.Model):
         index=True,
         ondelete="restrict",
         help="這張 Vendor Bill 對應的房東合約。房東自動結算會填入它，帳務總表也靠它找房東應付。",
+    )
+    ggandy_owner_contract_type = fields.Selection(
+        related="ggandy_owner_contract_id.contract_type",
+        string="GGAndy 合約類型",
+        help="房東合約是包租還是代管。代管帳單可以按「重新計算」補進晚收的租金。",
     )
     ggandy_owner_property_id = fields.Many2one(
         "ggandy.property",
@@ -82,3 +88,43 @@ class AccountMove(models.Model):
         index=True,
         help="房東結算 Vendor Bill 對應期間的結束日，通常是月底。它跟開始日一起把這張帳單釘在正確月份上。",
     )
+
+    def _invoice_paid_hook(self):
+        result = super()._invoice_paid_hook()
+        # 會計人員不一定有包租代管權限，找期次用 sudo；只用來結束活動，不回傳資料
+        schedules = self.env["ggandy.rent.schedule"].sudo().search([("invoice_id", "in", self.ids)])
+        schedules._close_overdue_activities()
+        return result
+
+    def action_ggandy_recompute_owner_settlement(self):
+        """代管房東帳單：依同一個帳單月份重算實收租金。草稿直接改金額，已過帳就另開補付帳單。"""
+        self.ensure_one()
+        contract = self.ggandy_owner_contract_id
+        if (
+            not contract
+            or contract.contract_type != "agency"
+            or not self.ggandy_settlement_period_start
+            or self.move_type != "in_invoice"
+            or self.state == "cancel"
+        ):
+            raise UserError("只有代管合約、未取消的房東結算帳單可以重新計算。")
+        supplement, message = contract._recompute_settlement_bill(self)
+        if supplement:
+            return {
+                "type": "ir.actions.act_window",
+                "name": "補付帳單",
+                "res_model": "account.move",
+                "res_id": supplement.id,
+                "view_mode": "form",
+            }
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "重新計算代管結算",
+                "message": message,
+                "type": "info",
+                "sticky": False,
+                "next": {"type": "ir.actions.client", "tag": "soft_reload"},
+            },
+        }

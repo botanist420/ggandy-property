@@ -342,10 +342,17 @@ class GgandyPropertyUnit(models.Model):
         return schedule[field_name] if schedule else 0.0
 
     def _refresh_from_active_leases(self):
+        """今天落在某份生效租約的租期內才算已出租；預約下個月入住的租約生效了，房間仍是空房。"""
         Lease = self.env["ggandy.lease"]
+        today = fields.Date.context_today(self)
         for record in self:
             has_active_lease = Lease.search_count(
-                [("unit_id", "=", record.id), ("state", "=", "active")]
+                [
+                    ("unit_id", "=", record.id),
+                    ("state", "=", "active"),
+                    ("start_date", "<=", today),
+                    ("end_date", ">=", today),
+                ]
             )
             if record.state in ("vacant", "occupied"):
                 record.state = "occupied" if has_active_lease else "vacant"

@@ -105,5 +105,5 @@ class GgandyLeaseRenewWizard(models.TransientModel):
             body=f"續約：租期由 {old_end_date} 延長到 {self.new_end_date}，"
             f"月租 {old_rent:,.0f} → {self.rent_amount:,.0f}（只套用在延長的期間）。"
         )
-        self.env["ggandy.rent.schedule"]._cron_create_due_invoices()
+        lease.schedule_ids._create_due_invoices()
         return {"type": "ir.actions.act_window_close"}

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_lease_terminate_wizard_form" model="ir.ui.view">
+        <field name="name">ggandy.lease.terminate.wizard.form</field>
+        <field name="model">ggandy.lease.terminate.wizard</field>
+        <field name="arch" type="xml">
+            <form string="提前終止">
+                <div class="alert alert-warning py-2 mb-3" role="alert">
+                    終止後租約改為「提前終止」，終止日之後還沒開帳單的期次會刪除，房間沒有其他生效租約就變回空房。
+                    終止日所在那個月的租金不會自動按日重算，請到租金期次手動調整。
+                </div>
+                <group>
+                    <group>
+                        <field name="lease_id"/>
+                        <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
+                        <field name="tenant_id"/>
+                    </group>
+                    <group>
+                        <field name="start_date"/>
+                        <field name="end_date"/>
+                        <field name="termination_date" required="1"/>
+                        <field name="removed_schedule_count"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="確認終止" class="btn-primary" data-hotkey="q"/>
+                    <button string="取消" special="cancel" class="btn-secondary" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

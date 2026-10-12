@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo noupdate="1">
+    <!-- GGAndy 金額一律未稅：所有產品都不帶公司預設的銷項／進項稅（既有資料庫由 migrations 清掉） -->
     <record id="product_product_rent" model="product.product">
         <field name="name">房屋租金</field>
         <field name="default_code">GGANDY-RENT</field>
@@ -7,6 +8,8 @@
         <field name="sale_ok" eval="True"/>
         <field name="purchase_ok" eval="False"/>
         <field name="list_price">0</field>
+        <field name="taxes_id" eval="[(5, 0, 0)]"/>
+        <field name="supplier_taxes_id" eval="[(5, 0, 0)]"/>
     </record>
     <record id="product_product_management_fee" model="product.product">
         <field name="name">租屋管理費</field>
@@ -15,6 +18,8 @@
         <field name="sale_ok" eval="True"/>
         <field name="purchase_ok" eval="False"/>
         <field name="list_price">0</field>
+        <field name="taxes_id" eval="[(5, 0, 0)]"/>
+        <field name="supplier_taxes_id" eval="[(5, 0, 0)]"/>
     </record>
     <record id="product_product_electricity" model="product.product">
         <field name="name">電費</field>
@@ -23,8 +28,8 @@
         <field name="sale_ok" eval="True"/>
         <field name="purchase_ok" eval="False"/>
         <field name="list_price">0</field>
-        <!-- 代收水電比照租金，不自動帶入公司預設銷項稅 -->
         <field name="taxes_id" eval="[(5, 0, 0)]"/>
+        <field name="supplier_taxes_id" eval="[(5, 0, 0)]"/>
     </record>
     <record id="product_product_water" model="product.product">
         <field name="name">水費</field>
@@ -33,8 +38,8 @@
         <field name="sale_ok" eval="True"/>
         <field name="purchase_ok" eval="False"/>
         <field name="list_price">0</field>
-        <!-- 代收水電比照租金，不自動帶入公司預設銷項稅 -->
         <field name="taxes_id" eval="[(5, 0, 0)]"/>
+        <field name="supplier_taxes_id" eval="[(5, 0, 0)]"/>
     </record>
     <record id="product_product_owner_settlement" model="product.product">
         <field name="name">房東結算款</field>
@@ -44,5 +49,7 @@
         <field name="purchase_ok" eval="True"/>
         <field name="list_price">0</field>
         <field name="standard_price">0</field>
+        <field name="taxes_id" eval="[(5, 0, 0)]"/>
+        <field name="supplier_taxes_id" eval="[(5, 0, 0)]"/>
     </record>
 </odoo>

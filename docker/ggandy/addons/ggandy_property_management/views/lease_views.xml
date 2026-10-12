@@ -96,7 +96,7 @@
                     <button name="action_activate" type="object" string="租約生效" class="btn-primary" invisible="state != 'draft'"/>
                     <button name="%(action_report_ggandy_lease_contract)d" type="action" string="產生租約 PDF" icon="fa-file-pdf-o" invisible="state not in ('draft', 'active')"/>
                     <button name="action_open_renew_wizard" type="object" string="續約" icon="fa-refresh" invisible="state not in ('active', 'expired')"/>
-                    <button name="action_terminate" type="object" string="提前終止" confirm="確定要提前終止這份租約？" invisible="state != 'active'"/>
+                    <button name="action_open_terminate_wizard" type="object" string="提前終止" invisible="state != 'active'"/>
                     <button name="action_cancel" type="object" string="取消租約" confirm="確定要取消這份租約？" invisible="state != 'draft'"/>
                     <button name="action_set_draft" type="object" string="退回草稿" invisible="state not in ('terminated', 'cancelled')"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,active,expired,terminated,cancelled"/>
@@ -129,6 +129,7 @@
                         <group string="租期與費用">
                             <field name="start_date"/>
                             <field name="end_date"/>
+                            <field name="termination_date" invisible="not termination_date"/>
                             <field name="rent_amount"/>
                             <field name="management_fee"/>
                             <field name="deposit_amount"/>

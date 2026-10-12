@@ -179,6 +179,13 @@ class GgandyLease(models.Model):
         help="上傳在這份租約 chatter 的所有附件，例如簽好名的合約掃描檔、公證書或點交照片。要新增文件，請直接用下方 chatter 的迴紋針上傳。",
     )
     contract_document_count = fields.Integer(compute="_compute_contract_documents")
+    termination_date = fields.Date(
+        string="終止日",
+        copy=False,
+        readonly=True,
+        tracking=True,
+        help="提前終止時填的最後租用日。終止後，這天之後還沒開帳單的期次會被刪掉，帳務總表也不再計算。",
+    )
     tenant_phone = fields.Char(
         related="tenant_id.phone",
         string="房客電話",
@@ -343,10 +350,10 @@ class GgandyLease(models.Model):
             if record.state != "draft":
                 raise UserError("只有草稿租約可以生效。")
             record.write({"state": "active"})
-            record.unit_id.state = "occupied"
             if record.auto_generate_schedule:
                 record._generate_rent_schedule()
-        self.env["ggandy.rent.schedule"]._cron_create_due_invoices()
+        self._refresh_unit_state()
+        self.schedule_ids._create_due_invoices()
         return True
 
     def action_set_draft(self):
@@ -357,9 +364,37 @@ class GgandyLease(models.Model):
             record._refresh_unit_state()
         return True
 
-    def action_terminate(self):
-        self.write({"state": "terminated"})
-        self.mapped("unit_id")._refresh_from_active_leases()
+    def action_open_terminate_wizard(self):
+        self.ensure_one()
+        if self.state != "active":
+            raise UserError("只有生效中的租約可以提前終止。")
+        return {
+            "type": "ir.actions.act_window",
+            "name": "提前終止",
+            "res_model": "ggandy.lease.terminate.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_lease_id": self.id},
+        }
+
+    def action_terminate(self, termination_date=None):
+        """提前終止：記錄終止日，刪掉終止日之後還沒開帳單的期次；終止日所在那期不動，由同事手動調整。"""
+        if self.filtered(lambda record: record.state != "active"):
+            raise UserError("只有生效中的租約可以提前終止。")
+        termination_date = termination_date or fields.Date.context_today(self)
+        for lease in self:
+            if not lease.start_date <= termination_date <= lease.end_date:
+                raise UserError(f"{lease.name} 的終止日必須在租期內（{lease.start_date} ～ {lease.end_date}）。")
+            future_schedules = lease.schedule_ids.filtered(
+                lambda schedule: schedule.period_start > termination_date and not schedule.invoice_id
+            )
+            removed_count = len(future_schedules)
+            future_schedules.unlink()
+            lease.write({"state": "terminated", "termination_date": termination_date})
+            lease.message_post(
+                body=f"提前終止：終止日 {termination_date}，刪除 {removed_count} 筆終止日之後還沒開帳單的期次。"
+            )
+        self._refresh_unit_state()
         return True
 
     def action_cancel(self):
@@ -388,16 +423,18 @@ class GgandyLease(models.Model):
 
     @api.model
     def _cron_expire_ended_leases(self):
-        """租期結束隔天把還掛「生效中」的租約改成「已到期」，房間沒有其他生效租約就變回空房。"""
+        """租期結束隔天把還掛「生效中」的租約改成「已到期」，最後依今天日期重新判斷所有房間是否出租中
+        （預約入住的房間到了起租日變已出租，到期的變空房）。"""
         today = fields.Date.context_today(self)
         leases = self.search([("state", "=", "active"), ("end_date", "<", today)])
         for lease in leases:
             try:
                 lease.state = "expired"
                 lease.message_post(body=f"租期已於 {lease.end_date} 結束，系統自動改為「已到期」。")
-                lease._refresh_unit_state()
             except Exception:
                 _logger.exception("Unable to expire lease %s.", lease.display_name)
+        units = self.env["ggandy.property.unit"].search([("state", "in", ("vacant", "occupied"))])
+        units._refresh_from_active_leases()
 
     def action_generate_schedule(self):
         self.ensure_one()

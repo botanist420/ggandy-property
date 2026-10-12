@@ -1,7 +1,7 @@
 {
     "name": "GGAndy 包租代管",
     "summary": "物件、房東、房客、租約、收租與維修管理",
-    "version": "19.0.1.6.0",
+    "version": "19.0.1.7.0",
     "category": "Services/Real Estate",
     "author": "GGAndy",
     "license": "LGPL-3",
@@ -24,6 +24,7 @@
         "views/property_unit_views.xml",
         "views/owner_contract_views.xml",
         "views/lease_renew_wizard_views.xml",
+        "views/lease_terminate_wizard_views.xml",
         "views/lease_views.xml",
         "views/rent_schedule_views.xml",
         "views/maintenance_request_views.xml",

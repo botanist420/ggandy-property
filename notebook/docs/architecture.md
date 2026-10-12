@@ -67,7 +67,7 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `layout_photo_ids` | compute：本房間 chatter 上的 `image/*` 附件 |
 | `maintenance_photo_ids` | compute：本房間所有報修單（含封存）的 `image/*` 附件，依 `ggandy_request_date` desc |
 
-`_refresh_from_active_leases()`：只在 `vacant` / `occupied` 狀態下，依是否有 active 租約自動切換。
+`_refresh_from_active_leases()`：只在 `vacant` / `occupied` 狀態下自動切換；有 active 租約**且 `start_date <= today <= end_date`** 才算 occupied（預約入住的租約生效後房間仍是空房）。每日 `_cron_expire_ended_leases()` 最後會對所有 vacant／occupied 房間跑一次。
 
 ### ggandy.owner.contract（房東合約）
 
@@ -93,14 +93,18 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
       amount = max(collected − fee, 0)
 ```
 
-`_cron_create_owner_vendor_bills`：今天 ≥ 當月結算日（短月取月底）且合約期間涵蓋當月 → 建 `in_invoice`；同合約同 `ggandy_settlement_period_start` 已有非取消帳單則跳過；金額 ≤ 0 不建立。
+`_cron_create_owner_vendor_bills`：今天 ≥ 當月結算日（短月取月底）且合約期間涵蓋當月 → `_create_owner_vendor_bill()`：同合約同 `ggandy_settlement_period_start` 已有非取消帳單則跳過；金額 ≤ 0 不建立；否則 `_create_settlement_bill(period_start, period_end, amount, label)` 建 `in_invoice`（不做重複檢查，補付也用它）。
+
+**代管重新計算**（依帳單月份）：Vendor Bill header「重新計算代管結算」→ `account.move.action_ggandy_recompute_owner_settlement()` → `contract._recompute_settlement_bill(bill)`：重算 `_get_owner_settlement_amount()`，扣掉同月其他非取消帳單（含之前的補付）的 `amount_untaxed`。帳單 draft → 改唯一一行 product line 的 `price_unit`（多行就 `UserError`，請手動改）；posted → 差額 > 0 另開「YYYY-MM 代管房東結算補付」帳單（同 `ggandy_settlement_period_start`，總表自動加總），≤ 0 只通知。只有代管合約顯示按鈕（related `ggandy_owner_contract_type`）。
 
 ### ggandy.lease（房客租約）
 
 狀態：`draft → active → expired / terminated`，`draft → cancelled`，`→ draft`（無已過帳帳單才可），`expired → active`（續約）。
 
-- **自動到期**：`_cron_expire_ended_leases()`（每日）把 `active` 且 `end_date < today` 的租約改 `expired`、`message_post`、`_refresh_unit_state()`。因此「已到期」的租約仍要參與收款與抄表：`_get_overdue_domain`、`_cron_create_due_invoices`、租金期次搜尋的逾期／待抄表篩選用 `state in (active, expired)`；`_find_unit_month_schedule`、`_sync_utility_settings_to_schedules` 用 `(draft, active, expired)`。
-- **續約**：`action_open_renew_wizard()` → `ggandy.lease.renew.wizard`（`models/lease_renew_wizard.py`，TransientModel）。延長同一份租約，不另建租約：檢查新結束日 > 舊結束日、同房間沒有 draft/active 租約起租日落在 `(舊結束日, 新結束日]` → `write(end_date, rent_amount, management_fee[, state=active])` → `_refresh_unit_state()` → `auto_generate_schedule` 時 `_generate_rent_schedule(from_date=舊結束日 + 1)` → `message_post` → `_cron_create_due_invoices()`。三個預設值各自一個 compute（store、readonly=False）：共用同一個 compute 時，create 只帶其中一個，其他的就不會被算出來。
+- **生效**：`action_activate()` 改 active → `_generate_rent_schedule()` → `_refresh_unit_state()` → `self.schedule_ids._create_due_invoices()`（只開這份租約的帳單，不再呼叫全域 cron）。
+- **提前終止**：`action_open_terminate_wizard()` → `ggandy.lease.terminate.wizard`（`models/lease_terminate_wizard.py`，預設終止日 = 今天，顯示會刪除的期次數）→ `action_terminate(termination_date)`：只接受 active、終止日須在租期內；刪除 `period_start > 終止日` 且沒有 `invoice_id` 的期次，寫 `state=terminated`、`termination_date`，`message_post`，`_refresh_unit_state()`。終止日所在期次不重算。
+- **自動到期**：`_cron_expire_ended_leases()`（每日）把 `active` 且 `end_date < today` 的租約改 `expired`、`message_post`，最後對所有 vacant／occupied 房間 `_refresh_from_active_leases()`。因此「已到期」的租約仍要參與收款與抄表：`_get_overdue_domain`、`_cron_create_due_invoices`、租金期次搜尋的逾期／待抄表篩選用 `state in (active, expired)`；`_find_unit_month_schedule`、`_sync_utility_settings_to_schedules` 用 `(draft, active, expired)`。
+- **續約**：`action_open_renew_wizard()` → `ggandy.lease.renew.wizard`（`models/lease_renew_wizard.py`，TransientModel）。延長同一份租約，不另建租約：檢查新結束日 > 舊結束日、同房間沒有 draft/active 租約起租日落在 `(舊結束日, 新結束日]` → `write(end_date, rent_amount, management_fee[, state=active])` → `_refresh_unit_state()` → `auto_generate_schedule` 時 `_generate_rent_schedule(from_date=舊結束日 + 1)` → `message_post` → `lease.schedule_ids._create_due_invoices()`。三個預設值各自一個 compute（store、readonly=False）：共用同一個 compute 時，create 只帶其中一個，其他的就不會被算出來。
 - **待續約**：`has_next_lease`（非 stored，`_search_has_next_lease` 用 SQL `EXISTS`：同 `unit_id`、`active`、`state in (draft, active)`、`start_date > 本租約 end_date`；Odoo 19 boolean 搜尋會正規化成 `in` / `not in`）、`days_to_end`（非 stored）、`tenant_phone`（related）。`action_ggandy_lease_renewal` domain `state in (active, expired) and has_next_lease = False`，預設 `search_default_ending_30`；list `view_ggandy_lease_renewal_list`（priority 20，不影響「房客租約」選單）。Telegram `/renew`、`/status` 的到期數也排除 `has_next_lease`。
 
 房客：`tenant_id`、`co_tenant_ids` domain 都是 `is_ggandy_tenant = True`（view context `default_is_ggandy_tenant`，就地新建的聯絡人會勾好）。
@@ -165,7 +169,10 @@ for 每個月 month_cursor（first_date 月 ~ end_date 月）:
 - **鎖定與同步**：帳單已過帳時改水電欄位 → `UserError`；帳單是草稿時 `_sync_draft_invoice_utility_lines()` 以產品比對更新／新增／刪除水電行。
 - `@api.constrains`：curr 不可小於 prev（換錶要手動改 prev）。
 - `_get_unpaid_domain()`、`_get_overdue_domain()`：共用的 domain，Telegram 也用。
-- `_cron_create_due_invoices`：`invoice_id = False`、`period_start <= today`、租約 active 或 expired → `action_create_invoice()`。
+- `_cron_create_due_invoices`：租約 active 或 expired 的期次 → `_create_due_invoices()`（recordset 方法：`invoice_id = False`、`period_start <= today` → `action_create_invoice()`，逐筆 try/except）。
+- `EFFECTIVE_LEASE_STATES = (active, expired, terminated)` 與 `_get_effective_domain()`：會算進應收與收入的期次。物件「本月收入概覽」（`current_schedule_ids` 再 filter）、Telegram `/status`（依 `period_start` 月份）、帳務總表 SQL 都用這組狀態。
+- **登記收款** `action_register_rent_payment()`（期次 list header，`groups=account.group_account_invoice`）：拒絕非有效租約的期次 → 沒開單的 `action_create_invoice()` → 草稿帳單 `action_post()` → 未付清（排除 paid / in_payment / reversed）的帳單 `action_register_payment()` 回傳原生 `account.payment.register` action。設計是「帳單平常維持草稿、收款時才過帳」。
+- **逾期活動結案**：`account.move._invoice_paid_hook()`（Odoo 在帳單變 paid / in_payment 時呼叫）→ sudo 找對應期次 → `_close_overdue_activities()` 把摘要「逾期租金待處理」的活動 `action_feedback`。
 - `_cron_create_overdue_rent_activities`：符合 overdue domain → 建 `mail.mail_activity_data_todo` 活動（摘要「逾期租金待處理」，同人同期次不重複），指派給物件 `manager_id` → 租約建立者 → 目前使用者。
 
 ### ggandy.maintenance.request（報修單）
@@ -188,26 +195,28 @@ for 每個月 month_cursor（first_date 月 ~ end_date 月）:
 ### ggandy.accounting.overview（帳務總表）
 
 - **`_auto = False` + `_table_query`**（2026-10-11 由「實體表 + 每日排程建列 + 非 stored compute」改寫）：沒有資料表、沒有 cron、不需要手動更新；所有欄位都是 SQL 欄位，所以 `read_group` 可以分組加總（list 依物件分組有小計），也能做樞紐分析／圖表。`init()` 只負責把改版前留下的實體表 `DROP TABLE ... CASCADE`。舊 cron 用 `data/accounting_cron.xml` 的 `<delete search=...>` 移除。
-- 列的範圍：每個 `active` 房間，從 `least(房間 create_date 月, 該房間非 cancelled 租約最早 start_date 月)` 到 `CURRENT_DATE` 當月（`generate_series`）。封存的房間不出現。
+- 只呈現房客、房東的租金收付（2026-10-12 拿掉採購費用；整備與報修成本刻意不進總表），金額一律未稅。
+- 列的範圍：每個 `active` 房間，從 `least(房間 create_date 月, 該房間有效租約（active/expired/terminated）最早 start_date 月)` 到 `CURRENT_DATE` 當月（`generate_series`）。封存的房間不出現。
 - `id = unit_id * 2000 + (年 − 2000) * 12 + 月`（穩定、int4）。`_depends` 列出來源 model 欄位，同一交易內改到來源資料時 ORM 會失效快取。
 - access 只讀（user / manager 都是 1,0,0,0），list / form `create="0" edit="0" delete="0"`。
 - 計算（與改版前 Python 逐列比對 94 列完全一致）：
 
 ```text
-rent_receivable  = Σ 本房間 period_start 在當月的期次 total_amount（未排除 cancelled 租約，見 TODO）
-rent_collected   = Σ 這些期次 invoice：posted 才算，sign × max(amount_total − amount_residual, 0)，refund sign = −1
+rent_receivable  = Σ 本房間 period_start 在當月、租約 active/expired/terminated 的期次 total_amount
+paid_ratio       = max(amount_total − amount_residual, 0) / amount_total（amount_total = 0 不算）
+rent_collected   = Σ 這些期次 invoice：posted 才算，sign × amount_untaxed × paid_ratio，refund sign = −1
 contract         = 物件當月有交集、state=active、start_date desc, id desc 的第一份房東合約
 ratio            = 本房間 monthly_rent / 物件所有 active 房間 monthly_rent 合計（合計為 0 → 1/房間數）
-owner_payable    = Σ 該合約、ggandy_settlement_period_start = 當月 1 號、in_invoice/in_refund、非 cancel 的 sign × amount_total × ratio
-owner_paid       = 同一批帳單 posted 的已付金額 × ratio
-purchase_cost    = Σ 歸屬本物件+本房間、kind=purchase、invoice_date 在月內、非 cancel 的 sign × amount_total
+owner_payable    = Σ 該合約、ggandy_settlement_period_start = 當月 1 號、in_invoice/in_refund、非 cancel 的 sign × amount_untaxed × ratio（含補付帳單）
+owner_paid       = 同一批帳單 posted 的 amount_untaxed × paid_ratio × ratio
 rent_uncollected = max(receivable − collected, 0)；owner_unpaid = max(payable − paid, 0)
-net_cash_flow    = collected − owner_paid − purchase_cost（2026-10-11 起不含押金、員工代墊）
+expected_profit  = receivable − owner_payable（預計賺）
+earned_profit    = collected − owner_paid（已經賺到）
 has_*            = 上面數字的 SQL 布林欄位，原生可搜尋
 ```
 
 - 欄位名稱：應付房東（`owner_payable`）、已付房東（`owner_paid`）、待付房東（`owner_unpaid`）。押金（`tenant_deposit`）、員工代墊（`employee_advance`）、備註（`note`）已移除；Vendor Bill 上的「公司員工代墊」費用類型仍可標記，只是不進總表。
-- list 只在單一欄位上色：`rent_collected` warning（`rent_uncollected > 0`）、`owner_paid` warning（`owner_unpaid > 0`）、`net_cash_flow` danger（< 0）。action 預設 `search_default_current_month` + `search_default_group_property`。
+- list 只在單一欄位上色：`rent_collected` warning（`rent_uncollected > 0`）、`owner_paid` warning（`owner_unpaid > 0`）、`earned_profit` danger（< 0）。action 預設 `search_default_current_month` + `search_default_group_property`。
 - GGandy帳務選單：營運總表（10）、逾期未收（20，`ggandy.rent.schedule` + `search_default_overdue` + 依物件分組；租金期次 list 的金額欄都有 `sum`）、待付房東（30，`account.move` in_invoice 且有 `ggandy_owner_contract_id`，`search_default_open`，限 `account.group_account_invoice`）。
 
 ### Google Sheet 匯入（TransientModel）

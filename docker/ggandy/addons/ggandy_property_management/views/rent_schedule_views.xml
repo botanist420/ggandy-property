@@ -34,6 +34,10 @@
         <field name="model">ggandy.rent.schedule</field>
         <field name="arch" type="xml">
             <list string="租金期次" decoration-danger="collection_state == 'overdue'" decoration-success="collection_state == 'paid'">
+                <header>
+                    <button name="action_register_rent_payment" type="object" string="登記收款" class="btn-primary"
+                            groups="account.group_account_invoice"/>
+                </header>
                 <field name="name"/>
                 <field name="property_id"/>
                 <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>

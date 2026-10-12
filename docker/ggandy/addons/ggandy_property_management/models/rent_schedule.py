@@ -12,6 +12,10 @@ from .property_unit import ELECTRICITY_BILLING_TYPES, UTILITY_KINDS, WATER_BILLI
 
 _logger = logging.getLogger(__name__)
 
+# 會算進應收與收入的期次：租約生效中、已到期或提前終止；草稿還沒生效、取消的不算。
+# 帳務總表的 SQL 也用同一組狀態，改這裡要一起改 accounting_overview.py。
+EFFECTIVE_LEASE_STATES = ("active", "expired", "terminated")
+
 UTILITY_LABELS = {"electricity": "電費", "water": "水費"}
 UTILITY_PRODUCT_XMLIDS = {
     "electricity": "ggandy_property_management.product_product_electricity",
@@ -244,6 +248,11 @@ class GgandyRentSchedule(models.Model):
         help="系統依帳單與付款狀態判斷：未開單、草稿、待收款、部分收款、已收款、已逾期或已取消。沒有發票先算未開單；過期又沒收齊，就會被標成已逾期。",
     )
     note = fields.Text(string="備註")
+
+    @api.model
+    def _get_effective_domain(self):
+        """物件收入概覽、Telegram 本月應收共用的期次條件，和帳務總表一致。"""
+        return [("lease_id.state", "in", EFFECTIVE_LEASE_STATES)]
 
     @api.model
     def _get_unpaid_domain(self):
@@ -580,15 +589,12 @@ class GgandyRentSchedule(models.Model):
 
     @api.model
     def _cron_create_due_invoices(self):
+        self.search([("lease_id.state", "in", ("active", "expired"))])._create_due_invoices()
+
+    def _create_due_invoices(self):
+        """替這批期次裡、計費開始日已到且還沒開單的開立帳單；單筆失敗不影響其他筆。"""
         today = fields.Date.context_today(self)
-        schedules = self.search(
-            [
-                ("invoice_id", "=", False),
-                ("period_start", "<=", today),
-                ("lease_id.state", "in", ("active", "expired")),
-            ]
-        )
-        for schedule in schedules:
+        for schedule in self.filtered(lambda item: not item.invoice_id and item.period_start <= today):
             try:
                 schedule.action_create_invoice()
             except Exception:
@@ -632,6 +638,42 @@ class GgandyRentSchedule(models.Model):
                     "user_id": user.id,
                 }
             )
+
+    def action_register_rent_payment(self):
+        """勾選的期次一次登記收款：還沒開單的先開單、草稿帳單先確認（過帳），再開 Odoo 原生的「付款」視窗。
+
+        帳單平常維持草稿，抄表、調整都還能改；房客付了錢才正式過帳。
+        """
+        if not self:
+            raise UserError("請先勾選要登記收款的租金期次。")
+        not_effective = self.filtered(lambda schedule: schedule.lease_id.state not in EFFECTIVE_LEASE_STATES)
+        if not_effective:
+            raise UserError(
+                "草稿或已取消租約的期次不能收款，請先讓租約生效：\n"
+                + "\n".join(not_effective.mapped("display_name"))
+            )
+        for schedule in self.filtered(lambda item: not item.invoice_id):
+            schedule.action_create_invoice()
+        invoices = self.invoice_id.filtered(lambda move: move.state != "cancel")
+        invoices.filtered(lambda move: move.state == "draft").action_post()
+        to_pay = invoices.filtered(
+            lambda move: move.state == "posted" and move.payment_state not in ("paid", "in_payment", "reversed")
+        )
+        if not to_pay:
+            raise UserError("勾選的期次都已經收款了。")
+        return to_pay.action_register_payment()
+
+    def _close_overdue_activities(self):
+        """收款後把「逾期租金待處理」活動標成完成，免得待辦越積越多。"""
+        activities = self.env["mail.activity"].sudo().search(
+            [
+                ("res_model", "=", self._name),
+                ("res_id", "in", self.ids),
+                ("summary", "=", "逾期租金待處理"),
+            ]
+        )
+        if activities:
+            activities.action_feedback(feedback="已收款，系統自動結案。")
 
     def action_open_invoice(self):
         self.ensure_one()

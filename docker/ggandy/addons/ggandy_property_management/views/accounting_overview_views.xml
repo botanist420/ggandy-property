@@ -16,8 +16,7 @@
                 <separator/>
                 <filter name="uncollected_rent" string="租金未收" domain="[('has_uncollected_rent', '=', True)]"/>
                 <filter name="owner_unpaid" string="待付房東" domain="[('has_owner_unpaid', '=', True)]"/>
-                <filter name="negative_cash_flow" string="現金流為負" domain="[('has_negative_cash_flow', '=', True)]"/>
-                <filter name="has_costs" string="有成本" domain="[('has_costs', '=', True)]"/>
+                <filter name="negative_earned" string="已經賺到為負" domain="[('has_negative_earned', '=', True)]"/>
                 <group>
                     <filter name="group_period" string="月份" context="{'group_by': 'period_start:month'}"/>
                     <filter name="group_property" string="物件" context="{'group_by': 'property_id'}"/>
@@ -41,8 +40,8 @@
                 <field name="rent_collected" sum="租金實收" decoration-warning="rent_uncollected &gt; 0"/>
                 <field name="owner_payable" sum="應付房東"/>
                 <field name="owner_paid" sum="已付房東" decoration-warning="owner_unpaid &gt; 0"/>
-                <field name="purchase_cost" sum="採購費用"/>
-                <field name="net_cash_flow" sum="現金流小計" decoration-danger="net_cash_flow &lt; 0"/>
+                <field name="expected_profit" sum="預計賺"/>
+                <field name="earned_profit" sum="已經賺到" decoration-danger="earned_profit &lt; 0"/>
                 <field name="rent_uncollected" column_invisible="True"/>
                 <field name="owner_unpaid" column_invisible="True"/>
                 <field name="currency_id" column_invisible="True"/>
@@ -85,8 +84,8 @@
                             <field name="owner_payable"/>
                             <field name="owner_paid"/>
                             <field name="owner_unpaid"/>
-                            <field name="purchase_cost"/>
-                            <field name="net_cash_flow"/>
+                            <field name="expected_profit"/>
+                            <field name="earned_profit"/>
                         </group>
                     </group>
                 </sheet>
