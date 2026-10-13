@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
     版本資訊頁內容。
-    發版時在 <ol> 最上面加一個 <li class="o_ggandy_release">，把「最新」徽章移到新版本，並把 __manifest__.py 版本號 +1。
+    每週更新一次：把這一週使用者看得到的變化併成一版，在 <ol> 最上面加一個 <li class="o_ggandy_release">，
+    把「最新」徽章移到新版本，並把 __manifest__.py 版本號 +1。
     每條重點用 o_ggandy_release_tag_new（新功能）／_improve（改善）／_fix（修正）。
     「Lucas 碎碎念」（o_ggandy_release_mood）只放 Lucas 自己提供的內容。
 -->
@@ -10,6 +11,10 @@
         <div class="o_ggandy_release_notes h-100 overflow-auto">
             <div class="o_ggandy_release_page">
                 <h1 class="o_ggandy_release_heading">版本資訊</h1>
+                <div class="o_ggandy_release_cadence">
+                    <i class="fa fa-coffee" role="img" title="更新頻率"/>
+                    <span>更新頻率看心情：沒在 dating、手邊也沒在忙的時候，大概一週更新一次。</span>
+                </div>
 
                 <section class="o_ggandy_release_intro">
                     <div class="o_ggandy_release_intro_title">
@@ -37,6 +42,7 @@
                             <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>物件列表可切換成卡片，看得到出租率進度條；用手機打開物件，預設就是卡片。</span></li>
                             <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>營運總表可切換樞紐分析與圖表；收租明細也能用樞紐分析看各物件每月應收。</span></li>
                             <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>房間列表多了「目前房客」與「租期結束」。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>換上全新設計的 GGAndy 圖示。</span></li>
                             <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>就是這一頁「版本資訊」，之後每次更新都會寫在這裡。</span></li>
                         </ul>
                     </li>

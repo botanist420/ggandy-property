@@ -125,7 +125,7 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 - Odoo 19 語法：view 用 `<list>`（不是 `<tree>`）、`invisible="..."` / `readonly="..."` 表達式（不是 `attrs`）、kanban 用 `<t t-name="card">`、settings 用 `<app>/<block>/<setting>`。
 - 新增 view / data 檔案要加到 `__manifest__.py` 的 `data`（順序：security → data → views → menu；`accounting_overview_views.xml` 在 `menu_views.xml` 之後，因為它引用 `menu_ggandy_root`）。
 - 新增 model 檔案要加到 `models/__init__.py`。
-- 有使用者看得到的變化就更新「整合工具 → 版本資訊」：在 `static/src/release_notes/release_notes.xml` 最上面補一版（或併入當天那一版），並把 manifest 版本號 +1；寫法見 `notebook/docs/architecture.md`「版本資訊頁」。
+- 「整合工具 → 版本資訊」**每週更新一次**：把這一週使用者看得到的變化併成一版，加在 `static/src/release_notes/release_notes.xml` 最上面，並把 manifest 版本號 +1（平常改功能不用每次都動它）；寫法見 `notebook/docs/architecture.md`「版本資訊頁」。
 - 外部 Python 套件要加到 `docker/ggandy/config/requirements.txt`（容器啟動時由 `entrypoint.sh` pip install），並在程式內延遲 import + 友善錯誤訊息（參考 `_read_google_sheet_csv`）。
 
 ## 注意事項
