@@ -71,11 +71,11 @@
                     <button name="action_activate" type="object" string="合約生效" class="btn-primary" invisible="state != 'draft'"/>
                     <button name="action_create_current_month_bill" type="object" string="開立本月房東帳單" invisible="state != 'active'"
                             groups="account.group_account_invoice"
-                            help="還沒到結算日也可以先開這個月的房東帳單（保底租金或代管實收，加上管理費、網路第四台、電費、水費）。這個月已經有帳單時會直接打開那張，一個月只會有一張。"/>
+                            help="還沒到房東匯款日也可以先開這個月的房東帳單（保底租金或代管實收，加上管理費、網路第四台、電費、水費）。這個月已經有帳單時會直接打開那張，一個月只會有一張。"/>
                     <button name="action_open_bill_backfill_wizard" type="object" string="補開歷史房東帳單"
                             invisible="state != 'active' or not has_missing_past_bills"
                             groups="account.group_account_invoice"
-                            help="合約從過去的月份起算時，一次補開合約開始到這次結算日之前、還沒開的房東帳單（草稿）。"/>
+                            help="合約從過去的月份起算時，一次補開合約開始到這次房東匯款日之前、還沒開的房東帳單（草稿）。"/>
                     <field name="has_missing_past_bills" invisible="1"/>
                     <button name="action_mark_expired" type="object" string="標記到期" invisible="state != 'active'"/>
                     <button name="action_terminate" type="object" string="提前終止" confirm="確定要提前終止這份房東合約？" invisible="state != 'active'"/>
@@ -97,9 +97,13 @@
                     </div>
                     <group>
                         <group string="簽約資訊">
-                            <field name="contract_type" widget="radio" readonly="state != 'draft'"/>
-                            <field name="property_id" readonly="state != 'draft'"/>
-                            <field name="owner_id" context="{'default_is_ggandy_owner': True}" readonly="state != 'draft'"/>
+                            <!-- 從物件「新增房東合約」進來：物件、房東、合約類型照物件帶入並鎖定（物件沒填的才讓人選） -->
+                            <field name="contract_type" widget="radio" force_save="1"
+                                   readonly="state != 'draft' or (context.get('ggandy_from_property') and context.get('default_contract_type'))"/>
+                            <field name="property_id" force_save="1"
+                                   readonly="state != 'draft' or context.get('ggandy_from_property')"/>
+                            <field name="owner_id" context="{'default_is_ggandy_owner': True}" force_save="1"
+                                   readonly="state != 'draft' or (context.get('ggandy_from_property') and context.get('default_owner_id'))"/>
                             <field name="manager_id" widget="many2one_avatar_user"/>
                         </group>
                         <group string="合約期間">
@@ -112,7 +116,7 @@
                     </group>
                     <group string="包租條件" invisible="contract_type != 'master_lease'">
                         <group>
-                            <field name="guaranteed_rent" readonly="state != 'draft'"/>
+                            <field name="guaranteed_rent" readonly="state != 'draft'" default_focus="1"/>
                             <field name="owner_deposit" readonly="state != 'draft'"/>
                         </group>
                         <group>

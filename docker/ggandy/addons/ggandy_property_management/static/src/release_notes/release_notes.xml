@@ -45,6 +45,7 @@
                             <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>換上全新設計的 GGAndy 圖示。</span></li>
                             <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>房東合約從過去的月份起算時，可以一次補開歷史房東帳單（草稿），每月的保底、管理費、水電都會帶入；合約生效時會自動詢問。</span></li>
                             <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>Lucas統計標清楚哪些數字是純租金、哪些是整張帳單（含管理費、水電），平均月租的說明也補上中位數。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>補開房東帳單精靈分欄列出管理費、網路第四台、電費、水費（0 元也看得到），按錯生效可直接「退回草稿」；從物件新增房東合約時，物件、房東、合約類型自動帶入並鎖定，游標直接停在保底租金；「結算日」統一叫「房東匯款日」。</span></li>
                             <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>就是這一頁「版本資訊」，之後每次更新都會寫在這裡。</span></li>
                         </ul>
                     </li>

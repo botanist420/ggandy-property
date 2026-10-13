@@ -82,10 +82,10 @@ class GgandyOwnerContract(models.Model):
         help="房東合約最後一天。若結束日早於本月起始，系統不會再建立該合約的結算單。",
     )
     owner_payment_day = fields.Integer(
-        string="每月房東付款／結算日",
+        string="房東匯款日",
         default=10,
         required=True,
-        help="每月第幾號自動開房東帳單（1–31），短月用月底。",
+        help="每月幾號匯款給房東（1–31，小月遇到 29–31 號就用月底）。系統會在這天自動開當月房東帳單；補開過去月份時，帳單日期也用這天。",
     )
 
     guaranteed_rent = fields.Monetary(
@@ -162,7 +162,7 @@ class GgandyOwnerContract(models.Model):
     has_missing_past_bills = fields.Boolean(
         string="有過去月份沒開房東帳單",
         compute="_compute_has_missing_past_bills",
-        help="合約開始到這次結算日之前，有月份還沒開房東帳單（例如合約從過去的月份起算）。",
+        help="合約開始到這次房東匯款日之前，有月份還沒開房東帳單（例如合約從過去的月份起算）。",
     )
 
     @api.model_create_multi
@@ -213,7 +213,7 @@ class GgandyOwnerContract(models.Model):
     def _check_owner_payment_day(self):
         for record in self:
             if not 1 <= record.owner_payment_day <= 31:
-                raise ValidationError("每月房東付款／結算日必須介於 1 到 31。")
+                raise ValidationError("房東匯款日必須介於 1 到 31。")
 
     @api.constrains("guaranteed_rent", "owner_deposit", "fee_rate", "fixed_fee")
     def _check_amounts(self):
@@ -311,6 +311,17 @@ class GgandyOwnerContract(models.Model):
                 periods.append((month_start, month_end))
             month_start += relativedelta(months=1)
         return periods
+
+    def _revert_to_draft(self):
+        """補開精靈的「退回草稿」：按錯「合約生效」時用；已經開了房東帳單就不行。"""
+        self.ensure_one()
+        if self.state != "active":
+            raise UserError("只有生效中的房東合約可以退回草稿。")
+        if self.vendor_bill_ids.filtered(lambda move: move.state != "cancel"):
+            raise UserError("已經開了房東帳單，請先取消帳單再退回草稿。")
+        self.write({"state": "draft"})
+        self.message_post(body="從補開房東帳單精靈退回草稿。")
+        return True
 
     def action_open_bill_backfill_wizard(self):
         self.ensure_one()
@@ -519,40 +530,53 @@ class GgandyOwnerContract(models.Model):
         bill.message_post(body=f"重新計算房東帳單：{currency}{old_amount:,.0f} → {currency}{total:,.0f}。")
         return f"已更新為 {currency}{total:,.0f}。"
 
-    def _get_owner_settlement_lines(self, period_start, period_end, summary=None):
-        """房東帳單的明細 [(說明, 金額), ...]，0 元的不列。
+    def _get_owner_settlement_breakdown(self, period_start, period_end, summary=None):
+        """房東帳單各項金額（含 0 元），補開精靈分欄顯示、帳單明細都從這裡來。
 
         包租：保底租金；代管：已收到的租金扣代管費。再加上物件該月收租概覽的
         管理費、網路第四台、電費、水費，原封不動轉付給房東；最後是合約上這個月的帳單調整項（可為負數）。
         summary 可以傳物件頁上還沒存檔的概覽（例如剛改網路第四台），沒傳就重新算。
         """
         self.ensure_one()
-        period_label = period_start.strftime("%Y-%m")
         if self.contract_type == "master_lease":
-            lines = [(f"{self.name} {period_label} 包租保底租金", self.guaranteed_rent)]
+            base_label, base = "包租保底租金", self.guaranteed_rent
         else:
             rent_collected = self._get_agency_collected_rent(period_start, period_end)
             if self.fee_type == "percentage":
                 management_fee = rent_collected * self.fee_rate / 100.0
             else:
                 management_fee = self.fixed_fee if rent_collected else 0.0
-            lines = [
-                (f"{self.name} {period_label} 代管實收租金扣代管費", max(rent_collected - management_fee, 0.0))
-            ]
+            base_label, base = "代管實收租金扣代管費", max(rent_collected - management_fee, 0.0)
         if summary is None:
             summary = self.property_id._get_month_summary(period_start)
-        lines += [
-            (f"{period_label} 管理費（代收轉付）", summary["management_fee"]),
-            (f"{period_label} 網路第四台（代收轉付）", summary["internet"]),
-            (f"{period_label} 電費（代收轉付）", summary["electricity"]),
-            (f"{period_label} 水費（代收轉付）", summary["water"]),
+        return {
+            "base_label": base_label,
+            "base": base,
+            "management_fee": summary["management_fee"],
+            "internet": summary["internet"],
+            "electricity": summary["electricity"],
+            "water": summary["water"],
+            "adjustments": [
+                (adjustment.name, adjustment.amount)
+                for adjustment in self.adjustment_ids.filtered(
+                    lambda item: item.period_start == period_start
+                ).sorted("id")
+            ],
+        }
+
+    def _get_owner_settlement_lines(self, period_start, period_end, summary=None):
+        """房東帳單的明細 [(說明, 金額), ...]，0 元的不列；順序：保底／代管款、管理費、網路第四台、電費、水費、調整。"""
+        self.ensure_one()
+        period_label = period_start.strftime("%Y-%m")
+        breakdown = self._get_owner_settlement_breakdown(period_start, period_end, summary=summary)
+        lines = [
+            (f"{self.name} {period_label} {breakdown['base_label']}", breakdown["base"]),
+            (f"{period_label} 管理費（代收轉付）", breakdown["management_fee"]),
+            (f"{period_label} 網路第四台（代收轉付）", breakdown["internet"]),
+            (f"{period_label} 電費（代收轉付）", breakdown["electricity"]),
+            (f"{period_label} 水費（代收轉付）", breakdown["water"]),
         ]
-        lines += [
-            (f"{period_label} 調整：{adjustment.name}", adjustment.amount)
-            for adjustment in self.adjustment_ids.filtered(
-                lambda item: item.period_start == period_start
-            ).sorted("id")
-        ]
+        lines += [(f"{period_label} 調整：{name}", amount) for name, amount in breakdown["adjustments"]]
         return [(label, amount) for label, amount in lines if amount]
 
     def _get_agency_collected_rent(self, period_start, period_end):

@@ -8,7 +8,7 @@
                 <div class="o_ggandy_hint">
                     <i class="fa fa-info-circle" role="img" title="說明"/>
                     <div>
-                        <div>合約從 <strong><field name="start_month_label" class="d-inline"/></strong> 開始，下面是結算日已過、還沒開房東帳單的月份。</div>
+                        <div>合約從 <strong><field name="start_month_label" class="d-inline"/></strong> 開始，下面是房東匯款日已過、還沒開房東帳單的月份。</div>
                         <div>建立的都是草稿，金額之後還能在帳單上改或「重新計算房東帳單」。</div>
                     </div>
                 </div>
@@ -19,8 +19,13 @@
                         <field name="selected" widget="boolean_toggle" width="70px"/>
                         <field name="month_label" force_save="1" width="100px"/>
                         <field name="invoice_date" force_save="1" width="110px"/>
-                        <field name="amount_total" force_save="1" sum="合計" width="130px"/>
-                        <field name="detail" force_save="1"/>
+                        <field name="base_amount" force_save="1" sum="合計"/>
+                        <field name="management_fee" force_save="1" sum="合計"/>
+                        <field name="internet_fee" force_save="1" sum="合計"/>
+                        <field name="electricity_amount" force_save="1" sum="合計"/>
+                        <field name="water_amount" force_save="1" sum="合計"/>
+                        <field name="adjustment_amount" force_save="1" sum="合計"/>
+                        <field name="amount_total" force_save="1" sum="合計" class="fw-bold"/>
                         <field name="period_start" force_save="1" column_invisible="True"/>
                         <field name="period_end" force_save="1" column_invisible="True"/>
                         <field name="currency_id" column_invisible="True"/>
@@ -29,6 +34,8 @@
                 <footer>
                     <button name="action_create_bills" type="object" string="建立草稿帳單" class="btn-primary" data-hotkey="q"/>
                     <button string="先不要" special="cancel" class="btn-secondary" data-hotkey="x"/>
+                    <button name="action_revert_contract_to_draft" type="object" string="退回草稿" class="btn-secondary"
+                            confirm="確定要把這份房東合約退回草稿？退回後可以修改合約內容，再重新按「合約生效」。"/>
                 </footer>
             </form>
         </field>

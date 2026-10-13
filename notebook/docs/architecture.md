@@ -81,7 +81,7 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | --- | --- |
 | `owner_id` | 簽約房東，domain `is_ggandy_owner = True`（view context `default_is_ggandy_owner`，就地新建的聯絡人會勾好） |
 | `contract_type` | master_lease（包租）/ agency（代管） |
-| `owner_payment_day` | 每月結算日（1–31，預設 10，或從物件帶入） |
+| `owner_payment_day` | 房東匯款日＝每月結算日（1–31，預設 10，或從物件帶入） |
 | `guaranteed_rent` | 包租保底租金（生效前必填 > 0） |
 | `fee_type` / `fee_rate` / `fixed_fee` | 代管費：百分比（填 10 = 10%）或每月固定金額 |
 | `owner_deposit` | 公司付給房東的押金（僅記錄，不進結算） |
@@ -103,7 +103,7 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 
 **一個月一張房東帳單**：`_create_owner_vendor_bill()` 同合約同月份已有非取消帳單就直接回傳那張。合約 header「開立本月房東帳單」→ `action_create_current_month_bill()`（active、合約期間涵蓋本月、`groups=account.group_account_invoice`）走同一個方法，回傳帳單 form；之後排程到結算日會看到已有帳單而略過。
 
-**補開歷史房東帳單**：`_get_missing_bill_periods(today=None)` 從合約開始月逐月往後，取結算日（`_get_settlement_date()`：`owner_payment_day`，短月取月底）≤ 今天、且不超過合約結束的月份，排除已有非取消帳單與應付 ≤ 0 的月份。`action_activate()` 單筆生效後有缺月份就回傳 `action_open_bill_backfill_wizard()`；合約 header「補開歷史房東帳單」用非儲存 compute `has_missing_past_bills` 控制顯示（`groups=account.group_account_invoice`）。精靈 `ggandy.owner.bill.backfill.wizard`（＋ `.line`，`models/owner_bill_backfill_wizard.py`）在 `default_get` 列出缺的月份與試算明細，`action_create_bills()` 對勾選月份呼叫 `_create_owner_vendor_bill(start, end, invoice_date=該月結算日)`，一律草稿；明細欄位 readonly 所以 view 要 `force_save="1"`。`_create_owner_vendor_bill` / `_create_settlement_bill` 的 `invoice_date` 預設今天，cron 行為不變。
+**補開歷史房東帳單**：`_get_missing_bill_periods(today=None)` 從合約開始月逐月往後，取結算日（`_get_settlement_date()`：`owner_payment_day`，短月取月底）≤ 今天、且不超過合約結束的月份，排除已有非取消帳單與應付 ≤ 0 的月份。`action_activate()` 單筆生效後有缺月份就回傳 `action_open_bill_backfill_wizard()`；合約 header「補開歷史房東帳單」用非儲存 compute `has_missing_past_bills` 控制顯示（`groups=account.group_account_invoice`）。精靈 `ggandy.owner.bill.backfill.wizard`（＋ `.line`，`models/owner_bill_backfill_wizard.py`）在 `default_get` 列出缺的月份與試算明細，`action_create_bills()` 對勾選月份呼叫 `_create_owner_vendor_bill(start, end, invoice_date=該月結算日)`，一律草稿；明細欄位 readonly 所以 view 要 `force_save="1"`。明細分欄來自 `_get_owner_settlement_breakdown()`（保底／代管款、管理費、網路第四台、電費、水費、調整，含 0 元）；`_get_owner_settlement_lines()` 由它組出帳單明細，順序相同、0 元不列。精靈「退回草稿」→ `_revert_to_draft()`（限 active 且沒有未取消房東帳單），回傳 `soft_reload`。物件「新增房東合約」帶 `ggandy_from_property`，合約 form 的 `property_id` 一律鎖、`contract_type`／`owner_id` 在 context 有對應 default 時才鎖（都 `force_save`），`guaranteed_rent` 有 `default_focus`。`_create_owner_vendor_bill` / `_create_settlement_bill` 的 `invoice_date` 預設今天，cron 行為不變。
 
 **重新計算房東帳單**（包租、代管都適用，依帳單月份）：Vendor Bill header「重新計算房東帳單」（有 `ggandy_owner_contract_id` + `ggandy_settlement_period_start`、未取消才顯示）→ `account.move.action_ggandy_recompute_owner_bill()` → `contract._recompute_settlement_bill(bill)` 回傳訊息：draft → product lines 整批 unlink 後換成新明細（合計 ≤ 0 `UserError`）；posted → 不改帳單、不開新帳單，只回報重算合計與差額（sticky warning 通知）。
 

@@ -34,21 +34,24 @@ class GgandyOwnerBillBackfillWizard(models.TransientModel):
 
     @api.model
     def _prepare_line_values(self, contract, period_start, period_end):
-        period_label = period_start.strftime("%Y-%m")
-        lines = contract._get_owner_settlement_lines(period_start, period_end)
-        details = []
-        for label, amount in lines:
-            # 明細說明是「… 2026-05 電費（代收轉付）」，只留月份後面的項目名稱
-            name = label.split(f"{period_label} ", 1)[-1].replace("（代收轉付）", "")
-            details.append(f"{name} {amount:,.0f}")
+        breakdown = contract._get_owner_settlement_breakdown(period_start, period_end)
+        adjustment = sum(amount for _name, amount in breakdown["adjustments"])
+        amounts = {
+            "base_amount": breakdown["base"],
+            "management_fee": breakdown["management_fee"],
+            "internet_fee": breakdown["internet"],
+            "electricity_amount": breakdown["electricity"],
+            "water_amount": breakdown["water"],
+            "adjustment_amount": adjustment,
+        }
         return {
             "selected": True,
             "period_start": period_start,
             "period_end": period_end,
-            "month_label": period_label,
+            "month_label": period_start.strftime("%Y-%m"),
             "invoice_date": contract._get_settlement_date(period_start),
-            "detail": "／".join(details),
-            "amount_total": sum(amount for _label, amount in lines),
+            **amounts,
+            "amount_total": sum(amounts.values()),
         }
 
     @api.depends("contract_id.start_date")
@@ -79,6 +82,12 @@ class GgandyOwnerBillBackfillWizard(models.TransientModel):
             "context": {"default_move_type": "in_invoice"},
         }
 
+    def action_revert_contract_to_draft(self):
+        """按錯「合約生效」時，從精靈直接把合約退回草稿。"""
+        self.ensure_one()
+        self.contract_id._revert_to_draft()
+        return {"type": "ir.actions.client", "tag": "soft_reload"}
+
 
 class GgandyOwnerBillBackfillWizardLine(models.TransientModel):
     _name = "ggandy.owner.bill.backfill.wizard.line"
@@ -103,11 +112,28 @@ class GgandyOwnerBillBackfillWizardLine(models.TransientModel):
     invoice_date = fields.Date(
         string="帳單日期",
         readonly=True,
-        help="用那個月的房東結算日當帳單日期與到期日，會計才會記在正確的月份。",
+        help="用那個月的房東匯款日當帳單日期與到期日，會計才會記在正確的月份。",
     )
-    detail = fields.Char(
-        string="明細",
+    base_amount = fields.Monetary(
+        string="保底／代管款",
         readonly=True,
-        help="保底租金（或代管實收扣代管費）、代收轉付的管理費、網路第四台、電費、水費，以及那個月的帳單調整。",
+        help="包租是每月保底租金；代管是那個月已收到的房客租金扣掉代管費。",
+    )
+    management_fee = fields.Monetary(
+        string="管理費",
+        readonly=True,
+        help="那個月收租明細的管理費合計，代收轉付給房東；房客租約沒填管理費就是 0。",
+    )
+    internet_fee = fields.Monetary(
+        string="網路第四台",
+        readonly=True,
+        help="物件上的網路第四台金額，代收轉付給房東；用的是物件目前的金額。",
+    )
+    electricity_amount = fields.Monetary(string="電費", readonly=True, help="那個月收租明細的電費合計，代收轉付給房東。")
+    water_amount = fields.Monetary(string="水費", readonly=True, help="那個月收租明細的水費合計，代收轉付給房東。")
+    adjustment_amount = fields.Monetary(
+        string="調整",
+        readonly=True,
+        help="房東合約「帳單調整」分頁裡這個月的多付（正數）或少付（負數）合計。",
     )
     amount_total = fields.Monetary(string="應付合計", readonly=True)

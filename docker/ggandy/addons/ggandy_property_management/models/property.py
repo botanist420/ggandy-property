@@ -58,7 +58,7 @@ class GgandyProperty(models.Model):
     owner_payment_day = fields.Integer(
         string="房東匯款日",
         tracking=True,
-        help="每月幾號匯款給房東（1–31）。新增房東合約會帶入，之後改這裡也會同步生效中合約的結算日。",
+        help="每月幾號匯款給房東（1–31）。新增房東合約會帶入，之後改這裡也會同步到生效中的房東合約。",
     )
 
     owner_id = fields.Many2one(
@@ -239,7 +239,7 @@ class GgandyProperty(models.Model):
                 old_day = contract.owner_payment_day
                 contract.owner_payment_day = record.owner_payment_day
                 contract.message_post(
-                    body=f"房東匯款日改了，結算日由每月 {old_day} 號同步為 {record.owner_payment_day} 號。"
+                    body=f"房東匯款日由每月 {old_day} 號同步為 {record.owner_payment_day} 號。"
                 )
 
     @api.model
@@ -428,7 +428,8 @@ class GgandyProperty(models.Model):
             "res_model": "ggandy.owner.contract",
             "view_mode": "form",
             "target": "current",
-            "context": self._get_owner_contract_default_context(),
+            # 從物件新增：物件、房東、合約類型照物件帶入並鎖定
+            "context": {**self._get_owner_contract_default_context(), "ggandy_from_property": True},
         }
 
     def action_view_leases(self):
