@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 版本資訊：前端靜態頁，內容在 static/src/release_notes/release_notes.xml -->
+    <record id="action_ggandy_release_notes" model="ir.actions.client">
+        <field name="name">版本資訊</field>
+        <field name="tag">ggandy_release_notes</field>
+    </record>
+
+    <menuitem id="menu_ggandy_release_notes"
+              name="版本資訊"
+              parent="menu_ggandy_integrations"
+              action="action_ggandy_release_notes"
+              sequence="100"/>
+</odoo>

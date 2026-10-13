@@ -302,6 +302,14 @@ max_owner_rent         = (N×R×o×T − I) / (N×T)
 
 擴充模組新增設定時，繼承 `ggandy_property_management.res_config_settings_view_form_ggandy` 插 block，不要另開 `<app>`。
 
+### 版本資訊頁（client action）
+
+選單「整合工具 → 版本資訊」開 `ir.actions.client`（`action_ggandy_release_notes`，tag `ggandy_release_notes`），對應 OWL component `GgandyReleaseNotes`（`static/src/release_notes/release_notes.js`）。純前端靜態頁：沒有 model、不寫資料庫，內容全在 OWL 範本 `static/src/release_notes/release_notes.xml`，樣式是 `ggandy_backend.scss` 的 `.o_ggandy_release_notes`。
+
+- 發版時在時間軸 `<ol>` 最上面加一版，把「最新」徽章移過去，並把 `__manifest__.py` 版本號 +1（v1.9 對應 `19.0.1.9.0`）。
+- 每條重點用 `o_ggandy_release_tag_new`／`_improve`／`_fix`（新功能／改善／修正），用白話寫使用者能做什麼。
+- 每版最後的「Lucas 碎碎念」（`o_ggandy_release_mood`）只放 Lucas 自己提供的文字，不代寫。
+
 ## 3. Telegram 模組
 
 ```text

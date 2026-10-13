@@ -36,10 +36,13 @@
         "views/res_config_settings_views.xml",
         "views/menu_views.xml",
         "views/accounting_overview_views.xml",
+        "views/release_notes_views.xml",
     ],
     "assets": {
         "web.assets_backend": [
             "ggandy_property_management/static/src/scss/ggandy_backend.scss",
+            "ggandy_property_management/static/src/release_notes/release_notes.js",
+            "ggandy_property_management/static/src/release_notes/release_notes.xml",
         ],
     },
     "application": True,

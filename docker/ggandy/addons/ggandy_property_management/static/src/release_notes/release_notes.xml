@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    版本資訊頁內容。
+    發版時在 <ol> 最上面加一個 <li class="o_ggandy_release">，把「最新」徽章移到新版本，並把 __manifest__.py 版本號 +1。
+    每條重點用 o_ggandy_release_tag_new（新功能）／_improve（改善）／_fix（修正）。
+    「Lucas 碎碎念」（o_ggandy_release_mood）只放 Lucas 自己提供的內容。
+-->
+<templates xml:space="preserve">
+    <t t-name="ggandy_property_management.ReleaseNotes">
+        <div class="o_ggandy_release_notes h-100 overflow-auto">
+            <div class="o_ggandy_release_page">
+                <h1 class="o_ggandy_release_heading">版本資訊</h1>
+
+                <section class="o_ggandy_release_intro">
+                    <div class="o_ggandy_release_intro_title">
+                        <i class="fa fa-commenting-o" role="img" title="寫在前面"/>
+                        <span>寫在前面</span>
+                    </div>
+                    <p>Hello，我是這套系統的創始者 Lucas Lee。</p>
+                    <p>2026 年 9 月 14 日寫下第一行程式的時候，目標很純粹：把物件、租約、收租和房東帳單從試算表搬進一套專業系統，讓大家少對帳、少漏單、多點自動化。</p>
+                    <p>畫面上每一個按鈕，背後都是無限次的試錯，一直問自己「這樣用起來順嗎？」。Andy, just thank me later lol</p>
+                    <p>這頁會記下每次更新了什麼，偶爾也拿來抒發一下寫 code 的心情。說是跟各位抒發，其實聽眾只有我自己 lol，畢竟我是 one man army。</p>
+                    <p>用起來卡卡的，或有想要的功能，隨時與我聯繫。BTW Andy，有妹記得第一個想到我。</p>
+                    <div class="o_ggandy_release_sign">— Lucas Lee</div>
+                </section>
+
+                <ol class="o_ggandy_release_timeline">
+                    <li class="o_ggandy_release o_ggandy_release_latest">
+                        <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.9</span>
+                            <span class="o_ggandy_release_date">2026-10-13</span>
+                            <span class="badge text-bg-success">最新</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">物件統計與卡片檢視</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>物件頁新增「Lucas統計」分頁：近 12 個月的出租率、收款率、準時繳款、水電異常、租約周轉，一頁看完。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>物件列表可切換成卡片，看得到出租率進度條；用手機打開物件，預設就是卡片。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>營運總表可切換樞紐分析與圖表；收租明細也能用樞紐分析看各物件每月應收。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>房間列表多了「目前房客」與「租期結束」。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>就是這一頁「版本資訊」，之後每次更新都會寫在這裡。</span></li>
+                        </ul>
+                    </li>
+
+                    <li class="o_ggandy_release">
+                        <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.8</span>
+                            <span class="o_ggandy_release_date">2026-10-13</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">老闆友善的搜尋與排序</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>常用條件一鍵篩選：本月／上月、逾期未繳、還沒收到錢、還沒抄表、還沒付房東、目前賠錢。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>租約與收租明細依物件裡設定的房間順序排列。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>租約 30 天內到期又還沒有下一位房客時，「租期結束」會變成紅色粗體。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>編號類欄位預設隱藏，畫面更乾淨；需要時從列表右側的欄位選單勾回來。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>新代管合約預設代管費 8%；地址縣市下拉把台北、新北、桃園排最前面。</span></li>
+                        </ul>
+                    </li>
+
+                    <li class="o_ggandy_release">
+                        <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.7</span>
+                            <span class="o_ggandy_release_date">2026-10-12</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">收租與付房東流程完整化</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>租約可「續約」延長，到期自動結案；新增「房客待續約」選單，依到期日列出要談續約的房客。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>收租明細可勾選多筆「登記收款」，收到錢才過帳；租約可提前終止。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>房東帳單一個月一張，管理費、網路、水電等代收轉付逐項列出；數字有變可按「重新計算房東帳單」。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>房東合約新增「帳單調整」：某個月要多付或少付房東的錢，直接記在合約上。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>「租金期次」改名「收租明細」；金額一律未稅；換上新的後台主題。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_fix">修正</span><span>已收款的收租明細會鎖住上期度數，不會被改到。</span></li>
+                        </ul>
+                    </li>
+
+                    <li class="o_ggandy_release">
+                        <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.6</span>
+                            <span class="o_ggandy_release_date">2026-10-09 ～ 10-11</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">歷史資料搬家與版面整理</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>從 Google Sheet 匯入歷史租約與水電抄表，先預覽再匯入。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>新增「合約管理」選單，房東合約、租約、收租明細集中在一起。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>快速抄表：一次填完整個物件的電錶度數。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>物件「本月收租概覽」：本月應收、已收、水電一眼看完。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>物件與房間分頁重新整理，房間可直接新增租約；物件與租約的欄位名稱統一。</span></li>
+                        </ul>
+                    </li>
+
+                    <li class="o_ggandy_release">
+                        <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.5</span>
+                            <span class="o_ggandy_release_date">2026-10-08</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">包租物件整備專案</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>包租物件按「開始整備」，自動建立整備專案、房東銷售單與各房間的庫存位置。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>「整備採購」按鈕直接開採購單並帶好專案，整備花費都算進專案。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>新增「包租代管」設定頁：擴充模組開關、Google Sheet 預設連結集中在一處。</span></li>
+                        </ul>
+                    </li>
+
+                    <li class="o_ggandy_release">
+                        <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.4</span>
+                            <span class="o_ggandy_release_date">2026-10-06 ～ 10-07</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">匯入升級與水電計費</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>換上 GGAndy 專屬圖示。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>Google Sheet 匯入物件會一起建立房間。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>從 Google Sheet 匯入聯絡人；Telegram 新增 /renew 續約提醒。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>租約可設定水電怎麼收：依度數或固定金額。</span></li>
+                        </ul>
+                    </li>
+
+                    <li class="o_ggandy_release">
+                        <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.3</span>
+                            <span class="o_ggandy_release_date">2026-10-04 ～ 10-05</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">租約 PDF 與包租試算</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>一鍵列印房客租約 PDF（公司正式合約版）。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>房間可設定電費、水費的計費方式。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>包租獲利試算：跟房東談包租前，先算划不划算、幾個月回本。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_fix">修正</span><span>租約起訖日的計算。</span></li>
+                        </ul>
+                    </li>
+
+                    <li class="o_ggandy_release">
+                        <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.2</span>
+                            <span class="o_ggandy_release_date">2026-09-24 ～ 10-01</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">Google Sheet 匯入與房間照片</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>從 Google Sheet 匯入物件。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>游標停在欄位上，會出現中文說明。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>房間格局照片、維修照片直接在房間頁面瀏覽。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>物件的房東只能選房東；物件新增房東付款日，會自動帶到房東合約。</span></li>
+                        </ul>
+                    </li>
+
+                    <li class="o_ggandy_release">
+                        <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.1</span>
+                            <span class="o_ggandy_release_date">2026-09-18 ～ 09-20</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">帳務上線</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>收租明細到期自動建立房客帳單。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>房東合約每月自動建立房東帳單。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>帳務總表：每個房間每個月的應收、實收、應付房東，一張表看完。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>Telegram 新增 /overdue 逾期租金、/maintenance 待處理維修，並每天推播逾期租金摘要。</span></li>
+                        </ul>
+                    </li>
+
+                    <li class="o_ggandy_release">
+                        <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.0</span>
+                            <span class="o_ggandy_release_date">2026-09-14</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">系統誕生</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>物件、房間、房東合約、房客租約、收租明細、報修單，包租代管的基本資料都進系統。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>Telegram Bot：手機傳 /status 就能看今日營運摘要。</span></li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </t>
+</templates>
