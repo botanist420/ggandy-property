@@ -266,7 +266,6 @@
                             <i class="fa fa-user-o" role="img" title="目前房客"/>
                             <t t-if="record.current_lease_id.raw_value">
                                 <field name="current_tenant_id" class="text-truncate"/>
-                                <field name="current_tenant_phone" widget="phone" class="ms-1 text-truncate"/>
                             </t>
                             <span t-else="" class="o_ggandy_kanban_muted">空房</span>
                         </div>

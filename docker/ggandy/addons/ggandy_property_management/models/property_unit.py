@@ -203,7 +203,6 @@ class GgandyPropertyUnit(models.Model):
         string="租期結束",
         compute="_compute_current_lease",
     )
-    current_tenant_phone = fields.Char(string="房客電話", compute="_compute_current_lease")
     current_rent = fields.Monetary(
         string="目前月租",
         compute="_compute_current_lease",
@@ -337,7 +336,6 @@ class GgandyPropertyUnit(models.Model):
             unit.current_lease_id = lease
             unit.current_tenant_id = lease.tenant_id
             unit.current_lease_end_date = lease.end_date
-            unit.current_tenant_phone = lease.tenant_id.phone
             unit.current_rent = lease.rent_amount
 
     def _get_utility_settings(self):
