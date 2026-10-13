@@ -96,7 +96,8 @@
                         <group string="地址">
                             <field name="state_id" domain="[('country_id', '=', country_id)]" context="{'ggandy_state_priority': True}"/>
                             <field name="city_id" domain="[('state_id', '=', state_id)]" options="{'no_create': True, 'no_open': True}"/>
-                            <field name="zip"/>
+                            <!-- 鄉鎮市區後面已經有郵遞區號，這裡隱藏；選鄉鎮市區時仍會自動帶入 -->
+                            <field name="zip" invisible="1"/>
                             <field name="street" placeholder="路、街、段、巷、弄、號"/>
                             <field name="street2" invisible="1"/>
                             <field name="country_id" invisible="1"/>

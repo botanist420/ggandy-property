@@ -150,20 +150,31 @@
                             <div class="o_ggandy_hint">
                                 <i class="fa fa-info-circle" role="img" title="說明"/>
                                 <div>
-                                    <div>這裡記<strong>某個月房東帳單要多付或少付</strong>的錢，會自動在那個月的房東帳單多一行。</div>
+                                    <div>這裡記<strong>某個月房東帳單要多付或少付</strong>的錢；按「插入帳單」就會加進那個月的帳單，插入後變灰鎖定。</div>
                                     <div>少付填負數，例如不付 9F 租金＋管理費填 <strong>-32000</strong>；多付填正數，例如退 R2 押金填 29000。</div>
                                 </div>
                             </div>
+                            <field name="has_pending_adjustments" invisible="1"/>
+                            <!-- 按鈕獨立一列，放在說明下方左側；直接跟列表並排會被當成行內元素擠在一起 -->
+                            <div class="mb-2" invisible="not has_pending_adjustments">
+                                <button name="action_apply_adjustments_to_bills" type="object" string="插入帳單"
+                                        class="btn-primary" icon="fa-plus-square-o"
+                                        groups="account.group_account_invoice"
+                                        help="把還沒插入的調整加進那個月的草稿房東帳單；已過帳的帳單不會動。還沒開帳單的月份不用按，開帳單時會自動帶入。"/>
+                            </div>
                             <field name="adjustment_ids" context="{'default_contract_id': id}">
-                                <list editable="bottom" default_order="period_start desc, id desc">
+                                <list editable="bottom" default_order="period_start desc, id desc" decoration-muted="is_applied">
                                     <control>
                                         <create string="新增調整"/>
                                     </control>
-                                    <field name="period_start" width="120px"/>
-                                    <field name="name" placeholder="例如：9F 租金＋管理費扣回"/>
-                                    <field name="amount" sum="合計" width="120px"/>
+                                    <field name="period_month" placeholder="2026-09" width="100px" required="1" readonly="is_applied"/>
+                                    <field name="period_start" column_invisible="True"/>
+                                    <field name="name" placeholder="例如：9F 租金＋管理費扣回" readonly="is_applied"/>
+                                    <field name="amount" sum="合計" width="120px" readonly="is_applied"/>
                                     <field name="currency_id" column_invisible="True"/>
                                     <field name="note" optional="show"/>
+                                    <field name="is_applied" column_invisible="True"/>
+                                    <field name="bill_id" string="已插入帳單" optional="show" width="200px"/>
                                 </list>
                             </field>
                         </page>

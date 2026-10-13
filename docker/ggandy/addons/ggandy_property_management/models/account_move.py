@@ -114,3 +114,16 @@ class AccountMove(models.Model):
                 "next": {"type": "ir.actions.client", "tag": "soft_reload"},
             },
         }
+
+
+class AccountMoveLine(models.Model):
+    _inherit = "account.move.line"
+
+    ggandy_owner_adjustment_id = fields.Many2one(
+        "ggandy.owner.adjustment",
+        string="房東帳單調整",
+        ondelete="set null",
+        index="btree_not_null",
+        copy=False,
+        help="這一行是從房東合約的哪一筆帳單調整加進來的。",
+    )

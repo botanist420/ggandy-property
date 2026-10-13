@@ -237,10 +237,59 @@
         </field>
     </record>
 
+    <!-- 房間卡片：主要給手機用（手機預設開 kanban），依物件分組、不能拖拉換物件 -->
+    <record id="view_ggandy_property_unit_kanban" model="ir.ui.view">
+        <field name="name">ggandy.property.unit.kanban</field>
+        <field name="model">ggandy.property.unit</field>
+        <field name="arch" type="xml">
+            <kanban class="o_ggandy_unit_kanban" default_group_by="property_id"
+                    records_draggable="0" group_create="0" quick_create="0">
+                <field name="current_lease_id"/>
+                <field name="currency_id"/>
+                <field name="area"/>
+                <field name="floor"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <field name="name" class="fw-bold fs-5 text-truncate"/>
+                            <field name="state" widget="badge"
+                                   decoration-success="state == 'occupied'"
+                                   decoration-warning="state == 'maintenance'"
+                                   decoration-info="state == 'reserved'"/>
+                        </div>
+                        <div class="o_ggandy_kanban_muted text-truncate">
+                            <field name="unit_type"/>
+                            <t t-if="record.area.raw_value">・<t t-out="record.area.value"/> 坪</t>
+                            <t t-if="record.floor.raw_value">・<t t-out="record.floor.value"/></t>
+                        </div>
+                        <div class="d-flex align-items-center gap-1 mt-2 text-truncate">
+                            <i class="fa fa-user-o" role="img" title="目前房客"/>
+                            <t t-if="record.current_lease_id.raw_value">
+                                <field name="current_tenant_id" class="text-truncate"/>
+                                <field name="current_tenant_phone" widget="phone" class="ms-1 text-truncate"/>
+                            </t>
+                            <span t-else="" class="o_ggandy_kanban_muted">空房</span>
+                        </div>
+                        <div class="o_ggandy_unit_rent mt-1">
+                            <t t-if="record.current_lease_id.raw_value">
+                                <field name="current_rent" widget="monetary"/>
+                                <span class="o_ggandy_kanban_muted"> / 月</span>
+                            </t>
+                            <t t-else="">
+                                <field name="monthly_rent" widget="monetary"/>
+                                <span class="o_ggandy_kanban_muted"> / 月（參考）</span>
+                            </t>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
     <record id="action_ggandy_property_unit" model="ir.actions.act_window">
         <field name="name">房間</field>
         <field name="res_model">ggandy.property.unit</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="view_ggandy_property_unit_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">建立第一個房間</p>

@@ -226,6 +226,19 @@
     }
 }
 
+// 房間 kanban：沿用物件卡片的灰色小字，月租稍微放大。
+.o_ggandy_unit_kanban {
+    .o_ggandy_kanban_muted {
+        color: var(--bs-secondary-color);
+        font-size: 0.8125rem;
+    }
+
+    .o_ggandy_unit_rent {
+        font-size: 1.0625rem;
+        font-weight: 600;
+    }
+}
+
 // 版本資訊頁（整合工具 → 版本資訊）：置中單欄，感想卡片＋左側時間軸，最新版本在最上面。
 .o_ggandy_release_notes {
     background-color: var(--bs-body-bg);

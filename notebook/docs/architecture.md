@@ -107,7 +107,8 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 
 **重新計算房東帳單**（包租、代管都適用，依帳單月份）：Vendor Bill header「重新計算房東帳單」（有 `ggandy_owner_contract_id` + `ggandy_settlement_period_start`、未取消才顯示）→ `account.move.action_ggandy_recompute_owner_bill()` → `contract._recompute_settlement_bill(bill)` 回傳訊息：draft → product lines 整批 unlink 後換成新明細（合計 ≤ 0 `UserError`）；posted → 不改帳單、不開新帳單，只回報重算合計與差額（sticky warning 通知）。
 
-**帳單調整** `ggandy.owner.adjustment`（`models/owner_adjustment.py`）：`contract_id`（cascade）、`period_start`（create/write 一律存成該月 1 號）、`name`、`amount`（可負）、`note`；`property_id` / `company_id` / `currency_id` related stored，有多公司 rule。合約 form「帳單調整」分頁（editable list）。`_get_owner_settlement_lines()` 最後加上 `period_start` 相同的調整，每筆一行「YYYY-MM 調整：{name}」。
+**帳單調整** `ggandy.owner.adjustment`（`models/owner_adjustment.py`）：`contract_id`（cascade）、`period_start`（create/write 一律存成該月 1 號）、`period_month`（stored compute＋inverse，畫面上輸入「2026-09」「2026/9」，create/write 先換成 `period_start` 再由 compute 統一格式）、`name`、`amount`（可負）、`note`；`property_id` / `company_id` / `currency_id` related stored，有多公司 rule。合約 form「帳單調整」分頁（editable list）。`_get_owner_settlement_lines()` 最後加上 `period_start` 相同的調整，每筆一行「YYYY-MM 調整：{name}」。
+調整和帳單明細行用 `account.move.line.ggandy_owner_adjustment_id`（set null）連起來：`_get_owner_settlement_line_specs()` 回傳 `(說明, 金額, 調整項)`，`_prepare_settlement_line_commands()` 建行時寫入連結，所以建帳單、重新計算（草稿整批換明細）都會自動連上。調整的 `is_applied` / `bill_id` 是 stored compute（依 `bill_line_ids.parent_state`，取消的帳單不算）。合約「插入帳單」→ `action_apply_adjustments_to_bills()`：對 `_get_pending_adjustments()`（未加入且該月已有未取消帳單）逐筆 `_add_to_bill()`，草稿帳單加一行（帳單上已有同說明同金額、沒連結的舊行就直接連上），已過帳略過並 sticky 提醒。已加入的調整 `write` 鎖定 period/name/amount、`unlink` 擋下；view 以 `decoration-muted` + `readonly="is_applied"` 呈現。
 
 **匯款日同步**：`property.write()` 改 `owner_payment_day`（非空）→ `_sync_owner_payment_day_to_contracts()` 更新該物件 active 房東合約的 `owner_payment_day` 並 `message_post`。
 

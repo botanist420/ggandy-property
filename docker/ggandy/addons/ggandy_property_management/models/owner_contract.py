@@ -159,6 +159,11 @@ class GgandyOwnerContract(models.Model):
         compute="_compute_vendor_bill_count",
         help="這份合約已開的房東帳單數量（不代表已付款）。",
     )
+    has_pending_adjustments = fields.Boolean(
+        string="有帳單調整還沒加入帳單",
+        compute="_compute_has_pending_adjustments",
+        help="有帳單調整的那個月已經開了房東帳單，但這筆調整還沒加進去。",
+    )
     has_missing_past_bills = fields.Boolean(
         string="有過去月份沒開房東帳單",
         compute="_compute_has_missing_past_bills",
@@ -270,6 +275,56 @@ class GgandyOwnerContract(models.Model):
             record.vendor_bill_count = len(
                 record.vendor_bill_ids.filtered(lambda move: move.move_type == "in_invoice")
             )
+
+    @api.depends("adjustment_ids.is_applied", "adjustment_ids.period_start", "vendor_bill_ids.state")
+    def _compute_has_pending_adjustments(self):
+        for record in self:
+            record.has_pending_adjustments = bool(record._get_pending_adjustments())
+
+    def _get_month_bill(self, period_start):
+        """這份合約某個帳單月份的房東帳單（未取消的那張，一個月只會有一張）。"""
+        self.ensure_one()
+        return self.vendor_bill_ids.filtered(
+            lambda move: move.move_type == "in_invoice"
+            and move.state != "cancel"
+            and move.ggandy_settlement_period_start == period_start
+        )[:1]
+
+    def _get_pending_adjustments(self):
+        """還沒加入帳單、但那個月已經有房東帳單的調整。還沒開帳單的月份不算，開帳單時會自動帶入。"""
+        self.ensure_one()
+        return self.adjustment_ids.filtered(
+            lambda adjustment: not adjustment.is_applied and self._get_month_bill(adjustment.period_start)
+        )
+
+    def action_apply_adjustments_to_bills(self):
+        """把還沒加入的帳單調整加進那個月的房東帳單：草稿帳單直接多一行，已過帳的不動、提醒同事。"""
+        self.ensure_one()
+        applied, skipped = [], []
+        for adjustment in self._get_pending_adjustments().sorted(lambda item: (item.period_start, item.id)):
+            bill = self._get_month_bill(adjustment.period_start)
+            month = adjustment.period_start.strftime("%Y-%m")
+            if bill.state != "draft":
+                skipped.append(f"{month} {adjustment.name}")
+                continue
+            adjustment._add_to_bill(bill)
+            applied.append(f"{month} {adjustment.name}")
+        messages = []
+        if applied:
+            messages.append(f"已插入房東帳單：{'、'.join(applied)}。")
+        if skipped:
+            messages.append(f"帳單已過帳、沒有插入：{'、'.join(skipped)}；要加請先把那張帳單重設為草稿。")
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "插入帳單",
+                "message": " ".join(messages) or "沒有需要插入的帳單調整。",
+                "type": "warning" if skipped else "success",
+                "sticky": bool(skipped),
+                "next": {"type": "ir.actions.client", "tag": "soft_reload"},
+            },
+        }
 
     def _compute_has_missing_past_bills(self):
         for record in self:
@@ -443,13 +498,13 @@ class GgandyOwnerContract(models.Model):
         if existing:
             return existing
 
-        lines = self._get_owner_settlement_lines(period_start, period_end)
-        if sum(amount for _label, amount in lines) <= 0:
+        lines = self._get_owner_settlement_line_specs(period_start, period_end)
+        if sum(line[1] for line in lines) <= 0:
             return self.env["account.move"]
         return self._create_settlement_bill(period_start, period_end, lines, invoice_date=invoice_date)
 
     def _create_settlement_bill(self, period_start, period_end, lines, invoice_date=None):
-        """建立一張房東結算 Vendor Bill，lines 是 [(說明, 金額), ...]。不檢查同月是否已有帳單，請透過 _create_owner_vendor_bill 呼叫。"""
+        """建立一張房東結算 Vendor Bill，lines 是 [(說明, 金額[, 調整項]), ...]。不檢查同月是否已有帳單，請透過 _create_owner_vendor_bill 呼叫。"""
         self.ensure_one()
         purchase_journal = self.env["account.journal"].search(
             [
@@ -485,17 +540,21 @@ class GgandyOwnerContract(models.Model):
             "ggandy_property_management.product_product_owner_settlement",
             raise_if_not_found=False,
         )
-        return [
-            fields.Command.create(
-                {
-                    "product_id": product.id if product else False,
-                    "name": label,
-                    "quantity": 1,
-                    "price_unit": amount,
-                }
+        commands = []
+        for label, amount, *adjustment in lines:
+            commands.append(
+                fields.Command.create(
+                    {
+                        "product_id": product.id if product else False,
+                        "name": label,
+                        "quantity": 1,
+                        "price_unit": amount,
+                        # 調整那幾行記下是哪一筆調整，合約上的調整就會顯示「已加入」並鎖定
+                        "ggandy_owner_adjustment_id": adjustment[0].id if adjustment else False,
+                    }
+                )
             )
-            for label, amount in lines
-        ]
+        return commands
 
     def _recompute_settlement_bill(self, bill):
         """依同一個帳單月份重算房東帳單（包租、代管都適用），一個月只維持一張帳單。
@@ -507,8 +566,8 @@ class GgandyOwnerContract(models.Model):
         self.ensure_one()
         period_start = bill.ggandy_settlement_period_start
         period_end = bill.ggandy_settlement_period_end or period_start + relativedelta(months=1, days=-1)
-        lines = self._get_owner_settlement_lines(period_start, period_end)
-        total = sum(amount for _label, amount in lines)
+        lines = self._get_owner_settlement_line_specs(period_start, period_end)
+        total = sum(line[1] for line in lines)
         currency = self.currency_id.symbol or ""
         if bill.state != "draft":
             difference = total - bill.amount_untaxed
@@ -556,28 +615,37 @@ class GgandyOwnerContract(models.Model):
             "internet": summary["internet"],
             "electricity": summary["electricity"],
             "water": summary["water"],
-            "adjustments": [
-                (adjustment.name, adjustment.amount)
-                for adjustment in self.adjustment_ids.filtered(
-                    lambda item: item.period_start == period_start
-                ).sorted("id")
-            ],
+            "adjustments": self.adjustment_ids.filtered(lambda item: item.period_start == period_start).sorted("id"),
         }
 
-    def _get_owner_settlement_lines(self, period_start, period_end, summary=None):
-        """房東帳單的明細 [(說明, 金額), ...]，0 元的不列；順序：保底／代管款、管理費、網路第四台、電費、水費、調整。"""
+    def _get_owner_settlement_line_specs(self, period_start, period_end, summary=None):
+        """房東帳單的明細 [(說明, 金額, 調整項), ...]，0 元的不列；調整項不是調整那幾行就是空 recordset。
+
+        順序：保底／代管款、管理費、網路第四台、電費、水費、調整。建帳單時用調整項把明細行和調整連起來。
+        """
         self.ensure_one()
         period_label = period_start.strftime("%Y-%m")
         breakdown = self._get_owner_settlement_breakdown(period_start, period_end, summary=summary)
+        no_adjustment = self.env["ggandy.owner.adjustment"]
         lines = [
-            (f"{self.name} {period_label} {breakdown['base_label']}", breakdown["base"]),
-            (f"{period_label} 管理費（代收轉付）", breakdown["management_fee"]),
-            (f"{period_label} 網路第四台（代收轉付）", breakdown["internet"]),
-            (f"{period_label} 電費（代收轉付）", breakdown["electricity"]),
-            (f"{period_label} 水費（代收轉付）", breakdown["water"]),
+            (f"{self.name} {period_label} {breakdown['base_label']}", breakdown["base"], no_adjustment),
+            (f"{period_label} 管理費（代收轉付）", breakdown["management_fee"], no_adjustment),
+            (f"{period_label} 網路第四台（代收轉付）", breakdown["internet"], no_adjustment),
+            (f"{period_label} 電費（代收轉付）", breakdown["electricity"], no_adjustment),
+            (f"{period_label} 水費（代收轉付）", breakdown["water"], no_adjustment),
         ]
-        lines += [(f"{period_label} 調整：{name}", amount) for name, amount in breakdown["adjustments"]]
-        return [(label, amount) for label, amount in lines if amount]
+        lines += [
+            (adjustment._get_bill_line_label(), adjustment.amount, adjustment)
+            for adjustment in breakdown["adjustments"]
+        ]
+        return [line for line in lines if line[1]]
+
+    def _get_owner_settlement_lines(self, period_start, period_end, summary=None):
+        """房東帳單的明細 [(說明, 金額), ...]，0 元的不列。"""
+        return [
+            (label, amount)
+            for label, amount, _adjustment in self._get_owner_settlement_line_specs(period_start, period_end, summary)
+        ]
 
     def _get_agency_collected_rent(self, period_start, period_end):
         self.ensure_one()

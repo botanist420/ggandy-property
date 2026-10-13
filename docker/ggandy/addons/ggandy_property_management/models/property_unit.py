@@ -203,6 +203,12 @@ class GgandyPropertyUnit(models.Model):
         string="租期結束",
         compute="_compute_current_lease",
     )
+    current_tenant_phone = fields.Char(string="房客電話", compute="_compute_current_lease")
+    current_rent = fields.Monetary(
+        string="目前月租",
+        compute="_compute_current_lease",
+        help="目前租約的每月租金（純租金）；空房時卡片改顯示參考月租。",
+    )
     maintenance_count = fields.Integer(
         compute="_compute_counts",
         help="這個房間的報修紀錄數量。數字偏高時可以回頭看是不是設備該保養了。",
@@ -331,6 +337,8 @@ class GgandyPropertyUnit(models.Model):
             unit.current_lease_id = lease
             unit.current_tenant_id = lease.tenant_id
             unit.current_lease_end_date = lease.end_date
+            unit.current_tenant_phone = lease.tenant_id.phone
+            unit.current_rent = lease.rent_amount
 
     def _get_utility_settings(self):
         """建立租約時要複製到租約上的水電設定。"""

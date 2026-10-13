@@ -35,7 +35,7 @@ class GgandyOwnerBillBackfillWizard(models.TransientModel):
     @api.model
     def _prepare_line_values(self, contract, period_start, period_end):
         breakdown = contract._get_owner_settlement_breakdown(period_start, period_end)
-        adjustment = sum(amount for _name, amount in breakdown["adjustments"])
+        adjustment = sum(breakdown["adjustments"].mapped("amount"))
         amounts = {
             "base_amount": breakdown["base"],
             "management_fee": breakdown["management_fee"],
