@@ -219,8 +219,8 @@
                             <div class="o_ggandy_hint">
                                 <i class="fa fa-info-circle" role="img" title="說明"/>
                                 <div>
-                                    <div>這個物件<strong>近 12 個月</strong>的統計，開啟物件時即時計算。</div>
-                                    <div>虛線名詞可停游標看說明，最下方有完整的名詞解釋。</div>
+                                    <div>近 12 個月的統計，開啟物件時即時計算；虛線名詞可停游標看說明。</div>
+                                    <div>「月租」只算<strong>純租金</strong>（不含管理費、水電）；月度趨勢、收款率看整張帳單。</div>
                                 </div>
                             </div>
                             <field name="analysis_html" nolabel="1" readonly="1"/>

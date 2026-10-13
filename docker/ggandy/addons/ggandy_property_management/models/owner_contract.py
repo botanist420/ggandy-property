@@ -159,6 +159,11 @@ class GgandyOwnerContract(models.Model):
         compute="_compute_vendor_bill_count",
         help="這份合約已開的房東帳單數量（不代表已付款）。",
     )
+    has_missing_past_bills = fields.Boolean(
+        string="有過去月份沒開房東帳單",
+        compute="_compute_has_missing_past_bills",
+        help="合約開始到這次結算日之前，有月份還沒開房東帳單（例如合約從過去的月份起算）。",
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -254,6 +259,9 @@ class GgandyOwnerContract(models.Model):
                     "management_end_date": record.end_date,
                 }
             )
+        # 合約從過去的月份起算時，生效後直接跳出補開歷史房東帳單
+        if len(self) == 1 and self._get_missing_bill_periods():
+            return self.action_open_bill_backfill_wizard()
         return True
 
     @api.depends("vendor_bill_ids")
@@ -262,6 +270,60 @@ class GgandyOwnerContract(models.Model):
             record.vendor_bill_count = len(
                 record.vendor_bill_ids.filtered(lambda move: move.move_type == "in_invoice")
             )
+
+    def _compute_has_missing_past_bills(self):
+        for record in self:
+            record.has_missing_past_bills = record.state == "active" and bool(record._get_missing_bill_periods())
+
+    def _get_settlement_date(self, month_start):
+        """某個月的房東結算日（owner_payment_day，短月取月底）。"""
+        self.ensure_one()
+        last_day = calendar.monthrange(month_start.year, month_start.month)[1]
+        return month_start.replace(day=min(self.owner_payment_day, last_day))
+
+    def _get_missing_bill_periods(self, today=None):
+        """合約開始到今天為止、結算日已經過了卻還沒開房東帳單的月份 [(月初, 月底), ...]。
+
+        已有未取消帳單的月份不列；應付 ≤ 0 的月份也不列（_create_owner_vendor_bill 不會開）。
+        """
+        self.ensure_one()
+        if not self.start_date or not self.end_date:
+            return []
+        today = today or fields.Date.context_today(self)
+        billed = set(
+            self.env["account.move"]
+            .search(
+                [
+                    ("ggandy_owner_contract_id", "=", self.id),
+                    ("move_type", "=", "in_invoice"),
+                    ("state", "!=", "cancel"),
+                ]
+            )
+            .mapped("ggandy_settlement_period_start")
+        )
+        periods = []
+        month_start = self.start_date.replace(day=1)
+        while month_start <= self.end_date and self._get_settlement_date(month_start) <= today:
+            month_end = month_start + relativedelta(months=1, days=-1)
+            if month_start not in billed and (
+                sum(amount for _label, amount in self._get_owner_settlement_lines(month_start, month_end)) > 0
+            ):
+                periods.append((month_start, month_end))
+            month_start += relativedelta(months=1)
+        return periods
+
+    def action_open_bill_backfill_wizard(self):
+        self.ensure_one()
+        if self.state != "active":
+            raise UserError("只有生效中的房東合約可以補開房東帳單。")
+        return {
+            "type": "ir.actions.act_window",
+            "name": "補開歷史房東帳單",
+            "res_model": "ggandy.owner.bill.backfill.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_contract_id": self.id},
+        }
 
     def action_set_draft(self):
         self.filtered(lambda record: record.state in ("terminated", "cancelled")).write(
@@ -352,8 +414,11 @@ class GgandyOwnerContract(models.Model):
             "view_mode": "form",
         }
 
-    def _create_owner_vendor_bill(self, period_start, period_end):
-        """建立該月的房東帳單；同一個月已經有（未取消的）帳單就直接回傳那張，一個月只會有一張。"""
+    def _create_owner_vendor_bill(self, period_start, period_end, invoice_date=None):
+        """建立該月的房東帳單；同一個月已經有（未取消的）帳單就直接回傳那張，一個月只會有一張。
+
+        invoice_date 沒給就用今天；補開過去月份時傳該月結算日，會計月份才會對。
+        """
         self.ensure_one()
         existing = self.env["account.move"].search(
             [
@@ -370,9 +435,9 @@ class GgandyOwnerContract(models.Model):
         lines = self._get_owner_settlement_lines(period_start, period_end)
         if sum(amount for _label, amount in lines) <= 0:
             return self.env["account.move"]
-        return self._create_settlement_bill(period_start, period_end, lines)
+        return self._create_settlement_bill(period_start, period_end, lines, invoice_date=invoice_date)
 
-    def _create_settlement_bill(self, period_start, period_end, lines):
+    def _create_settlement_bill(self, period_start, period_end, lines, invoice_date=None):
         """建立一張房東結算 Vendor Bill，lines 是 [(說明, 金額), ...]。不檢查同月是否已有帳單，請透過 _create_owner_vendor_bill 呼叫。"""
         self.ensure_one()
         purchase_journal = self.env["account.journal"].search(
@@ -385,13 +450,14 @@ class GgandyOwnerContract(models.Model):
         if not purchase_journal:
             raise UserError("目前公司尚未設定採購日記帳，無法建立房東 vendor bill。")
 
+        invoice_date = invoice_date or fields.Date.context_today(self)
         bill = self.env["account.move"].create(
             {
                 "move_type": "in_invoice",
                 "journal_id": purchase_journal.id,
                 "partner_id": self.owner_id.id,
-                "invoice_date": fields.Date.context_today(self),
-                "invoice_date_due": fields.Date.context_today(self),
+                "invoice_date": invoice_date,
+                "invoice_date_due": invoice_date,
                 "invoice_origin": self.name,
                 "ref": f"{self.name} / {period_start.strftime('%Y-%m')}",
                 "ggandy_owner_contract_id": self.id,

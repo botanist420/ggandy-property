@@ -23,6 +23,7 @@
         "views/property_analysis_templates.xml",
         "views/property_views.xml",
         "views/property_unit_views.xml",
+        "views/owner_bill_backfill_wizard_views.xml",
         "views/owner_contract_views.xml",
         "views/lease_renew_wizard_views.xml",
         "views/lease_terminate_wizard_views.xml",

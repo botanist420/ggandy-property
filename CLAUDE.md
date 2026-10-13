@@ -60,6 +60,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `ggandy.lease` | `models/lease.py` | 房客租約；生效時拆月建收租明細；每日 cron 過期自動 `expired`；`has_next_lease`（可搜尋）給「房客待續約」選單 |
 | `ggandy.lease.renew.wizard` | `models/lease_renew_wizard.py` | TransientModel；續約＝延長同一份租約，`_generate_rent_schedule(from_date=舊結束日+1)` 補收租明細 |
 | `ggandy.lease.terminate.wizard` | `models/lease_terminate_wizard.py` | TransientModel；提前終止填終止日，刪除終止日後未開單的收租明細 |
+| `ggandy.owner.bill.backfill.wizard` | `models/owner_bill_backfill_wizard.py` | TransientModel（＋ `.line`）；補開合約開始到這次結算日前缺的房東帳單（草稿，帳單日期＝各月結算日）；房東合約生效時自動跳出 |
 | `ggandy.rent.schedule` | `models/rent_schedule.py` | 收租明細（舊稱租金期次，2026-10-12 改名；程式識別字不變）；建客戶 Invoice；逾期活動；list header「登記收款」（草稿帳單收款時才過帳，接原生付款視窗） |
 | `ggandy.maintenance.request` | `models/maintenance_request.py` | 報修單 |
 | `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每房間 × 每月一列**，`_auto = False` + `_table_query` 即時 SQL（可分組加總），唯讀 |

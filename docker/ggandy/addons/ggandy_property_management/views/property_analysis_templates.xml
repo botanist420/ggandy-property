@@ -52,7 +52,7 @@
                 <table class="table table-sm o_ggandy_analysis_table">
                     <thead>
                         <tr>
-                            <th>房間</th><th>坪數</th><th>參考月租</th><th>目前月租</th><th>每坪月租</th>
+                            <th>房間</th><th>坪數</th><th><span class="o_ggandy_term" title="房間上設定的參考月租（純租金），招租時的定價。">參考月租</span></th><th><span class="o_ggandy_term" t-att-title="glossary['月租']">目前月租</span></th><th>每坪月租</th>
                             <th><span class="o_ggandy_term" t-att-title="glossary['z 分數']">z 分數</span></th>
                             <th>比參考月租</th><th>狀態</th><th>租期結束</th><th>平均用電（度）</th><th><span class="o_ggandy_term" t-att-title="glossary['準時率']">準時率</span></th>
                         </tr>
@@ -80,7 +80,7 @@
             <div t-if="monthly['rows']" class="table-responsive">
                 <table class="table table-sm o_ggandy_analysis_table">
                     <thead>
-                        <tr><th>帳單月份</th><th>應收</th><th>實收</th><th><span class="o_ggandy_term" t-att-title="glossary['收款率']">收款率</span></th><th>應付房東</th><th>預計賺</th></tr>
+                        <tr><th>帳單月份</th><th><span class="o_ggandy_term" t-att-title="glossary['應收']">應收</span></th><th><span class="o_ggandy_term" title="已收款帳單實際收進來的金額，同樣含管理費、水電。">實收</span></th><th><span class="o_ggandy_term" t-att-title="glossary['收款率']">收款率</span></th><th>應付房東</th><th>預計賺</th></tr>
                     </thead>
                     <tbody>
                         <tr t-foreach="monthly['rows']" t-as="row">
@@ -115,7 +115,7 @@
                     <t t-if="payment['paid_count'] or payment['overdue_count']">
                         <ul class="o_ggandy_analysis_list">
                             <li>已收款 <strong t-out="payment['paid_count']"/> 筆，<span class="o_ggandy_term" t-att-title="glossary['延遲天數']">延遲天數</span>平均 <t t-out="payment['delay_mean']"/>、中位數 <t t-out="payment['delay_median']"/>、最長 <t t-out="payment['delay_max']"/> 天</li>
-                            <li>目前逾期 <strong t-out="payment['overdue_count']"/> 筆，共 <t t-out="payment['overdue_amount']"/> 元</li>
+                            <li>目前逾期 <strong t-out="payment['overdue_count']"/> 筆，共 <t t-out="payment['overdue_amount']"/> 元（含管理費、水電）</li>
                         </ul>
                         <table class="table table-sm o_ggandy_analysis_table">
                             <thead><tr><th>付款時間</th><th>筆數</th><th>占比</th></tr></thead>
@@ -164,7 +164,7 @@
                 <div t-if="master_lease" class="col-lg-6">
                     <h5>包租經濟</h5>
                     <ul t-if="master_lease['has_contract']" class="o_ggandy_analysis_list">
-                        <li>每月保底租金 <strong t-out="master_lease['guaranteed']"/>，目前實際月租合計 <t t-out="master_lease['actual']"/></li>
+                        <li>每月保底租金 <strong t-out="master_lease['guaranteed']"/>，目前實際月租合計 <t t-out="master_lease['actual']"/>（純租金）</li>
                         <li>月價差 <strong t-att-class="'text-danger' if master_lease['spread_negative'] else None" t-out="master_lease['spread']"/>，<span class="o_ggandy_term" t-att-title="glossary['毛利率']">毛利率</span> <t t-out="master_lease['margin']"/></li>
                         <li>滿租潛在月租 <t t-out="master_lease['potential']"/>，滿租毛利率 <t t-out="master_lease['potential_margin']"/></li>
                         <li><span class="o_ggandy_term" t-att-title="glossary['損益兩平出租率']">損益兩平出租率</span> <strong t-out="master_lease['breakeven']"/>（保底 ÷ 滿租潛在月租）</li>

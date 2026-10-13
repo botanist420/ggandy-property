@@ -103,6 +103,8 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 
 **一個月一張房東帳單**：`_create_owner_vendor_bill()` 同合約同月份已有非取消帳單就直接回傳那張。合約 header「開立本月房東帳單」→ `action_create_current_month_bill()`（active、合約期間涵蓋本月、`groups=account.group_account_invoice`）走同一個方法，回傳帳單 form；之後排程到結算日會看到已有帳單而略過。
 
+**補開歷史房東帳單**：`_get_missing_bill_periods(today=None)` 從合約開始月逐月往後，取結算日（`_get_settlement_date()`：`owner_payment_day`，短月取月底）≤ 今天、且不超過合約結束的月份，排除已有非取消帳單與應付 ≤ 0 的月份。`action_activate()` 單筆生效後有缺月份就回傳 `action_open_bill_backfill_wizard()`；合約 header「補開歷史房東帳單」用非儲存 compute `has_missing_past_bills` 控制顯示（`groups=account.group_account_invoice`）。精靈 `ggandy.owner.bill.backfill.wizard`（＋ `.line`，`models/owner_bill_backfill_wizard.py`）在 `default_get` 列出缺的月份與試算明細，`action_create_bills()` 對勾選月份呼叫 `_create_owner_vendor_bill(start, end, invoice_date=該月結算日)`，一律草稿；明細欄位 readonly 所以 view 要 `force_save="1"`。`_create_owner_vendor_bill` / `_create_settlement_bill` 的 `invoice_date` 預設今天，cron 行為不變。
+
 **重新計算房東帳單**（包租、代管都適用，依帳單月份）：Vendor Bill header「重新計算房東帳單」（有 `ggandy_owner_contract_id` + `ggandy_settlement_period_start`、未取消才顯示）→ `account.move.action_ggandy_recompute_owner_bill()` → `contract._recompute_settlement_bill(bill)` 回傳訊息：draft → product lines 整批 unlink 後換成新明細（合計 ≤ 0 `UserError`）；posted → 不改帳單、不開新帳單，只回報重算合計與差額（sticky warning 通知）。
 
 **帳單調整** `ggandy.owner.adjustment`（`models/owner_adjustment.py`）：`contract_id`（cascade）、`period_start`（create/write 一律存成該月 1 號）、`name`、`amount`（可負）、`note`；`property_id` / `company_id` / `currency_id` related stored，有多公司 rule。合約 form「帳單調整」分頁（editable list）。`_get_owner_settlement_lines()` 最後加上 `period_start` 相同的調整，每筆一行「YYYY-MM 調整：{name}」。
