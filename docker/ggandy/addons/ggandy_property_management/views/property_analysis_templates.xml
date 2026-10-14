@@ -142,6 +142,19 @@
                         <ul t-if="utilities['flags']" class="o_ggandy_analysis_list o_ggandy_analysis_flag">
                             <li t-foreach="utilities['flags']" t-as="flag" t-out="flag"/>
                         </ul>
+                        <h6 class="mt-3">⚡ <span class="o_ggandy_term" t-att-title="glossary['用電突增']">用電突增</span></h6>
+                        <ul t-if="utilities['spikes']" class="o_ggandy_analysis_list o_ggandy_analysis_flag">
+                            <li t-foreach="utilities['spikes']" t-as="spike" t-out="spike"/>
+                        </ul>
+                        <p t-else="" class="o_ggandy_analysis_empty">近期沒有突增的房間。</p>
+                        <h6 class="mt-3">📈 用電持續上升（看<span class="o_ggandy_term" t-att-title="glossary['相對用電']">相對用電</span>）</h6>
+                        <t t-if="utilities['trend_ready']">
+                            <ul t-if="utilities['trends']" class="o_ggandy_analysis_list o_ggandy_analysis_flag">
+                                <li t-foreach="utilities['trends']" t-as="trend" t-out="trend"/>
+                            </ul>
+                            <p t-else="" class="o_ggandy_analysis_empty">沒有持續上升的房間。</p>
+                        </t>
+                        <p t-else="" class="o_ggandy_analysis_empty">抄表資料滿 <t t-out="utilities['trend_months']"/> 個月後才會判斷。</p>
                     </t>
                     <p t-else="" class="o_ggandy_analysis_empty">近 12 個月沒有依度數計費的抄表紀錄。</p>
                 </div>

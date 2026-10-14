@@ -11,6 +11,19 @@ ANALYSIS_DAYS = 365
 DAYS_PER_MONTH = 30.4375
 Z_SCORE_FLAG = 1.5
 SMALL_SAMPLE = 5
+# 用電突增：這個月 ≥ 自己前幾個月中位數 × SPIKE_RATIO，且多 SPIKE_MIN_KWH 度以上，
+# 相對用電（÷ 同月整棟中位數）也要 ≥ 基準 × SPIKE_RELATIVE_RATIO，排除整棟一起變高的季節影響。
+SPIKE_RATIO = 1.8
+SPIKE_MIN_KWH = 100
+SPIKE_RELATIVE_RATIO = 1.5
+# 突增後還要明顯高於整棟一般水準（相對用電 ≥ 1.3），從低用電回到正常不算突增。
+SPIKE_MIN_RELATIVE = 1.3
+SPIKE_BASELINE_MONTHS = 6
+# 用電持續上升：連續 TREND_MONTHS 個月相對用電一路上升，且最後 ≥ 第一個月 × TREND_MIN_GROWTH。
+TREND_MONTHS = 4
+TREND_MIN_GROWTH = 1.3
+# 同月至少幾間有抄表，才算得出整棟中位數。
+MIN_UNITS_PER_MONTH = 3
 # Lucas統計的名詞說明：表頭游標提示與頁尾「名詞解釋」共用，一句白話講完。
 GLOSSARY = {
     "月租": "租約上的每月租金，只算純租金，不含管理費、水電；只算今天生效中的租約。",
@@ -28,6 +41,8 @@ GLOSSARY = {
     "準時率": "整張帳單在到期日前付清的筆數 ÷（已付清＋目前逾期），逾期還沒繳的也算不準時。",
     "延遲天數": "實際收款日（帳單沖銷日）減繳款期限，0 或負數代表準時。",
     "2σ": "平均加兩個標準差；用電高於這條線的房間很少見，可能是異常耗電或抄錯表。",
+    "用電突增": "這個月比自己平常（前幾個月的中位數）多 1.8 倍以上、多 100 度以上，而且明顯高於整棟一般水準（相對用電 ≥ 1.3）；整棟一起變高的季節影響會扣掉。可能是漏電、設備故障或抄錯表。",
+    "相對用電": "這間房的度數 ÷ 同月整棟的中位數，1 代表跟整棟一般水準一樣；用它比較，可以排除夏天整棟一起開冷氣變高的影響。",
     "毛利率": "（房客月租合計−保底租金）÷ 房客月租合計，代表每收 100 元租金留下多少；月租是純租金，管理費、水電照收照付不算進來。",
     "損益兩平出租率": "保底租金 ÷ 滿租時的月租合計（純租金）；出租率要高於這個數字才不會賠。",
 }
@@ -94,6 +109,12 @@ def _z_score(value, stats):
     if value is None or stats.get("n", 0) < 3 or not stats.get("stdev"):
         return None
     return (value - stats["mean"]) / stats["stdev"]
+
+
+def _month_index(month):
+    """'2026-09' → 可以相減的月份序號，用來判斷月份是否連續。"""
+    year, mon = month.split("-")
+    return int(year) * 12 + int(mon)
 
 
 def _lease_last_day(lease):
@@ -307,6 +328,7 @@ class GgandyProperty(models.Model):
                 flags.append(f"{unit.name}：平均 {_fmt_num(average)} 度，高於平均＋2σ，可能異常耗電")
             elif average == 0 and unit_id in context["current_leases"]:
                 flags.append(f"{unit.name}：出租中但用電一直是 0 度，確認是否漏抄或電錶故障")
+        patterns = self._analysis_electricity_patterns(context)
         pending = context["schedules"].filtered(
             lambda schedule: schedule.meter_reading_pending
             and schedule.period_start <= context["today"]
@@ -322,6 +344,93 @@ class GgandyProperty(models.Model):
             "price_per_kwh": _fmt_num(_safe_div(sum(metered.mapped("electricity_amount")), total_usage), 2),
             "flags": flags,
             "pending_count": len(pending),
+            **patterns,
+        }
+
+    def _analysis_electricity_patterns(self, context):
+        """用電突增與持續上升。用「相對用電」（這間度數 ÷ 同月整棟中位數）比較，夏天整棟一起變高不會被標出。"""
+        usage = {}  # 房間 → {電表月份: 度數}；月中換房客同月有兩筆就加總
+        for schedule in context["schedules"]:
+            if (
+                schedule.electricity_billing_type != "metered"
+                or not schedule.electricity_curr_reading
+                or schedule.meter_reading_pending
+                or not schedule.meter_month
+                # 0 度多半是入住當月或還沒實際抄表，會把基準拉低，不列入（出租中一直 0 度另有提醒）。
+                or schedule.electricity_usage <= 0
+            ):
+                continue
+            months = usage.setdefault(schedule.unit_id.id, {})
+            months[schedule.meter_month] = months.get(schedule.meter_month, 0.0) + schedule.electricity_usage
+
+        month_values = {}
+        for months in usage.values():
+            for month, kwh in months.items():
+                month_values.setdefault(month, []).append(kwh)
+        month_median = {
+            month: statistics.median(values)
+            for month, values in month_values.items()
+            if len(values) >= MIN_UNITS_PER_MONTH
+        }
+
+        def relative(month, kwh):
+            median = month_median.get(month)
+            return kwh / median if median else None
+
+        spikes, trends = [], []
+        for unit in context["units"]:
+            ordered = sorted((usage.get(unit.id) or {}).items())
+            if not ordered:
+                continue
+
+            latest_month, latest = ordered[-1]
+            baseline_items = ordered[:-1][-SPIKE_BASELINE_MONTHS:]
+            if len(baseline_items) >= 2:
+                baseline = statistics.median([kwh for _month, kwh in baseline_items])
+                latest_relative = relative(latest_month, latest)
+                baseline_relatives = [
+                    value for value in (relative(month, kwh) for month, kwh in baseline_items) if value is not None
+                ]
+                # 整棟資料不足（同月不到 3 間）就只看自己的度數。
+                seasonal_ok = latest_relative is None or (
+                    latest_relative >= SPIKE_MIN_RELATIVE
+                    and (
+                        not baseline_relatives
+                        or latest_relative >= statistics.median(baseline_relatives) * SPIKE_RELATIVE_RATIO
+                    )
+                )
+                if (
+                    baseline > 0
+                    and latest >= baseline * SPIKE_RATIO
+                    and latest - baseline >= SPIKE_MIN_KWH
+                    and seasonal_ok
+                ):
+                    spikes.append(
+                        f"{unit.name}：{latest_month} 用了 {_fmt_num(latest, 0)} 度，"
+                        f"平常約 {_fmt_num(baseline, 0)} 度（{_fmt_num(latest / baseline)} 倍）"
+                    )
+
+            recent = ordered[-TREND_MONTHS:]
+            if len(recent) == TREND_MONTHS and (
+                _month_index(recent[-1][0]) - _month_index(recent[0][0]) == TREND_MONTHS - 1
+            ):
+                relatives = [relative(month, kwh) for month, kwh in recent]
+                if (
+                    None not in relatives
+                    and all(later > earlier for earlier, later in zip(relatives, relatives[1:]))
+                    and relatives[-1] >= relatives[0] * TREND_MIN_GROWTH
+                ):
+                    trends.append(
+                        f"{unit.name}：近 {TREND_MONTHS} 個月用電占比一路上升（"
+                        + " → ".join(_fmt_num(value, 2) for value in relatives)
+                        + " 倍整棟中位數）"
+                    )
+
+        return {
+            "spikes": spikes,
+            "trends": trends,
+            "trend_ready": len(month_median) >= TREND_MONTHS,
+            "trend_months": TREND_MONTHS,
         }
 
     def _analysis_monthly(self, context):
