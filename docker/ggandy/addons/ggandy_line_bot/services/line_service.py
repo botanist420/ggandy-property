@@ -23,6 +23,8 @@ def verify_signature(channel_secret, body, signature):
 
 class LineAPIClient:
     API_BASE_URL = "https://api.line.me/v2/bot"
+    # 下載房客傳來的圖片等內容要用另一個網域。
+    DATA_API_BASE_URL = "https://api-data.line.me/v2/bot"
 
     def __init__(self, token, timeout=10):
         if not token:
@@ -58,6 +60,20 @@ class LineAPIClient:
 
     def get_profile(self, user_id):
         return self._request("GET", f"/profile/{user_id}")
+
+    def get_message_content(self, message_id):
+        """下載房客傳來的圖片，回傳 (bytes, content-type)。"""
+        try:
+            response = requests.get(
+                f"{self.DATA_API_BASE_URL}/message/{message_id}/content",
+                headers=self._headers,
+                timeout=20,
+            )
+        except requests.RequestException as error:
+            raise LineAPIError(f"LINE API 連線失敗：{error}") from error
+        if response.status_code >= 400:
+            raise LineAPIError(f"LINE API 錯誤（HTTP {response.status_code}）：無法下載內容")
+        return response.content, response.headers.get("Content-Type", "image/jpeg")
 
     def reply_message(self, reply_token, texts):
         """用 Reply API 回覆（不計入訊息則數）。一次最多 5 則。"""

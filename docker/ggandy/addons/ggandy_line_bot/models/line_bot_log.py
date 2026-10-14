@@ -1,3 +1,4 @@
+import base64
 import logging
 import re
 import unicodedata
@@ -6,7 +7,7 @@ from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models
-from odoo.tools import email_normalize
+from odoo.tools import email_normalize, html_escape
 
 from ..services import LineAPIClient, LineAPIError
 
@@ -27,14 +28,25 @@ MENU_COMMANDS = {
     "說明": "help",
     "使用說明": "help",
     "選單": "help",
+    # 以下只能打字，不在圖文選單上。
+    "帳單歷史": "bill_history",
 }
-BIND_PATTERN = re.compile(r"^(?:綁定)?\s*(\d{6})$")
+# 「綁定碼 123456」或直接傳 6 位數字。
+BIND_PATTERN = re.compile(r"^(?:綁定碼)?\s*(\d{6})$")
+REPAIR_PATTERN = re.compile(r"^報修\s*(.*)$", re.S)
 PHONE_PATTERN = re.compile(r"^(?:電話|手機)\s*(.+)$")
 EMAIL_PATTERN = re.compile(r"^(?:email|e-mail|信箱)\s*(.+)$", re.IGNORECASE)
 # 同一個 LINE 帳號 1 小時內綁定失敗這麼多次就暫停，避免亂猜綁定碼。
 BIND_FAILURE_LIMIT = 5
 # 帳單一次最多列出幾期以前沒繳清的，太多請房客直接找管家。
 EARLIER_UNPAID_LIMIT = 6
+# 帳單歷史列幾期。
+BILL_HISTORY_LIMIT = 3
+# LINE 報修單主旨前綴；房客之後傳的照片靠它找回同一張報修單。
+REPAIR_TITLE_PREFIX = "[客戶通報]"
+# 報修後多久內傳的照片算同一張報修單、每張最多存幾張。
+REPAIR_PHOTO_WINDOW_MINUTES = 30
+REPAIR_PHOTO_LIMIT = 3
 # 手機聊天泡泡一行約 16 個中文字，回覆內容每行盡量不超過這個長度。
 DIVIDER = "━━━━━━━━━━"
 
@@ -139,7 +151,10 @@ class GgandyLineBotLog(models.Model):
             self._create_log(event, "ignored", "", text, "", partner)
             return
         if not is_text:
-            # 貼圖、照片等：目前沒有真人客服，回提示請房客找管家。
+            if partner and message.get("type") == "image":
+                self._handle_repair_photo(event, partner, message)
+                return
+            # 貼圖、影片等：目前沒有真人客服，回提示請房客找管家。
             self._reply_and_log(event, [self._build_unknown_message(partner)], "replied", "unknown", text, partner)
             return
 
@@ -151,10 +166,14 @@ class GgandyLineBotLog(models.Model):
         command = MENU_COMMANDS.get(text.replace(" ", ""))
         phone_match = PHONE_PATTERN.match(text)
         email_match = EMAIL_PATTERN.match(text)
+        # 報修描述用房客原本打的字（不做全形轉半形，保留中文標點）。
+        repair_match = REPAIR_PATTERN.match((message.get("text") or "").strip())
         if phone_match:
             command = "phone"
         elif email_match:
             command = "email"
+        elif repair_match:
+            command = "repair"
 
         if not command:
             # 看不懂的留言：目前沒有真人客服，回提示請房客用選單或找管家。
@@ -166,8 +185,13 @@ class GgandyLineBotLog(models.Model):
             return
 
         partner = partner.with_context(tz=partner.tz or "Asia/Taipei")
+        if command == "repair":
+            self._handle_repair(event, partner, repair_match.group(1).strip(), text)
+            return
         if command == "bill":
             response = self._build_bill_message(partner)
+        elif command == "bill_history":
+            response = self._build_bill_history_message(partner)
         elif command == "payment":
             response = self._build_payment_message(partner)
         elif command == "lease":
@@ -219,7 +243,12 @@ class GgandyLineBotLog(models.Model):
             limit=1,
         )
         if not partner:
-            response = "❌ 綁定碼不正確或已過期\n\n請確認後再傳一次，\n或向房間管家重新索取"
+            response = (
+                "❌ 綁定碼不正確或已過期\n\n"
+                "請確認 6 位數字打完整，\n"
+                "傳「綁定碼 123456」\n或直接傳「123456」\n\n"
+                "過期請向房間管家重新索取"
+            )
             self._reply_and_log(event, [response], "bind_failed", "bind", text)
             return
 
@@ -253,6 +282,137 @@ class GgandyLineBotLog(models.Model):
         )
         response = f"🎉 綁定完成！\n{partner.name} 您好\n\n" + self._build_help_message(partner)
         self._reply_and_log(event, [response], "bound", "bind", text, partner)
+
+    @api.model
+    def _handle_repair(self, event, partner, description, text):
+        """「報修 馬桶壞掉」→ 在包租代管的報修單建立一張 [客戶通報] 報修單。"""
+        if not description:
+            response = (
+                "🔧 報修請這樣傳：\n\n"
+                "報修 馬桶壞掉\n\n"
+                f"再傳照片給我（最多 {REPAIR_PHOTO_LIMIT} 張）"
+            )
+            self._reply_and_log(event, [response], "replied", "repair", text, partner)
+            return
+
+        lease = self._get_partner_leases(partner)[:1]
+        if not lease:
+            response = "🔧 目前查不到您的租約\n\n請直接聯絡房間管家"
+            self._reply_and_log(event, [response], "replied", "repair", text, partner)
+            return
+
+        manager = lease.property_id.manager_id
+        request = self.env["ggandy.maintenance.request"].sudo().create(
+            {
+                "title": f"{REPAIR_TITLE_PREFIX}{description[:50]}",
+                "description": (
+                    f"<p>{html_escape(description)}</p><p>（房客透過 LINE 報修）</p>"
+                ),
+                "property_id": lease.property_id.id,
+                "unit_id": lease.unit_id.id,
+                "lease_id": lease.id,
+                "tenant_id": partner.id,
+                "reported_by_id": partner.id,
+                # webhook 是公開使用者，負責人要明確指定（物件的管理人員）。
+                "user_id": manager.id or False,
+                "company_id": lease.company_id.id,
+            }
+        )
+        if manager:
+            request.activity_schedule(
+                "mail.mail_activity_data_todo",
+                summary="LINE 報修待處理",
+                note=f"房客 {partner.name} 透過 LINE 報修：{description}",
+                user_id=manager.id,
+            )
+        response = (
+            "🔧 已收到報修\n\n"
+            f"單號：{request.name}\n"
+            f"{self._format_place(lease)}\n"
+            f"問題：{description}\n\n"
+            f"有照片請直接傳上來\n（最多 {REPAIR_PHOTO_LIMIT} 張）\n"
+            "管家會盡快與您聯絡"
+        )
+        self._reply_and_log(event, [response], "replied", "repair", text, partner)
+
+    @api.model
+    def _handle_repair_photo(self, event, partner, message):
+        """房客報修後傳的照片：附到 30 分鐘內那張 [客戶通報] 報修單的 chatter，每張最多 3 張。"""
+        text = "[image]"
+        request = self.env["ggandy.maintenance.request"].sudo().search(
+            [
+                ("tenant_id", "=", partner.id),
+                ("title", "=like", f"{REPAIR_TITLE_PREFIX}%"),
+                ("state", "not in", ("done", "cancelled")),
+                (
+                    "create_date",
+                    ">=",
+                    fields.Datetime.now() - timedelta(minutes=REPAIR_PHOTO_WINDOW_MINUTES),
+                ),
+            ],
+            order="create_date desc, id desc",
+            limit=1,
+        )
+        if not request:
+            response = (
+                "📷 收到照片了\n\n"
+                "要報修請先傳：\n報修 問題描述\n\n"
+                "再傳照片給我"
+            )
+            self._reply_and_log(event, [response], "replied", "repair_photo", text, partner)
+            return
+
+        # 一次傳多張時 LINE 會拆成多個事件（imageSet.index 從 1 開始），只回第一張，避免洗版。
+        image_set = message.get("imageSet") or {}
+        first_of_set = int(image_set.get("index") or 1) == 1
+        Attachment = self.env["ir.attachment"].sudo()
+        photo_domain = [
+            ("res_model", "=", request._name),
+            ("res_id", "=", request.id),
+            ("name", "=like", "LINE_%"),
+        ]
+        photo_count = Attachment.search_count(photo_domain)
+        if photo_count >= REPAIR_PHOTO_LIMIT:
+            if not image_set:
+                response = (
+                    f"📷 這張報修單已經有\n{REPAIR_PHOTO_LIMIT} 張照片了\n\n"
+                    "其他照片請直接給管家"
+                )
+                self._reply_and_log(event, [response], "replied", "repair_photo", text, partner)
+            else:
+                self._create_log(event, "ignored", "repair_photo", text, f"超過 {REPAIR_PHOTO_LIMIT} 張，未存", partner)
+            return
+
+        try:
+            content, content_type = LineAPIClient(
+                self._get_parameter("channel_access_token")
+            ).get_message_content(message.get("id"))
+        except LineAPIError as error:
+            _logger.warning("Unable to download LINE image: %s", error)
+            self._create_log(event, "error", "repair_photo", text, f"下載照片失敗：{error}", partner)
+            return
+
+        extension = "png" if "png" in (content_type or "") else "jpg"
+        attachment = Attachment.create(
+            {
+                "name": f"LINE_{request.name.replace('/', '-')}_{message.get('id')}.{extension}",
+                "datas": base64.b64encode(content),
+                "mimetype": content_type or "image/jpeg",
+                "res_model": request._name,
+                "res_id": request.id,
+            }
+        )
+        request.message_post(body="房客透過 LINE 傳來的照片", attachment_ids=attachment.ids)
+
+        if first_of_set:
+            response = (
+                "📷 照片已附在報修單\n"
+                f"{request.name}\n\n"
+                f"（每張報修單最多 {REPAIR_PHOTO_LIMIT} 張）"
+            )
+            self._reply_and_log(event, [response], "replied", "repair_photo", text, partner)
+        else:
+            self._create_log(event, "replied", "repair_photo", text, "（同一組照片，不另外回覆）", partner)
 
     @api.model
     def _reply_and_log(self, event, texts, status, command, text, partner=None):
@@ -366,6 +526,24 @@ class GgandyLineBotLog(models.Model):
             )
         else:
             blocks.append(f"{DIVIDER}\n🎉 帳單都繳清了，謝謝您！")
+        return "\n\n".join(blocks)
+
+    @api.model
+    def _build_bill_history_message(self, partner):
+        Schedule = self.env["ggandy.rent.schedule"].sudo()
+        today = fields.Date.context_today(partner)
+        next_month = today.replace(day=1) + relativedelta(months=1)
+        schedules = Schedule.search(
+            [("tenant_id", "=", partner.id), ("period_start", "<", next_month)]
+            + Schedule._get_effective_domain(),
+            order="period_start desc, id desc",
+        ).filtered(lambda schedule: schedule.collection_state != "cancelled")[:BILL_HISTORY_LIMIT]
+        if not schedules:
+            return "🧾 帳單歷史\n\n目前沒有帳單紀錄"
+
+        blocks = [f"🧾 最近 {BILL_HISTORY_LIMIT} 期帳單"]
+        for schedule in schedules:
+            blocks.append(self._format_schedule(schedule, today, self._get_paid_amount(schedule)))
         return "\n\n".join(blocks)
 
     @api.model
@@ -548,7 +726,8 @@ class GgandyLineBotLog(models.Model):
             "🔒 還沒綁定喔\n\n"
             "請向房間管家索取\n"
             "6 位數綁定碼，再傳：\n\n"
-            "綁定 123456"
+            "綁定碼 123456\n"
+            "（或直接傳 123456）"
         )
 
     @api.model
@@ -560,9 +739,16 @@ class GgandyLineBotLog(models.Model):
             "請點下方選單查詢",
         ]
         if partner:
-            lines += ["", "房間的事請聯絡管家", "（按「聯絡管理員」）"]
+            lines += [
+                "",
+                "要報修請傳：",
+                "報修 問題描述",
+                "",
+                "其他房間的事請聯絡管家",
+                "（按「聯絡管理員」）",
+            ]
         else:
-            lines += ["", "第一次使用請先傳：", "綁定 123456"]
+            lines += ["", "第一次使用請先傳：", "綁定碼 123456", "（或直接傳 123456）"]
         return "\n".join(lines)
 
     @api.model
@@ -576,5 +762,9 @@ class GgandyLineBotLog(models.Model):
             "📋 租約｜租期與押金\n"
             "✏️ 修改資料｜電話、Email\n"
             "🙋 聯絡管理員｜找管家\n\n"
+            "也可以直接打字：\n"
+            "🧾 帳單歷史｜最近 3 期\n"
+            "🔧 報修 馬桶壞掉\n"
+            f"　（再傳照片，最多 {REPAIR_PHOTO_LIMIT} 張）\n\n"
             "點下方選單就能查詢"
         )

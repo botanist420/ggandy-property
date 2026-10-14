@@ -6,7 +6,7 @@ from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
 
-BIND_CODE_VALID_DAYS = 7
+BIND_CODE_VALID_DAYS = 1
 
 
 class ResPartner(models.Model):
@@ -40,14 +40,14 @@ class ResPartner(models.Model):
         string="LINE 綁定碼",
         copy=False,
         readonly=True,
-        help="給房客在 LINE 傳「綁定 123456」用的一次性 6 位數，用過或過期就失效。",
+        help="給房客在 LINE 傳「綁定碼 123456」（或直接傳 6 位數字）用的一次性綁定碼，1 天內有效，用過或過期就失效。",
     )
     ggandy_line_bind_code_expiry = fields.Datetime(
         string="綁定碼有效期限",
         copy=False,
         readonly=True,
     )
-    ggandy_line_bind_instruction = fields.Char(
+    ggandy_line_bind_instruction = fields.Text(
         string="給房客的綁定說明",
         compute="_compute_ggandy_line_bind_instruction",
         help="按右邊的複製鈕，貼到簡訊或私訊傳給房客即可。",
@@ -71,10 +71,13 @@ class ResPartner(models.Model):
                 if basic_id
                 else "請先加入我們的 LINE 官方帳號，"
             )
+            code = partner.ggandy_line_bind_code
             partner.ggandy_line_bind_instruction = (
-                f"{partner.name} 您好，{add_friend}"
-                f"再傳送「綁定 {partner.ggandy_line_bind_code}」。"
-                f"綁定碼 {expiry:%Y-%m-%d %H:%M} 前有效，只能使用一次。"
+                f"親愛的房客 {partner.name} 您好：\n"
+                f"{add_friend}\n"
+                f"再傳送「綁定碼 {code}」（或直接傳 6 位數字「{code}」）完成綁定。\n"
+                f"綁定碼 {BIND_CODE_VALID_DAYS} 天內有效（{expiry:%Y-%m-%d %H:%M} 前）、只能使用一次，\n"
+                "數字請一定要打完整喔～"
             )
 
     @api.constrains("ggandy_line_user_id")

@@ -76,7 +76,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 
 整備專案模組：`ggandy.property`（inherit）加 `preparation_project_id` 與 `action_start_preparation()`；專案從 `data/project_preparation_data.xml` 的「整備範本」（`is_template`）以 `action_create_from_template` 複製，`account_id` 不會被複製，要另外 `_create_analytic_account()`。銷售單／採購單選了 `project_id` 就會自動帶分析分配。
 
-LINE 模組：webhook `controllers/main.py`（`/ggandy/line/webhook`，`auth="public"`，先驗 `X-Line-Signature`）→ `ggandy.line.bot.log._process_event`（指令處理與紀錄）；`res.partner` 綁定欄位 `ggandy_line_*` 與「產生 LINE 綁定碼」；`res.config.settings`（block 插在包租代管設定 app；secret／token 存 `ir.config_parameter`，key 前綴 `ggandy_line_bot.`）；`services/line_service.py`（純 `requests` 的 Messaging API client）。申請與後台設定見 `notebook/docs/line-bot-plan.md`。
+LINE 模組：webhook `controllers/main.py`（`/ggandy/line/webhook`，`auth="public"`，先驗 `X-Line-Signature`）→ `ggandy.line.bot.log._process_event`（指令處理與紀錄；「報修 …」建 `[客戶通報]` 報修單、照片最多 3 張進 chatter；「帳單歷史」最近 3 期）；`res.partner` 綁定欄位 `ggandy_line_*` 與「產生 LINE 綁定碼」；`res.config.settings`（block 插在包租代管設定 app；secret／token 存 `ir.config_parameter`，key 前綴 `ggandy_line_bot.`）；`services/line_service.py`（純 `requests` 的 Messaging API client）。申請與後台設定見 `notebook/docs/line-bot-plan.md`。
 
 Telegram 模組：`ggandy.telegram.log`（`models/telegram_log.py`，指令處理與 cron 都在這）、`res.users` 綁定欄位、`res.config.settings`（設定 block 插在主模組的包租代管設定 app；token 存 `ir.config_parameter`，key 前綴 `ggandy_property_telegram.`）、`services/telegram_service.py`（純 `requests` 的 Bot API client）。
 

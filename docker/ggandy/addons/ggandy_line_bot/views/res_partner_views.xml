@@ -10,8 +10,8 @@
                     <div class="o_ggandy_hint">
                         <i class="fa fa-info-circle" role="img" title="說明"/>
                         <div>
-                            <div>按<strong>「產生 LINE 綁定碼」</strong>，把下方說明複製傳給房客；房客在 LINE 傳「綁定 123456」後就能用選單查帳單、繳費方式與租約。</div>
-                            <div>綁定碼 7 天內有效、只能用一次。房客換手機或綁錯時，按「解除 LINE 綁定」再重新產生。</div>
+                            <div>按<strong>「產生 LINE 綁定碼」</strong>，把下方說明複製傳給房客；房客在 LINE 傳「綁定碼 123456」（或直接傳 6 位數字）後就能用選單查帳單、繳費方式與租約。</div>
+                            <div>綁定碼 <strong>1 天內有效</strong>、只能用一次。房客換手機或綁錯時，按「解除 LINE 綁定」再重新產生。</div>
                         </div>
                     </div>
                     <group string="LINE 綁定">
@@ -49,7 +49,9 @@
                         </group>
                     </group>
                     <group invisible="not ggandy_line_bind_instruction">
-                        <field name="ggandy_line_bind_instruction" widget="CopyClipboardChar"/>
+                        <field name="ggandy_line_bind_instruction"/>
+                        <field name="ggandy_line_bind_instruction" string="" widget="CopyClipboardButton"
+                               options="{'btn_class': 'btn-secondary'}"/>
                     </group>
                 </div>
             </xpath>
