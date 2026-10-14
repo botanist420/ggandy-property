@@ -43,7 +43,7 @@ EARLIER_UNPAID_LIMIT = 6
 # 帳單歷史列幾期。
 BILL_HISTORY_LIMIT = 3
 # LINE 報修單主旨前綴；房客之後傳的照片靠它找回同一張報修單。
-REPAIR_TITLE_PREFIX = "[客戶通報]"
+REPAIR_TITLE_PREFIX = "[房客通報] "
 # 報修後多久內傳的照片算同一張報修單、每張最多存幾張。
 REPAIR_PHOTO_WINDOW_MINUTES = 30
 REPAIR_PHOTO_LIMIT = 3
@@ -285,7 +285,7 @@ class GgandyLineBotLog(models.Model):
 
     @api.model
     def _handle_repair(self, event, partner, description, text):
-        """「報修 馬桶壞掉」→ 在包租代管的報修單建立一張 [客戶通報] 報修單。"""
+        """「報修 馬桶壞掉」→ 在包租代管的報修單建立一張 [房客通報] 報修單。"""
         if not description:
             response = (
                 "🔧 報修請這樣傳：\n\n"
@@ -337,7 +337,7 @@ class GgandyLineBotLog(models.Model):
 
     @api.model
     def _handle_repair_photo(self, event, partner, message):
-        """房客報修後傳的照片：附到 30 分鐘內那張 [客戶通報] 報修單的 chatter，每張最多 3 張。"""
+        """房客報修後傳的照片：附到 30 分鐘內那張 [房客通報] 報修單的 chatter，每張最多 3 張。"""
         text = "[image]"
         request = self.env["ggandy.maintenance.request"].sudo().search(
             [

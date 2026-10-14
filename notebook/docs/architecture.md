@@ -341,7 +341,7 @@ LINE → POST /ggandy/line/webhook（controllers/main.py；type=http、auth=publ
         webhookEventId 已記錄 → 略過（LINE 重送）
         非一對一訊息事件（follow / unfollow / 群組）→ log ignored
         「綁定碼 123456」或 6 位數 → _handle_bind（找未過期綁定碼的房客，寫 ggandy_line_user_id）
-        已綁定房客傳照片 → _handle_repair_photo（30 分鐘內 [客戶通報] 報修單，最多 3 張，下載自 api-data.line.me）
+        已綁定房客傳照片 → _handle_repair_photo（30 分鐘內 [房客通報] 報修單，最多 3 張，下載自 api-data.line.me）
         MENU_COMMANDS（帳單 / 繳費 / 租約 / 修改資料 / 聯絡管理員 / 說明 / 帳單歷史）、「電話 …」、「email …」、「報修 …」
            未綁定 → 回覆請索取綁定碼（log unbound）
            已綁定 → _build_*_message(partner) / _update_phone / _update_email / _handle_repair（建 ggandy.maintenance.request）
@@ -355,7 +355,7 @@ LINE → POST /ggandy/line/webhook（controllers/main.py；type=http、auth=publ
 - **帳單**：`tenant_id = 房客` + `_get_effective_domain()`；本月（`period_start` 在本月）＋更早且 `collection_state` 不是 paid / cancelled 的（最多列 6 期）。草稿帳單、未開單對房客都顯示「待繳」，過 `due_date` 顯示已逾期。
 - **繳費**：重用 `report.ggandy_property_management.report_lease_contract._get_contract_parties(lease)` 的收款方銀行帳戶。
 - **租約**：主要承租人 `state in (active, expired)` 的租約（共同居住人不開放）。
-- **報修**：「報修 描述」→ `sudo()` 建 `ggandy.maintenance.request`（主旨 `[客戶通報]描述`、房客最新一份租約的物件／房間、`user_id` = 物件 `manager_id`，並 `activity_schedule` 待辦給管家）。照片用主旨前綴 + `tenant_id` + 30 分鐘內找回報修單，附件檔名 `LINE_` 開頭用來計數（上限 3 張）；`imageSet.index > 1` 不回覆。報修描述用房客原文（不做 NFKC）。
+- **報修**：「報修 描述」→ `sudo()` 建 `ggandy.maintenance.request`（主旨 `[房客通報] 描述`、房客最新一份租約的物件／房間、`user_id` = 物件 `manager_id`，並 `activity_schedule` 待辦給管家）。照片用主旨前綴 + `tenant_id` + 30 分鐘內找回報修單，附件檔名 `LINE_` 開頭用來計數（上限 3 張）；`imageSet.index > 1` 不回覆。報修描述用房客原文（不做 NFKC）。
 - **帳單歷史**：`period_start < 下個月` 的有效收租明細取最新 3 期。
 - **紀錄** `ggandy.line.bot.log`：`status` = bound / replied / unbound / bind_failed / ignored / error；manager 唯讀＋多公司 rule。選單「LINE → 訊息紀錄／已綁定房客」。
 

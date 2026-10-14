@@ -40,7 +40,7 @@
                   decoration-muted="state in ('done', 'cancelled')">
                 <field name="priority" widget="priority"/>
                 <field name="name" optional="hide"/>
-                <field name="title"/>
+                <field name="title" width="320px"/>
                 <field name="property_id"/>
                 <field name="unit_id" context="{'ggandy_unit_short_name': True}"/>
                 <field name="category"/>
