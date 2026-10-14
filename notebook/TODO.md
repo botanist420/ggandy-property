@@ -91,6 +91,19 @@
 - [ ] 管理費：Sheet 每月 7,800，但目前收租明細上的管理費是 0，要在租約填管理費才會出現在概覽與房東帳單（資料面）
 - [x] 月結金額串接房東 Vendor Bill：保底／代管實收 ＋ 代收轉付四項（2026-10-12）；固定扣除、當月調整待確認後再加
 
+## 🟡 LINE 房客 Bot（2026-10-14 第一版已開發）
+
+只開放主要房客；只回應房客主動操作（Reply API 不計費），不主動推播，輕用量免費方案即可。房東之後再評估。申請與後台設定見 [docs/line-bot-plan.md](docs/line-bot-plan.md)。
+
+- [x] 測試官方帳號「傑升租屋 lux test」（`@052rldvq`，一般帳號，不申請藍盾）（2026-10-14）
+- [x] 新模組 `ggandy_line_bot`：webhook 驗 `X-Line-Signature`、綁定碼（7 天、用過即失效、防暴力）、帳單／繳費／租約／修改電話與 Email／聯絡管理員／說明、看不懂的留言不回、LINE 訊息紀錄與已綁定房客選單（2026-10-14，本機以模擬 webhook 測試通過）
+- [ ] 啟用 Messaging API（測試帳號用測試專用 Provider），取得 channel secret／access token
+- [ ] 部署到 `erp.luxnology.com`：確認只有一個資料庫或設 `dbfilter`；安裝模組、貼金鑰、測試連線；Webhook 設 `https://erp.luxnology.com/ggandy/line/webhook` 並 Verify
+- [ ] 官方帳號後台：回應設定（Webhook 開、自動回應關、歡迎訊息開、聊天開）、歡迎訊息、6 格圖文選單
+- [ ] 真機測試：綁定、6 個選單、改電話、傳一般留言（應不回）
+- [ ] 正式上線換成老闆的官方帳號（Provider 由老闆的 Business ID 建立）：設定頁換金鑰、「清除所有 LINE 綁定」，房客重新綁定
+- [ ] 之後：一鍵綁定 QR（`oaMessage` 預填文字）、帳單 Flex Message 卡片
+
 ## ⏸ 整備／庫存／採購（暫緩）
 
 - 2026-10-10 與老闆討論：現階段庫存與採購不用是主力，目前 `ggandy_property_project` 的架構（整備專案、採購帶分析帳戶、`WH/庫存/{物件}/{單位}` 庫存位置）先這樣就夠用，未來視情況再往下開發。

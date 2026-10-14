@@ -55,6 +55,39 @@ class ResPartner(models.Model):
         help="此聯絡人作為合作廠商承接的報修單數量。可用來查看合作與維修紀錄。",
     )
 
+    ggandy_tenant_property_ids = fields.Many2many(
+        "ggandy.property",
+        string="所屬物件",
+        compute="_compute_ggandy_tenant_units",
+        help="這位房客（含共同居住人）生效中或已到期租約的物件。已到期的租約仍在收款，所以也列出來；續約或搬走結案後就不會再出現。",
+    )
+    ggandy_tenant_unit_ids = fields.Many2many(
+        "ggandy.property.unit",
+        string="所屬房間",
+        compute="_compute_ggandy_tenant_units",
+        help="這位房客（含共同居住人）生效中或已到期租約的房間。",
+    )
+
+    @api.depends(
+        "ggandy_lease_ids.state",
+        "ggandy_lease_ids.unit_id",
+    )
+    def _compute_ggandy_tenant_units(self):
+        leases = self.env["ggandy.lease"].search(
+            [
+                ("state", "in", ("active", "expired")),
+                "|",
+                ("tenant_id", "in", self.ids),
+                ("co_tenant_ids", "in", self.ids),
+            ]
+        )
+        for partner in self:
+            partner_leases = leases.filtered(
+                lambda lease: lease.tenant_id == partner or partner in lease.co_tenant_ids
+            )
+            partner.ggandy_tenant_property_ids = partner_leases.property_id
+            partner.ggandy_tenant_unit_ids = partner_leases.unit_id
+
     @api.depends(
         "ggandy_owned_property_ids",
         "ggandy_lease_ids",

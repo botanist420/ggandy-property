@@ -15,6 +15,13 @@
                                 取消勾選並儲存會解除安裝，Bot 紀錄與使用者綁定會一併刪除。
                             </div>
                         </setting>
+                        <setting id="ggandy_module_line_bot"
+                                 help="房客用 LINE 官方帳號查帳單、繳費方式與租約，並自行修改電話與 Email（只回覆房客，不主動推播，不佔訊息則數）。">
+                            <field name="module_ggandy_line_bot"/>
+                            <div class="text-muted mt8" invisible="not module_ggandy_line_bot">
+                                取消勾選並儲存會解除安裝，LINE 紀錄與房客綁定會一併刪除。
+                            </div>
+                        </setting>
                         <setting id="ggandy_module_project"
                                  help="包租物件一鍵「開始整備」，建立整備專案追蹤前期銷售、採購與進度（會一併安裝專案、銷售、採購）。">
                             <field name="module_ggandy_property_project"/>

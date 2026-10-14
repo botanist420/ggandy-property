@@ -48,10 +48,35 @@
             <p>建立物件或房東合約時選了房東，就會自動出現在這裡。</p>
         </field>
     </record>
+    <!-- 房客選單專用列表：拿掉活動、國家／地區，加上所屬物件、所屬房間，統計資料移到最後 -->
+    <record id="view_partner_list_ggandy_tenant" model="ir.ui.view">
+        <field name="name">res.partner.list.ggandy.tenant</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_tree"/>
+        <field name="mode">primary</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='activity_ids']" position="replace"/>
+            <xpath expr="//field[@name='country_id']" position="replace"/>
+            <xpath expr="//field[@name='phone']" position="after">
+                <field name="ggandy_tenant_property_ids" widget="many2many_tags" optional="show"/>
+                <field name="ggandy_tenant_unit_ids" widget="many2many_tags" optional="show"
+                       context="{'ggandy_unit_short_name': True}"/>
+            </xpath>
+            <!-- 統計資料放最後一欄 -->
+            <xpath expr="//list" position="inside">
+                <xpath expr="//field[@name='application_statistics']" position="move"/>
+            </xpath>
+        </field>
+    </record>
+
     <record id="action_ggandy_tenant" model="ir.actions.act_window">
         <field name="name">房客</field>
         <field name="res_model">res.partner</field>
         <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_partner_list_ggandy_tenant')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('base.view_partner_form')})]"/>
         <field name="domain">[('is_ggandy_tenant', '=', True)]</field>
         <field name="context">{'default_is_ggandy_tenant': True, 'default_company_type': 'person'}</field>
         <field name="help" type="html">

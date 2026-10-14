@@ -298,7 +298,8 @@ max_owner_rent         = (N×R×o×T − I) / (N×T)
 
 | 區塊 | 來源模組 | 內容 |
 | --- | --- | --- |
-| 擴充模組 `ggandy_modules` | 主模組 | `module_ggandy_property_telegram`、`module_ggandy_property_project`（Odoo 原生 `module_*`：勾選安裝、取消解除安裝） |
+| 擴充模組 `ggandy_modules` | 主模組 | `module_ggandy_property_telegram`、`module_ggandy_line_bot`、`module_ggandy_property_project`（Odoo 原生 `module_*`：勾選安裝、取消解除安裝） |
+| LINE 房客 Bot | line_bot（xpath `ggandy_modules` after） | channel secret / access token / 官方帳號 ID 與名稱（`ggandy_line_bot.*` 系統參數）、webhook URL、清除所有綁定 |
 | Telegram Bot | telegram（xpath `ggandy_modules` after） | token / username / polling（`ggandy_property_telegram.*` 系統參數） |
 | 整備專案 | project（xpath `ggandy_google_sheet` before） | `action_open_ggandy_preparation_template()` 開範本任務 |
 | Google Sheet 匯入 `ggandy_google_sheet` | 主模組 | `ggandy_property_sheet_url`、`ggandy_contact_sheet_url`（`ggandy_property_management.*` 系統參數） |
@@ -328,6 +329,34 @@ ir.cron（每分鐘）→ ggandy.telegram.log._cron_poll_updates
 ```
 
 `ir.config_parameter` keys（前綴 `ggandy_property_telegram.`）：`bot_token`、`bot_username`、`polling_enabled`、`update_offset`、`overdue_digest_sent_date`。
+
+## 3-1. LINE 房客 Bot 模組（`ggandy_line_bot`）
+
+給房客用的 LINE 官方帳號 Bot（Telegram 是給管理員的）。只用 Reply API（不計訊息則數），沒有 cron、不主動推播。申請與後台設定見 `line-bot-plan.md`。
+
+```text
+LINE → POST /ggandy/line/webhook（controllers/main.py；type=http、auth=public、csrf=False）
+   → verify_signature(channel_secret, 原始 body, X-Line-Signature)   # 失敗回 400
+   → 逐筆 event（savepoint + try/except，單筆失敗不影響其他）→ ggandy.line.bot.log._process_event
+        webhookEventId 已記錄 → 略過（LINE 重送）
+        非一對一文字訊息（follow / unfollow / 貼圖 / 群組）→ log ignored
+        「綁定 123456」或 6 位數 → _handle_bind（找未過期綁定碼的房客，寫 ggandy_line_user_id）
+        MENU_COMMANDS（帳單 / 繳費 / 租約 / 修改資料 / 聯絡管理員 / 說明）、「電話 …」、「email …」
+           未綁定 → 回覆請索取綁定碼（log unbound）
+           已綁定 → _build_*_message(partner) / _update_phone / _update_email
+        其他文字 → 不回覆（log ignored，留給真人在官方帳號聊天室回）
+   → _reply_and_log → LineAPIClient.reply_message(replyToken)   # replyToken 很快過期，當下就回
+   → 一律回 200
+```
+
+- **沒有登入使用者**：controller 用 public user，所有查詢 `sudo()` 並明確限定 `tenant_id = 綁定的房客`；新增查詢時不要依賴記錄規則。
+- **綁定**（`res.partner` inherit）：`ggandy_line_user_id`（唯一）、`ggandy_line_display_name`、`ggandy_line_bound_at`、`ggandy_line_bind_code`（`secrets` 6 位數，與未過期的碼不重複）、`ggandy_line_bind_code_expiry`（7 天）、`ggandy_line_bind_instruction`（compute，給房客的說明，`CopyClipboardChar`）。只限 `is_ggandy_tenant`；一個 LINE 只對應一位房客（新綁定會解除舊的）。防暴力：同一 `line_user_id` 1 小時內 `command = bind` 且 `partner_id` 空的紀錄達 5 筆就拒絕。
+- **帳單**：`tenant_id = 房客` + `_get_effective_domain()`；本月（`period_start` 在本月）＋更早且 `collection_state` 不是 paid / cancelled 的（最多列 6 期）。草稿帳單、未開單對房客都顯示「待繳」，過 `due_date` 顯示已逾期。
+- **繳費**：重用 `report.ggandy_property_management.report_lease_contract._get_contract_parties(lease)` 的收款方銀行帳戶。
+- **租約**：主要承租人 `state in (active, expired)` 的租約（共同居住人不開放）。
+- **紀錄** `ggandy.line.bot.log`：`status` = bound / replied / unbound / bind_failed / ignored / error；manager 唯讀＋多公司 rule。選單「LINE → 訊息紀錄／已綁定房客」。
+
+`ir.config_parameter` keys（前綴 `ggandy_line_bot.`）：`channel_secret`、`channel_access_token`、`bot_basic_id`、`bot_display_name`。
 
 ## 4. 整備專案模組（`ggandy_property_project`）
 

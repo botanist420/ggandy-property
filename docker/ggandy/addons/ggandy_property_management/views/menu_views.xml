@@ -74,7 +74,7 @@
     <menuitem id="menu_ggandy_integrations"
               name="整合工具"
               parent="menu_ggandy_root"
-              sequence="90"/>
+              sequence="99"/>
     <menuitem id="menu_ggandy_settings"
               name="設定"
               parent="menu_ggandy_integrations"

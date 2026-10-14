@@ -85,7 +85,7 @@
     <menuitem id="menu_ggandy_telegram_configuration"
               name="Telegram"
               parent="ggandy_property_management.menu_ggandy_root"
-              sequence="90"
+              sequence="88"
               groups="ggandy_property_management.group_property_manager"/>
     <menuitem id="menu_ggandy_telegram_log"
               name="訊息紀錄"

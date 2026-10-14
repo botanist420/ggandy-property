@@ -1,0 +1,145 @@
+# LINE 房客 Bot（`ggandy_line_bot`）
+
+> 2026-10-14 第一版已開發（本機測試通過，尚未上遠端）。本文件是申請與後台設定步驟；程式結構見 `architecture.md`「LINE 房客 Bot 模組」。
+
+目標：做一個輕量的 LINE 官方帳號 Bot，**只回應房客主動的操作**（查帳單、改聯絡資料），不主動推播，讓訊息費用維持 0 元。
+
+- 模組名稱：`ggandy_line_bot`（2026-10-14 決定；避開單獨的 `line`，Odoo 裡 `line` 通常是「明細行」）。
+- 對象：**只開放房客**；房東之後再評估。
+- 帳號：目前先用測試帳號「傑升租屋 lux test」（`@052rldvq`，一般帳號、不申請藍盾）；正式上線改用包租老闆自己的官方帳號。
+
+## 1. 費用：為什麼「房客按按鈕」不用錢
+
+LINE 官方帳號的訊息分兩種：
+
+| 類型 | 誰先開口 | 計費 | 例子 |
+| --- | --- | --- | --- |
+| 回覆（Reply API） | 房客先傳訊息或按圖文選單 | **不計費、不佔則數** | 房客按「我的帳單」→ Bot 回本月帳單 |
+| 主動推播（Push / Multicast / Broadcast） | 公司主動發 | 計入每月則數 | 每月 5 號提醒所有房客繳租 |
+
+- 圖文選單（Rich Menu）的按鈕本身免費；按鈕送出文字或 postback 給 Bot，Bot 拿到 `replyToken` 回覆就是免費的 Reply。
+- 加入好友歡迎訊息、一對一聊天（真人回覆）、自動回應訊息也不計費。
+- `replyToken` 只能用一次，而且很快就會過期（官方沒寫明確秒數，第三方多說約 1 分鐘），所以 Bot 收到事件要**立刻**回，不能排隊慢慢處理。
+- 推播是「按人頭」計算：同一次送 5 則訊息給 1 人算 1 則，送給 100 人算 100 則；被封鎖的人不計。
+
+台灣方案（未稅，**2026-11-01 起調整**）：
+
+| 方案 | 月費（現行 → 11/1 起） | 每月免費推播 | 加購 |
+| --- | --- | --- | --- |
+| 輕用量 | 0 元 | 200 則 | 不可 |
+| 中用量 | 800 → 1,000 元 | 3,000 則 | 不可（要升級高用量） |
+| 高用量 | 1,200 → 1,400 元 | 6,000 則 | 1–50,000 則 0.2 元／則，之後 0.15 元／則 |
+
+**結論**：只做回覆型 Bot → **輕用量（免費）就夠**。之後若要主動提醒繳租，房客數 × 每月提醒次數超過 200 就要升級；那是另一個決定，先不做。
+
+## 2. 註冊與設定步驟（不用寫程式的部分）
+
+### 2-1 申請 LINE 官方帳號
+
+1. 到 [LINE Official Account Manager](https://manager.line.biz/) →「建立 LINE 官方帳號」。
+2. 用 LINE 個人帳號或 email 登入，建立 **LINE Business ID**。建議用公司共用 email，不要綁某個員工的個人 LINE，避免離職交接問題。
+3. 填帳號資料：帳號名稱（例：GGAndy 包租代管）、公司名稱、業種選「不動產」相關、所在地台灣。
+4. 建好後是**一般帳號（灰色盾牌）**，馬上可以用。
+5. （建議）申請**認證帳號（藍色盾牌）**：需要統編／營業登記等資料，審核需要幾個工作天。藍盾比較能讓房客相信「這是公司官方帳號」，可以降低詐騙疑慮。不申請也不影響 Bot 功能。
+6. 方案維持「輕用量」。
+
+### 2-2 開啟 Messaging API
+
+1. Official Account Manager →「設定」→「Messaging API」→「啟用 Messaging API」。
+2. 選或建立 **Provider**。**官方帳號與 Provider 一旦連動就不能更換或解除**（Provider 名稱之後可在 Developers Console 改）。
+   - 測試帳號用測試專用的 Provider（例：`GGAndy 測試`），跟正式的分開。
+   - 正式帳號的 Provider 建議由**包租老闆的 LINE Business ID 建立、擁有**，再把開發者加為 Provider 管理員；不要掛在開發者個人建的 Provider 底下（官方帳號是公司資產，綁了就拆不掉）。
+   - LINE 的 `userId` 是**每個 Provider 各自一套**：同一位房客在測試帳號與正式帳號的 userId 不同。所以從測試切到正式時，測試期間的綁定全部作廢，房客要在正式帳號重新綁定（測試資料本來就該清掉，沒有影響）。
+   - 之後若要做 LINE Login／LIFF，要放在**跟正式官方帳號同一個 Provider** 底下，userId 才對得起來。
+3. 啟用後到 [LINE Developers Console](https://developers.line.biz/console/)（用同一個帳號登入），會看到自動建立的 Messaging API channel。現在已經不能直接在 Console 建 Messaging API channel，一定要從官方帳號啟用。
+4. 在 channel 裡取得兩把鑰匙（之後存進 Odoo 的 `ir.config_parameter`，跟 Telegram token 一樣**不寫進程式碼、文件、log**）：
+   - **Channel secret**（Basic settings）：驗證 webhook 簽章用。
+   - **Channel access token**（Messaging API 分頁 → 發行 long-lived token）：呼叫回覆 API 用。
+
+### 2-3 Webhook 與 Odoo 設定
+
+1. LINE 只接受**公開的 HTTPS** 網址，`localhost:1025` 不行。
+   - 直接用遠端機測試：`https://erp.luxnology.com/ggandy/line/webhook`（設定頁「Webhook」欄位會顯示，可直接複製）。
+   - 遠端機要只有一個資料庫，或在 `odoo.conf` 設 `dbfilter`：webhook 沒有登入 session，資料庫不只一個時 Odoo 不知道要用哪一個。
+   - 一個 Odoo 資料庫同時只連一個官方帳號（設定頁存一組 channel secret／token）；換成老闆的帳號時，在設定頁換金鑰、到老闆帳號的 Console 設同一個 webhook 網址，並清掉舊帳號的綁定。
+2. Odoo「包租代管 → 整合工具 → 設定」：擴充模組勾「LINE 房客 Bot」→ 儲存（安裝）→「LINE 房客 Bot」區塊貼上 Channel secret 與 Channel access token → 儲存 → 按「測試 LINE 連線」，應顯示官方帳號名稱與 ID（例：`@052rldvq`）。
+3. Developers Console → Messaging API 分頁 → 填 Webhook URL → 按「Verify」→ 開啟「Use webhook」。
+
+### 2-4 回應設定（Official Account Manager →「設定」→「回應設定」）
+
+| 項目 | 建議 | 原因 |
+| --- | --- | --- |
+| Webhook | 開 | Bot 才收得到事件 |
+| 自動回應訊息 | 關 | 不然會跟 Bot 重複回覆 |
+| 加入好友歡迎訊息 | 開 | 免費，用來說明怎麼綁定 |
+| 聊天 | 開 | 真人客服還可以手動回（一對一聊天不計費） |
+
+### 2-5 加入好友的歡迎訊息（Official Account Manager → 主頁 → 加入好友的歡迎訊息）
+
+```text
+{Nickname} 您好，歡迎加入傑升租屋！
+第一次使用請先綁定：傳「綁定」加上管理員給您的 6 位數綁定碼
+例如：綁定 123456
+綁定後就可以用下方選單查帳單、繳費方式與租約。
+```
+
+### 2-6 圖文選單（Official Account Manager → 主頁 → 圖文選單 → 建立）
+
+- 版型：**大型 6 格（2 列 × 3 欄）**，圖片 2500×1686，可用後台內建的圖片製作工具或 Canva。
+- 選單列顯示文字填「選單」，預設展開。
+- 每格動作選「**文字**」，送出的文字要和下表一致（Bot 靠它辨識；括號內的別名也認得）：
+
+```text
+┌──────────────┬──────────────┬──────────────┐
+│  📄 我的帳單  │  💳 繳費方式  │  📋 我的租約  │
+│     帳單      │     繳費      │     租約      │
+├──────────────┼──────────────┼──────────────┤
+│  ✏️ 修改資料  │ ☎️ 聯絡管理員 │  ❓ 使用說明  │
+│   修改資料    │  聯絡管理員   │     說明      │
+└──────────────┴──────────────┴──────────────┘
+```
+
+| 送出文字 | Bot 回覆 |
+| --- | --- |
+| `帳單`（我的帳單） | 本月帳單＋之前還沒繳清的帳單（最多 6 期）：租金、管理費、電費（度數）、水費、合計、繳租日、狀態（待繳／已逾期／部分已繳／已繳清）、尚未繳清合計；待抄表會加註 |
+| `繳費`（繳費方式） | 每份租約的收款銀行、帳號、戶名、繳租日（收款方判斷與租約 PDF 相同：包租＝公司、代管＝代管業者） |
+| `租約`（我的租約） | 物件／房間、租期與剩餘天數、月租、管理費、押金、繳租日 |
+| `修改資料` | 目前的姓名、電話、Email，以及修改方式 |
+| `聯絡管理員` | 請房客直接在聊天室留言；有填公司電話會附上 |
+| `說明`（使用說明、選單） | 功能說明 |
+
+打字指令：`綁定 123456`（只傳 6 位數、全形數字也可以）、`電話 0912345678`、`email abc@example.com`（電話、Email 直接覆寫，並在聯絡人 chatter 記錄舊值與新值）。
+
+其他文字、貼圖、照片 Bot **不回覆**，留給管理員在官方帳號後台「聊天」手動回覆；Odoo「LINE → 訊息紀錄」可用「待真人回覆」篩選查看。
+
+## 3. 房客綁定流程
+
+LINE 只給 Bot 一個 `userId`，不給電話或姓名，所以要先綁定一次：
+
+1. 房客聯絡人 →「包租代管」分頁 →「產生 LINE 綁定碼」（只有勾了「房客」的聯絡人才看得到）。
+2. 按「給房客的綁定說明」旁的複製鈕，用簡訊或私訊傳給房客（內含加好友連結與綁定碼）。
+3. 房客加好友後傳「綁定 123456」→ Bot 回「綁定完成，○○ 您好」。
+
+規則：
+
+- 綁定碼 6 位數、**7 天有效、用過即失效**；重按會換一組新的。
+- 一個 LINE 只對應一位房客；用新碼綁另一位，舊的會自動解除。
+- 同一個 LINE 1 小時內綁錯 5 次會暫停 1 小時。
+- 只開放租約上的**主要房客**；共同居住人、房東這版不開放。
+- 換手機或綁錯：聯絡人頁按「解除 LINE 綁定」再重新產生。
+- 換成另一個官方帳號（例：測試帳號 → 老闆的帳號）：設定頁按「清除所有 LINE 綁定」，房客重新綁定（不同 Provider 的 userId 不同）。
+
+## 4. 之後可以做
+
+- 一鍵綁定 QR：用 `https://line.me/R/oaMessage/{官方帳號 ID}/?綁定%20{碼}` 開啟聊天並預填文字，房客掃描後按傳送即可。
+- 帳單改用 Flex Message（卡片樣式）。
+- 主動推播（繳租提醒、逾期通知）：會佔訊息則數，要先決定方案。
+- 共同居住人、房東端。
+
+## 參考
+
+- [2026 年 LINE 官方帳號方案價格調整（LINE Biz-Solutions）](https://tw.linebiz.com/column/LINEOA-2026-Price-Plan/)
+- [Messaging API pricing（哪些訊息計費）](https://developers.line.biz/en/docs/messaging-api/pricing/)
+- [How message counts are calculated](https://developers.line.biz/en/tips/2026/05/28/how-to-count-messages/)
+- [Get started with the Messaging API](https://developers.line.biz/en/docs/messaging-api/getting-started/)
+- [LINE URL scheme（oaMessage 預填文字）](https://developers.line.biz/ja/docs/messaging-api/using-line-url-scheme/)

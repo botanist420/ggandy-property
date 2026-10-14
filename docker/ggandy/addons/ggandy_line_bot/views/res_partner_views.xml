@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_ggandy_line_bot" model="ir.ui.view">
+        <field name="name">res.partner.form.ggandy.line.bot</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ggandy_property_management.view_partner_form_ggandy_property"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='ggandy_property_management']" position="inside">
+                <div invisible="not is_ggandy_tenant">
+                    <div class="o_ggandy_hint">
+                        <i class="fa fa-info-circle" role="img" title="說明"/>
+                        <div>
+                            <div>按<strong>「產生 LINE 綁定碼」</strong>，把下方說明複製傳給房客；房客在 LINE 傳「綁定 123456」後就能用選單查帳單、繳費方式與租約。</div>
+                            <div>綁定碼 7 天內有效、只能用一次。房客換手機或綁錯時，按「解除 LINE 綁定」再重新產生。</div>
+                        </div>
+                    </div>
+                    <group string="LINE 綁定">
+                        <group>
+                            <field name="ggandy_line_display_name" invisible="not ggandy_line_user_id"/>
+                            <field name="ggandy_line_bound_at" invisible="not ggandy_line_user_id"/>
+                            <field name="ggandy_line_user_id" invisible="not ggandy_line_user_id"
+                                   groups="ggandy_property_management.group_property_manager"/>
+                            <field name="ggandy_line_bind_code" invisible="not ggandy_line_bind_code"/>
+                            <field name="ggandy_line_bind_code_expiry" invisible="not ggandy_line_bind_code"/>
+                        </group>
+                        <group>
+                            <div colspan="2">
+                                <button name="action_generate_ggandy_line_bind_code"
+                                        type="object"
+                                        string="產生 LINE 綁定碼"
+                                        icon="fa-link"
+                                        class="btn-primary"
+                                        invisible="ggandy_line_user_id"/>
+                                <button name="action_generate_ggandy_line_bind_code"
+                                        type="object"
+                                        string="重新產生綁定碼"
+                                        icon="fa-refresh"
+                                        class="btn-secondary"
+                                        invisible="not ggandy_line_user_id"
+                                        confirm="這位房客已綁定 LINE。產生新綁定碼後，房客用新碼綁定會改用新的 LINE 帳號。確定要產生嗎？"/>
+                                <button name="action_unbind_ggandy_line"
+                                        type="object"
+                                        string="解除 LINE 綁定"
+                                        icon="fa-chain-broken"
+                                        class="btn-secondary ms-2"
+                                        invisible="not ggandy_line_user_id"
+                                        confirm="解除後，這位房客要重新傳綁定碼才能用 LINE 查帳單。確定要解除嗎？"/>
+                            </div>
+                        </group>
+                    </group>
+                    <group invisible="not ggandy_line_bind_instruction">
+                        <field name="ggandy_line_bind_instruction" widget="CopyClipboardChar"/>
+                    </group>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_partner_list_ggandy_tenant_line_bot" model="ir.ui.view">
+        <field name="name">res.partner.list.ggandy.tenant.line.bot</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ggandy_property_management.view_partner_list_ggandy_tenant"/>
+        <field name="arch" type="xml">
+            <field name="application_statistics" position="before">
+                <field name="ggandy_line_bound" optional="show"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_partner_list_ggandy_line_bound" model="ir.ui.view">
+        <field name="name">res.partner.list.ggandy.line.bound</field>
+        <field name="model">res.partner</field>
+        <field name="mode">primary</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <list string="已綁定 LINE 的房客" create="0">
+                <field name="name"/>
+                <field name="phone"/>
+                <field name="email"/>
+                <field name="ggandy_line_display_name"/>
+                <field name="ggandy_line_bound_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_ggandy_line_bound_partners" model="ir.actions.act_window">
+        <field name="name">已綁定房客</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('ggandy_line_user_id', '!=', False)]</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_partner_list_ggandy_line_bound')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('base.view_partner_form')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">還沒有房客綁定 LINE</p>
+            <p>到房客的聯絡人頁「包租代管」分頁按「產生 LINE 綁定碼」，把說明傳給房客即可。</p>
+        </field>
+    </record>
+</odoo>

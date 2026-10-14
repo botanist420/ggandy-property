@@ -8,6 +8,10 @@ class ResConfigSettings(models.TransientModel):
         string="Telegram 管理員 Bot",
         help="勾選後儲存會安裝 Telegram 管理員 Bot；取消勾選會解除安裝並刪除 Bot 紀錄與使用者綁定。",
     )
+    module_ggandy_line_bot = fields.Boolean(
+        string="LINE 房客 Bot",
+        help="勾選後儲存會安裝 LINE 房客 Bot；取消勾選會解除安裝並刪除 LINE 紀錄與房客綁定。",
+    )
     module_ggandy_property_project = fields.Boolean(
         string="物件整備專案",
         help="勾選後儲存會安裝物件整備專案（會一併安裝專案、銷售、採購）；取消勾選會解除安裝，物件與整備專案的連結會被移除。",

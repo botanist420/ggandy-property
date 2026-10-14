@@ -8,6 +8,7 @@ GGAndy 是給包租代管公司使用的 Odoo 19 客製化 ERP。它把「房東
 - 自訂模組：
   - `ggandy_property_management`：包租代管主模組
   - `ggandy_property_telegram`：Telegram 管理員 Bot
+  - `ggandy_line_bot`：LINE 房客 Bot（房客查帳單、繳費方式、租約，自行改電話／Email）
   - `ggandy_property_project`：包租物件整備專案（串接 Odoo 專案、銷售、採購與分析會計）
 - 後台主題：MuK Backend Theme（第三方，LGPL-3，見下方「後台主題」）
 
@@ -219,6 +220,30 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 
 ---
 
+## LINE 房客 Bot
+
+`ggandy_line_bot` 讓房客用公司的 LINE 官方帳號自己查帳單。Bot **只回覆房客按的選單**（Reply API 不計訊息則數），不主動推播，LINE 輕用量免費方案就夠。申請官方帳號、圖文選單與歡迎訊息的設定步驟見 [notebook/docs/line-bot-plan.md](notebook/docs/line-bot-plan.md)。
+
+| 房客傳送（圖文選單） | Bot 回覆 |
+| --- | --- |
+| `帳單` | 本月帳單＋之前還沒繳清的帳單：租金、管理費、水電（含度數）、合計、繳租日、狀態、尚未繳清合計 |
+| `繳費` | 收款銀行、帳號、戶名、繳租日（收款方判斷與租約 PDF 相同） |
+| `租約` | 物件／房間、租期與剩餘天數、月租、押金、繳租日 |
+| `修改資料` | 目前的電話、Email；房客傳 `電話 0912345678`、`email abc@example.com` 直接更新，並記在聯絡人 chatter |
+| `聯絡管理員`、`說明` | 請房客在聊天室留言／功能說明 |
+
+其他留言、貼圖、照片 Bot 不回，留給管理員在官方帳號後台「聊天」手動回覆。
+
+設定方式：
+
+1. 包租代管 → 整合工具 → 設定：擴充模組勾「LINE 房客 Bot」並儲存；在「LINE 房客 Bot」區塊貼上 Channel secret、Channel access token，按「測試 LINE 連線」。
+2. 把設定頁顯示的 Webhook URL（`https://<網域>/ggandy/line/webhook`）貼到 LINE Developers Console，按 Verify 並開啟 Use webhook。必須是公開的 https 網址，且 Odoo 只有一個資料庫（或設了 `dbfilter`）。
+3. 房客綁定：房客聯絡人 →「包租代管」分頁 →「產生 LINE 綁定碼」，複製說明傳給房客；房客加好友後傳「綁定 123456」。綁定碼 7 天有效、用過即失效，只開放租約上的主要房客。
+
+收發紀錄在「包租代管 → LINE → 訊息紀錄」（「待真人回覆」篩選 Bot 沒回的留言），已綁定的房客在「LINE → 已綁定房客」。
+
+---
+
 ## 包租物件整備專案
 
 `ggandy_property_project` 用 Odoo 原生「專案」追蹤包租物件從簽約到上架前的整備期，並讓這段期間的銷售與採購能被專案與會計分析。
@@ -242,8 +267,9 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 選單「包租代管 → 整合工具」：
 
 - **設定**（僅系統管理員）：開到「設定 → 包租代管」頁面，所有 GGAndy 相關設定都集中在這裡：
-  - **擴充模組**：勾選「Telegram 管理員 Bot」、「物件整備專案」後儲存就會自動安裝；取消勾選會解除安裝並刪除該模組資料（Odoo 會先跳確認）。
+  - **擴充模組**：勾選「Telegram 管理員 Bot」、「LINE 房客 Bot」、「物件整備專案」後儲存就會自動安裝；取消勾選會解除安裝並刪除該模組資料（Odoo 會先跳確認）。
   - **Telegram Bot**：Bot Token、測試連線、本機輪詢（裝了 Telegram 模組才會出現）。使用者綁定仍在使用者頁面的「GGAndy Telegram」分頁。
+  - **LINE 房客 Bot**：Channel secret／access token、測試連線、Webhook URL、清除所有綁定（裝了 LINE 模組才會出現）。房客綁定在聯絡人頁的「包租代管」分頁。
   - **整備專案**：「編輯整備範本」連結（裝了整備專案模組才會出現）。
   - **Google Sheet 匯入**：物件／聯絡人匯入精靈預先帶入的連結，留空使用內建連結。
 - **從 Google Sheet 匯入物件**：貼上 Google Sheet 連結（需可公開讀取），欄位為 `編號`、`案件名稱`（必填）、`經營模式`（包租／代管）、`房東`、`地址`、`管理人員`、`匯款日期`（例如 `30號`）、`出租單位`（房號用半形逗號隔開，例如 `201,202,店面`）。用 `編號 + 案件名稱` 產生穩定的 external id，重複匯入會更新同一筆物件，不會重複建立；留空的欄位不會覆蓋既有資料。房東依名稱比對聯絡人，找不到時預設自動建立房東聯絡人；管理人員依名稱或登入帳號比對內部使用者，找不到就留空，並在匯入結果以警告列出「編號／案件名稱／管理人員」。房間只新增物件底下還沒有的房號，不會刪除。
@@ -283,7 +309,7 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 | 群組 | 權限 |
 | --- | --- |
 | 包租代管 / 使用者 | 可讀寫建立所有包租代管資料，不能刪除 |
-| 包租代管 / 管理員 | 完整權限（含刪除），可使用 Telegram Bot、查看 Bot 紀錄 |
+| 包租代管 / 管理員 | 完整權限（含刪除），可使用 Telegram Bot、查看 Telegram／LINE Bot 紀錄 |
 
 所有主要模型都有多公司記錄規則（`company_id in company_ids`）。
 
@@ -312,6 +338,10 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 │       ├── ggandy_property_telegram/
 │       │   ├── models/                ← Bot 紀錄與指令處理、使用者綁定、設定
 │       │   └── services/              ← Telegram Bot API client
+│       ├── ggandy_line_bot/
+│       │   ├── controllers/           ← LINE webhook（驗簽章）
+│       │   ├── models/                ← Bot 紀錄與指令處理、房客綁定、設定
+│       │   └── services/              ← LINE Messaging API client
 │       ├── ggandy_property_project/
 │       │   ├── models/                ← 物件「開始整備」與整備專案連結
 │       │   └── data/                  ← 整備範本專案、階段與任務
@@ -400,6 +430,7 @@ docker exec "$DB_CONTAINER" sh -c "psql -U \"\$POSTGRES_USER\" -d $DB -c \"selec
 ```
 
 - 主題已安裝過、之後只是升級主題版本時，把 `-i muk_web_theme` 改成 `-u muk_web_theme`。
+- LINE 房客 Bot：第一次上線時，升級完到「整合工具 → 設定」勾「LINE 房客 Bot」安裝；裝好之後，第 3 步的 `-u` 也要加上 `ggandy_line_bot`。
 - 升級失敗時用備份還原：`pg_restore -U ... -d <新資料庫> --no-owner <dump 檔>`，filestore 解壓回 `/var/lib/odoo/filestore/<資料庫>`。
 
 更多開發指令（Odoo shell、SQL、除錯方式）請看 [notebook/docs/dev_workflow.md](notebook/docs/dev_workflow.md)；資料模型與計算邏輯請看 [notebook/docs/architecture.md](notebook/docs/architecture.md)。

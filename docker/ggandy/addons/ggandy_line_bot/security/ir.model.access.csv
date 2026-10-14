@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ggandy_line_bot_log_manager,ggandy.line.bot.log manager,model_ggandy_line_bot_log,ggandy_property_management.group_property_manager,1,0,0,0

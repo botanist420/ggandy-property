@@ -9,6 +9,7 @@
 - 三個模組，都放在 `docker/ggandy/addons/`（掛載到容器 `/mnt/extra-addons`）：
   - `ggandy_property_management`：主模組，depends `base, mail, contacts, account`。
   - `ggandy_property_telegram`：Telegram 管理員 Bot，depends 主模組。
+  - `ggandy_line_bot`：LINE 房客 Bot（房客查帳單／繳費方式／租約、改電話與 Email），depends 主模組。只用免費的 Reply API，不主動推播。
   - `ggandy_property_project`：包租物件「開始整備」→ 建立整備專案，depends 主模組 + `sale_project, project_purchase, project_account, project_purchase_stock`。主模組刻意不依賴 project / stock。開始整備時也會建房東銷售單（已確認，預帶 0 元「包租服務費」，因為專案是從銷售明細反推銷售單，空單看不到）與 `WH/庫存/{物件}/{房間}` 庫存位置。
 - 會計本地化 `l10n_tw` 已安裝在 `ggandy_dev`；開帳單時需要 `sale` / `purchase` 日記帳。
 - 後台主題是第三方 **MuK Backend Theme**（`muk_web_*` 7 個模組，也放在 `addons/`，會帶入 `base_automation`）：**不要修改它們的程式碼**，外觀調整寫在 `ggandy_property_management/static/src/scss/ggandy_backend.scss`。未來若換主題，保留 `muk_web_group`（分組全部展開／收合）與 `base_automation`。Community 沒有深色模式。細節見 README「後台主題」。
@@ -68,12 +69,14 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `ggandy.google.sheet.lease.import.wizard` | `models/google_sheet_lease_import_wizard.py` | TransientModel；租約與抄表匯入（房間租約／抄表度數／帳單調整三分頁），有預覽（savepoint 還原），租約一律建草稿 |
 | `ggandy.master.lease.profit.wizard` | `models/master_lease_profit_wizard.py` | TransientModel；包租獲利試算，純 compute 不寫資料，僅 manager |
 | `res.config.settings`（inherit） | `models/res_config_settings.py` | 「包租代管」設定 app：擴充模組 `module_*` 勾選、Google Sheet 預設連結；擴充模組的設定 block 都插進這個 app，不另開 app |
-| `res.partner`（inherit） | `models/res_partner.py` | `is_ggandy_owner / tenant / vendor` 身分旗標 |
+| `res.partner`（inherit） | `models/res_partner.py` | `is_ggandy_owner / tenant / vendor` 身分旗標；`ggandy_tenant_property_ids / unit_ids`（compute，生效中／已到期租約，含共同居住人）給「房客」選單專用列表 `view_partner_list_ggandy_tenant` |
 | `account.move`（inherit） | `models/account_move.py` | `ggandy_lease_id`、`ggandy_owner_contract_id`、`ggandy_expense_*`、`ggandy_settlement_period_*` |
 | `ir.attachment`（inherit） | `models/ir_attachment.py` | `ggandy_request_date` 給維修照片排序 |
 | `report.ggandy_property_management.report_lease_contract` | `report/lease_contract_report.py` | 房客租約 PDF（公司正式合約四頁版）的資料準備（出租人／繳款帳戶判斷、民國日期、水電文字）；範本與 action 在同目錄 `.xml`，條文是固定文字；沒有對應欄位的資料印空白給房客手寫，不要為了 PDF 隨意新增欄位 |
 
 整備專案模組：`ggandy.property`（inherit）加 `preparation_project_id` 與 `action_start_preparation()`；專案從 `data/project_preparation_data.xml` 的「整備範本」（`is_template`）以 `action_create_from_template` 複製，`account_id` 不會被複製，要另外 `_create_analytic_account()`。銷售單／採購單選了 `project_id` 就會自動帶分析分配。
+
+LINE 模組：webhook `controllers/main.py`（`/ggandy/line/webhook`，`auth="public"`，先驗 `X-Line-Signature`）→ `ggandy.line.bot.log._process_event`（指令處理與紀錄）；`res.partner` 綁定欄位 `ggandy_line_*` 與「產生 LINE 綁定碼」；`res.config.settings`（block 插在包租代管設定 app；secret／token 存 `ir.config_parameter`，key 前綴 `ggandy_line_bot.`）；`services/line_service.py`（純 `requests` 的 Messaging API client）。申請與後台設定見 `notebook/docs/line-bot-plan.md`。
 
 Telegram 模組：`ggandy.telegram.log`（`models/telegram_log.py`，指令處理與 cron 都在這）、`res.users` 綁定欄位、`res.config.settings`（設定 block 插在主模組的包租代管設定 app；token 存 `ir.config_parameter`，key 前綴 `ggandy_property_telegram.`）、`services/telegram_service.py`（純 `requests` 的 Bot API client）。
 
@@ -105,6 +108,7 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 - **重疊檢查**：同物件同期間只能一份 active 房東合約；同房間同期間只能一份 active 租約（`@api.constrains`）。
 - **帳單用的產品**以 xmlid 取得：`product_product_rent`、`product_product_management_fee`、`product_product_owner_settlement`（`data/product_data.xml`）。
 - **帳務總表**是 `_table_query` 的 SQL：沒有資料表、不用排程建列；新增金額欄位要改 SQL，並把來源欄位加進 `_depends`。`init()` 只會 drop 改版前留下的實體表。
+- **LINE webhook 沒有登入使用者**：查詢一律 `sudo()` 並明確限定綁定的房客（`tenant_id = partner`），不能靠記錄規則；只開放主要房客（`is_ggandy_tenant`）。看不懂的留言不回覆，留給真人在官方帳號聊天室處理。
 - **Telegram 授權**：`telegram_user_id` + `telegram_enabled` + 使用者需屬於 `group_property_manager`；只處理私訊；查詢用 `with_user(user).with_company(company)` 套用記錄規則。
 
 ### 權限
@@ -132,7 +136,7 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 ## 注意事項
 
 - `docker/ggandy/config/odoo.conf` 被 git 追蹤，但本機版本含真的 `admin_passwd`；**不要 commit 這個檔案的密碼變更**。`config/ggandy.env` 已被 gitignore。
-- Telegram Bot token 只存在資料庫 `ir.config_parameter`，不要寫進程式碼、文件或 log。
+- Telegram Bot token、LINE channel secret／access token 只存在資料庫 `ir.config_parameter`，不要寫進程式碼、文件或 log。
 - 不要執行 `docker compose down -v`、不要 drop `ggandy_dev`。
 - Commit 訊息用英文小寫、一行為主，格式沿用既有風格：`feature: ...`、`update: ...`、`fix: ...`、`add: ...`（例如 `feature: ggandy project module for managing pre-lease`）。
 - `notebook/` 是學習 / 研究用：文件（`notebook/docs/`）、代辦（`notebook/TODO.md`）、Odoo shell 練習腳本（`notebook/scripts/`，`test.py` 被 gitignore）。**不使用 Jupyter**，`notebook/` 也刻意不掛載進容器：腳本一律用 `docker exec -i ... odoo shell ... < notebook/scripts/xxx.py` 從主機餵進去。
