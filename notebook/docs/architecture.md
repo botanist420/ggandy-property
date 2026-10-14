@@ -339,12 +339,12 @@ LINE → POST /ggandy/line/webhook（controllers/main.py；type=http、auth=publ
    → verify_signature(channel_secret, 原始 body, X-Line-Signature)   # 失敗回 400
    → 逐筆 event（savepoint + try/except，單筆失敗不影響其他）→ ggandy.line.bot.log._process_event
         webhookEventId 已記錄 → 略過（LINE 重送）
-        非一對一文字訊息（follow / unfollow / 貼圖 / 群組）→ log ignored
+        非一對一訊息事件（follow / unfollow / 群組）→ log ignored
         「綁定 123456」或 6 位數 → _handle_bind（找未過期綁定碼的房客，寫 ggandy_line_user_id）
         MENU_COMMANDS（帳單 / 繳費 / 租約 / 修改資料 / 聯絡管理員 / 說明）、「電話 …」、「email …」
            未綁定 → 回覆請索取綁定碼（log unbound）
            已綁定 → _build_*_message(partner) / _update_phone / _update_email
-        其他文字 → 不回覆（log ignored，留給真人在官方帳號聊天室回）
+        其他文字、貼圖、照片 → _build_unknown_message（command = unknown；沒有真人客服，提示用選單或聯絡管家）
    → _reply_and_log → LineAPIClient.reply_message(replyToken)   # replyToken 很快過期，當下就回
    → 一律回 200
 ```

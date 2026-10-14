@@ -9,7 +9,7 @@
                 <field name="line_user_id"/>
                 <field name="command"/>
                 <field name="message_text"/>
-                <filter name="ignored" string="待真人回覆（忽略）" domain="[('status', '=', 'ignored'), ('event_type', '=', 'message')]"/>
+                <filter name="unknown" string="看不懂的訊息" domain="[('command', '=', 'unknown')]"/>
                 <filter name="unbound" string="未綁定／綁定失敗" domain="[('status', 'in', ('unbound', 'bind_failed'))]"/>
                 <filter name="errors" string="錯誤" domain="[('status', '=', 'error')]"/>
                 <group>

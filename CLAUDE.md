@@ -108,7 +108,7 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 - **重疊檢查**：同物件同期間只能一份 active 房東合約；同房間同期間只能一份 active 租約（`@api.constrains`）。
 - **帳單用的產品**以 xmlid 取得：`product_product_rent`、`product_product_management_fee`、`product_product_owner_settlement`（`data/product_data.xml`）。
 - **帳務總表**是 `_table_query` 的 SQL：沒有資料表、不用排程建列；新增金額欄位要改 SQL，並把來源欄位加進 `_depends`。`init()` 只會 drop 改版前留下的實體表。
-- **LINE webhook 沒有登入使用者**：查詢一律 `sudo()` 並明確限定綁定的房客（`tenant_id = partner`），不能靠記錄規則；只開放主要房客（`is_ggandy_tenant`）。看不懂的留言不回覆，留給真人在官方帳號聊天室處理。
+- **LINE webhook 沒有登入使用者**：查詢一律 `sudo()` 並明確限定綁定的房客（`tenant_id = partner`），不能靠記錄規則；只開放主要房客（`is_ggandy_tenant`）。沒有真人客服：看不懂的訊息回提示請房客找房間管家（物件 `manager_id`）。回覆每行盡量不超過約 16 個中文字，手機上才不會折行。
 - **Telegram 授權**：`telegram_user_id` + `telegram_enabled` + 使用者需屬於 `group_property_manager`；只處理私訊；查詢用 `with_user(user).with_company(company)` 套用記錄規則。
 
 ### 權限

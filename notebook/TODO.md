@@ -96,11 +96,9 @@
 只開放主要房客；只回應房客主動操作（Reply API 不計費），不主動推播，輕用量免費方案即可。房東之後再評估。申請與後台設定見 [docs/line-bot-plan.md](docs/line-bot-plan.md)。
 
 - [x] 測試官方帳號「傑升租屋 lux test」（`@052rldvq`，一般帳號，不申請藍盾）（2026-10-14）
-- [x] 新模組 `ggandy_line_bot`：webhook 驗 `X-Line-Signature`、綁定碼（7 天、用過即失效、防暴力）、帳單／繳費／租約／修改電話與 Email／聯絡管理員／說明、看不懂的留言不回、LINE 訊息紀錄與已綁定房客選單（2026-10-14，本機以模擬 webhook 測試通過）
-- [ ] 啟用 Messaging API（測試帳號用測試專用 Provider），取得 channel secret／access token
-- [ ] 部署到 `erp.luxnology.com`：確認只有一個資料庫或設 `dbfilter`；安裝模組、貼金鑰、測試連線；Webhook 設 `https://erp.luxnology.com/ggandy/line/webhook` 並 Verify
-- [ ] 官方帳號後台：回應設定（Webhook 開、自動回應關、歡迎訊息開、聊天開）、歡迎訊息、6 格圖文選單
-- [ ] 真機測試：綁定、6 個選單、改電話、傳一般留言（應不回）
+- [x] 新模組 `ggandy_line_bot`：webhook 驗 `X-Line-Signature`、綁定碼（7 天、用過即失效、防暴力）、帳單／繳費／租約／修改電話與 Email／聯絡管理員／說明、LINE 訊息紀錄與已綁定房客選單（2026-10-14，本機以模擬 webhook 測試通過）
+- [x] 啟用 Messaging API、部署到 `erp.luxnology.com`、官方帳號後台設定（回應設定、6 格圖文選單），正式區真機測試可用（2026-10-14）
+- [x] 回覆排版優化（短行、emoji、物件房間分兩行）；沒有真人客服，看不懂的訊息改回提示，「聯絡管理員」列出房間管家姓名與電話；新歡迎詞（2026-10-14）
 - [ ] 正式上線換成老闆的官方帳號（Provider 由老闆的 Business ID 建立）：設定頁換金鑰、「清除所有 LINE 綁定」，房客重新綁定
 - [ ] 之後：一鍵綁定 QR（`oaMessage` 預填文字）、帳單 Flex Message 卡片
 
