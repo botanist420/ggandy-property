@@ -56,9 +56,20 @@
         <field name="mode">primary</field>
         <field name="priority">90</field>
         <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="default_order">ggandy_tenant_property_id, ggandy_tenant_unit_id, name</attribute>
+            </xpath>
             <xpath expr="//field[@name='activity_ids']" position="replace"/>
             <xpath expr="//field[@name='country_id']" position="replace"/>
+            <xpath expr="//field[@name='email']" position="attributes">
+                <attribute name="width">220</attribute>
+            </xpath>
+            <xpath expr="//field[@name='application_statistics']" position="attributes">
+                <attribute name="width">120</attribute>
+            </xpath>
             <xpath expr="//field[@name='phone']" position="after">
+                <field name="ggandy_tenant_property_id" column_invisible="True"/>
+                <field name="ggandy_tenant_unit_id" column_invisible="True"/>
                 <field name="ggandy_tenant_property_ids" widget="many2many_tags" optional="show"/>
                 <field name="ggandy_tenant_unit_ids" widget="many2many_tags" optional="show"
                        context="{'ggandy_unit_short_name': True}"/>
@@ -70,13 +81,31 @@
         </field>
     </record>
 
+    <!-- 房客專用表單：點進來直接開「包租代管」分頁（LINE 綁定也在這裡） -->
+    <record id="view_partner_form_ggandy_tenant" model="ir.ui.view">
+        <field name="name">res.partner.form.ggandy.tenant</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="mode">primary</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <!-- 原生表單把「聯絡人與地址」設為預設分頁，這裡改成「包租代管」 -->
+            <xpath expr="//page[@name='contact_addresses']" position="attributes">
+                <attribute name="autofocus"/>
+            </xpath>
+            <xpath expr="//page[@name='ggandy_property_management']" position="attributes">
+                <attribute name="autofocus">autofocus</attribute>
+            </xpath>
+        </field>
+    </record>
+
     <record id="action_ggandy_tenant" model="ir.actions.act_window">
         <field name="name">房客</field>
         <field name="res_model">res.partner</field>
         <field name="view_mode">list,form</field>
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_partner_list_ggandy_tenant')}),
-            (0, 0, {'view_mode': 'form', 'view_id': ref('base.view_partner_form')})]"/>
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_partner_form_ggandy_tenant')})]"/>
         <field name="domain">[('is_ggandy_tenant', '=', True)]</field>
         <field name="context">{'default_is_ggandy_tenant': True, 'default_company_type': 'person'}</field>
         <field name="help" type="html">

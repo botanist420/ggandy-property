@@ -62,7 +62,7 @@
         <field name="inherit_id" ref="ggandy_property_management.view_partner_list_ggandy_tenant"/>
         <field name="arch" type="xml">
             <field name="application_statistics" position="before">
-                <field name="ggandy_line_bound" optional="show"/>
+                <field name="ggandy_line_bound" optional="show" width="110"/>
             </field>
         </field>
     </record>
@@ -90,7 +90,7 @@
         <field name="domain">[('ggandy_line_user_id', '!=', False)]</field>
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_partner_list_ggandy_line_bound')}),
-            (0, 0, {'view_mode': 'form', 'view_id': ref('base.view_partner_form')})]"/>
+            (0, 0, {'view_mode': 'form', 'view_id': ref('ggandy_property_management.view_partner_form_ggandy_tenant')})]"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">還沒有房客綁定 LINE</p>
             <p>到房客的聯絡人頁「包租代管」分頁按「產生 LINE 綁定碼」，把說明傳給房客即可。</p>

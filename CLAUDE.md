@@ -69,7 +69,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `ggandy.google.sheet.lease.import.wizard` | `models/google_sheet_lease_import_wizard.py` | TransientModel；租約與抄表匯入（房間租約／抄表度數／帳單調整三分頁），有預覽（savepoint 還原），租約一律建草稿 |
 | `ggandy.master.lease.profit.wizard` | `models/master_lease_profit_wizard.py` | TransientModel；包租獲利試算，純 compute 不寫資料，僅 manager |
 | `res.config.settings`（inherit） | `models/res_config_settings.py` | 「包租代管」設定 app：擴充模組 `module_*` 勾選、Google Sheet 預設連結；擴充模組的設定 block 都插進這個 app，不另開 app |
-| `res.partner`（inherit） | `models/res_partner.py` | `is_ggandy_owner / tenant / vendor` 身分旗標；`ggandy_tenant_property_ids / unit_ids`（compute，生效中／已到期租約，含共同居住人）給「房客」選單專用列表 `view_partner_list_ggandy_tenant` |
+| `res.partner`（inherit） | `models/res_partner.py` | `is_ggandy_owner / tenant / vendor` 身分旗標；`ggandy_tenant_property_ids / unit_ids`（compute，生效中／已到期租約，含共同居住人；共同居住用反向 m2m `ggandy_co_tenant_lease_ids`）給「房客」選單專用列表 `view_partner_list_ggandy_tenant`，排序靠 stored `ggandy_tenant_property_id / unit_id`；房客專用表單 `view_partner_form_ggandy_tenant` 預設開「包租代管」分頁 |
 | `account.move`（inherit） | `models/account_move.py` | `ggandy_lease_id`、`ggandy_owner_contract_id`、`ggandy_expense_*`、`ggandy_settlement_period_*` |
 | `ir.attachment`（inherit） | `models/ir_attachment.py` | `ggandy_request_date` 給維修照片排序 |
 | `report.ggandy_property_management.report_lease_contract` | `report/lease_contract_report.py` | 房客租約 PDF（公司正式合約四頁版）的資料準備（出租人／繳款帳戶判斷、民國日期、水電文字）；範本與 action 在同目錄 `.xml`，條文是固定文字；沒有對應欄位的資料印空白給房客手寫，不要為了 PDF 隨意新增欄位 |
