@@ -206,7 +206,7 @@ class GgandyLineBotLog(models.Model):
             ]
         )
         if failures >= BIND_FAILURE_LIMIT:
-            response = "⏳ 嘗試太多次了\n\n請 1 小時後再試，\n或向房間管家確認綁定碼 🙏"
+            response = "⏳ 嘗試太多次了\n\n請 1 小時後再試，\n或向房間管家確認綁定碼"
             self._reply_and_log(event, [response], "bind_failed", "bind", text)
             return
 
@@ -219,7 +219,7 @@ class GgandyLineBotLog(models.Model):
             limit=1,
         )
         if not partner:
-            response = "❌ 綁定碼不正確或已過期\n\n請確認後再傳一次，\n或向房間管家重新索取 🙏"
+            response = "❌ 綁定碼不正確或已過期\n\n請確認後再傳一次，\n或向房間管家重新索取"
             self._reply_and_log(event, [response], "bind_failed", "bind", text)
             return
 
@@ -251,7 +251,7 @@ class GgandyLineBotLog(models.Model):
         partner.message_post(
             body=f"房客已綁定 LINE（LINE 名稱：{display_name or '未取得'}）。"
         )
-        response = f"🎉 綁定完成！\n{partner.name} 您好 👋\n\n" + self._build_help_message(partner)
+        response = f"🎉 綁定完成！\n{partner.name} 您好\n\n" + self._build_help_message(partner)
         self._reply_and_log(event, [response], "bound", "bind", text, partner)
 
     @api.model
@@ -312,7 +312,7 @@ class GgandyLineBotLog(models.Model):
     @api.model
     def _format_place(self, record):
         """物件、房間各一行，避免名稱太長在手機上折行。"""
-        return f"🏠 {record.property_id.name}\n🚪 {record.unit_id.name}"
+        return f"🏠 {record.property_id.name}\n房間：{record.unit_id.name}"
 
     @api.model
     def _get_paid_amount(self, schedule):
@@ -343,14 +343,14 @@ class GgandyLineBotLog(models.Model):
         )
 
         if not current and not earlier:
-            return "📄 我的帳單\n\n目前沒有本月或\n未繳清的帳單 👍"
+            return "📄 我的帳單\n\n目前沒有本月或\n未繳清的帳單"
 
         blocks = ["📄 我的帳單"]
         unpaid_total = 0.0
         shown_earlier = earlier[-EARLIER_UNPAID_LIMIT:]
         if len(earlier) > len(shown_earlier):
             blocks.append(
-                f"📌 另有 {len(earlier) - len(shown_earlier)} 期更早的帳單\n未繳清，請洽房間管家"
+                f"※ 另有 {len(earlier) - len(shown_earlier)} 期更早的帳單\n未繳清，請洽房間管家"
             )
         for schedule in shown_earlier | current:
             paid = self._get_paid_amount(schedule)
@@ -362,10 +362,10 @@ class GgandyLineBotLog(models.Model):
         if unpaid_total:
             blocks.append(
                 f"{DIVIDER}\n💵 尚未繳清：{self._format_money(unpaid_total, currency)}\n"
-                "👉 匯款帳戶請按\n「繳費方式」"
+                "匯款帳戶請按「繳費方式」"
             )
         else:
-            blocks.append(f"{DIVIDER}\n🎉 帳單都繳清了\n謝謝您！")
+            blocks.append(f"{DIVIDER}\n🎉 帳單都繳清了，謝謝您！")
         return "\n\n".join(blocks)
 
     @api.model
@@ -378,29 +378,29 @@ class GgandyLineBotLog(models.Model):
             f"（{schedule.period_start:%m/%d}～{schedule.period_end:%m/%d}）",
             self._format_place(schedule),
             "",
-            f"💰 租金：{money(schedule.rent_amount)}",
+            f"租金：{money(schedule.rent_amount)}",
         ]
         if schedule.management_fee:
-            lines.append(f"🏢 管理費：{money(schedule.management_fee)}")
+            lines.append(f"管理費：{money(schedule.management_fee)}")
         if schedule.electricity_amount or schedule.electricity_billing_type == "metered":
-            lines.append(f"⚡ 電費：{money(schedule.electricity_amount)}")
+            lines.append(f"電費：{money(schedule.electricity_amount)}")
             if schedule.electricity_billing_type == "metered":
-                lines.append(f"　　（{schedule.electricity_usage:,.0f} 度）")
+                lines.append(f"　（{schedule.electricity_usage:,.0f} 度）")
         if schedule.water_amount or schedule.water_billing_type == "metered":
-            lines.append(f"💧 水費：{money(schedule.water_amount)}")
+            lines.append(f"水費：{money(schedule.water_amount)}")
             if schedule.water_billing_type == "metered":
-                lines.append(f"　　（{schedule.water_usage:,.0f} 度）")
+                lines.append(f"　（{schedule.water_usage:,.0f} 度）")
         lines += [
             "",
             f"💵 合計：{money(schedule.total_amount)}",
         ]
         if schedule.collection_state == "partial":
-            lines.append(f"✔️ 已繳：{money(paid)}")
-            lines.append(f"❗ 尚欠：{money(max(schedule.total_amount - paid, 0.0))}")
-        lines.append(f"📅 繳租日：{schedule.due_date:%m/%d}")
+            lines.append(f"已繳：{money(paid)}")
+            lines.append(f"尚欠：{money(max(schedule.total_amount - paid, 0.0))}")
+        lines.append(f"繳租日：{schedule.due_date:%m/%d}")
         lines.append(self._get_tenant_status(schedule, today))
         if schedule.meter_reading_pending:
-            lines.append("🔌 水電待抄表\n　　金額可能調整")
+            lines.append("※ 水電待抄表，金額可能調整")
         return "\n".join(lines)
 
     @api.model
@@ -417,7 +417,7 @@ class GgandyLineBotLog(models.Model):
     def _build_payment_message(self, partner):
         leases = self._get_partner_leases(partner)
         if not leases:
-            return "💳 繳費方式\n\n目前沒有生效中的租約\n請洽房間管家 🙏"
+            return "💳 繳費方式\n\n目前沒有生效中的租約\n請洽房間管家"
 
         report = self.env["report.ggandy_property_management.report_lease_contract"].sudo()
         blocks = ["💳 繳費方式"]
@@ -428,45 +428,45 @@ class GgandyLineBotLog(models.Model):
             lines = [DIVIDER, self._format_place(lease), ""]
             if bank:
                 if bank.bank_id:
-                    lines.append(f"🏦 {bank.bank_id.name}")
-                lines.append(f"🔢 {bank.acc_number}")
-                lines.append(f"👤 {bank.acc_holder_name or payee.name}")
+                    lines.append(f"銀行：{bank.bank_id.name}")
+                lines.append(f"帳號：{bank.acc_number}")
+                lines.append(f"戶名：{bank.acc_holder_name or payee.name}")
             else:
-                lines.append("🏦 繳款帳戶請洽管家")
-            lines.append(f"📅 每月 {lease.rent_due_day} 日前繳納")
+                lines.append("繳款帳戶請洽房間管家")
+            lines.append(f"繳租日：每月 {lease.rent_due_day} 日")
             blocks.append("\n".join(lines))
-        blocks.append(f"{DIVIDER}\n📝 轉帳時請在備註\n寫上房號，謝謝 🙏")
+        blocks.append(f"{DIVIDER}\n轉帳時請在備註寫上房號 🙏")
         return "\n\n".join(blocks)
 
     @api.model
     def _build_lease_message(self, partner):
         leases = self._get_partner_leases(partner)
         if not leases:
-            return "📋 我的租約\n\n目前沒有生效中的租約\n請洽房間管家 🙏"
+            return "📋 我的租約\n\n目前沒有生效中的租約\n請洽房間管家"
 
         today = fields.Date.context_today(partner)
         blocks = ["📋 我的租約"]
         for lease in leases:
             money = lambda amount: self._format_money(amount, lease.currency_id)  # noqa: E731
             if lease.state == "expired" or lease.end_date < today:
-                remaining = "⚠️ 已到期\n　　續約請洽房間管家"
+                remaining = "⚠️ 已到期，續約請洽管家"
             else:
                 remaining = f"⏳ 還有 {(lease.end_date - today).days} 天到期"
             lines = [
                 DIVIDER,
                 self._format_place(lease),
                 "",
-                f"📅 {lease.start_date:%Y/%m/%d} 起",
-                f"📅 {lease.end_date:%Y/%m/%d} 止",
+                f"起租：{lease.start_date:%Y/%m/%d}",
+                f"到期：{lease.end_date:%Y/%m/%d}",
                 remaining,
                 "",
-                f"💰 月租：{money(lease.rent_amount)}",
+                f"月租：{money(lease.rent_amount)}",
             ]
             if lease.management_fee:
-                lines.append(f"🏢 管理費：{money(lease.management_fee)}")
+                lines.append(f"管理費：{money(lease.management_fee)}")
             lines += [
-                f"🔐 押金：{money(lease.deposit_amount)}",
-                f"🗓 每月 {lease.rent_due_day} 日繳租",
+                f"押金：{money(lease.deposit_amount)}",
+                f"繳租日：每月 {lease.rent_due_day} 日",
             ]
             blocks.append("\n".join(lines))
         return "\n\n".join(blocks)
@@ -475,9 +475,9 @@ class GgandyLineBotLog(models.Model):
     def _build_profile_message(self, partner):
         return (
             "✏️ 我的聯絡資料\n\n"
-            f"👤 {partner.name}\n"
-            f"📱 {partner.phone or '（未填）'}\n"
-            f"📧 {partner.email or '（未填）'}\n\n"
+            f"姓名：{partner.name}\n"
+            f"電話：{partner.phone or '（未填）'}\n"
+            f"Email：{partner.email or '（未填）'}\n\n"
             f"{DIVIDER}\n"
             "要修改請直接傳 👇\n\n"
             "電話 0912345678\n"
@@ -497,7 +497,7 @@ class GgandyLineBotLog(models.Model):
         old_phone = partner.phone or "（未填）"
         partner.write({"phone": phone})
         partner.message_post(body=f"房客透過 LINE 將電話由 {old_phone} 改為 {phone}。")
-        return f"✅ 電話已更新\n\n📱 {phone}"
+        return f"✅ 電話已更新\n\n{phone}"
 
     @api.model
     def _update_email(self, partner, value):
@@ -507,7 +507,7 @@ class GgandyLineBotLog(models.Model):
         old_email = partner.email or "（未填）"
         partner.write({"email": email})
         partner.message_post(body=f"房客透過 LINE 將 Email 由 {old_email} 改為 {email}。")
-        return f"✅ Email 已更新\n\n📧 {email}"
+        return f"✅ Email 已更新\n\n{email}"
 
     @api.model
     def _get_manager_lines(self, partner):
@@ -517,9 +517,9 @@ class GgandyLineBotLog(models.Model):
             manager = lease.property_id.manager_id
             if not manager:
                 continue
-            lines = [f"🏠 {lease.property_id.name}", f"👤 管家：{manager.name}"]
+            lines = [f"🏠 {lease.property_id.name}", f"管家：{manager.name}"]
             if manager.partner_id.phone:
-                lines.append(f"📱 {manager.partner_id.phone}")
+                lines.append(f"電話：{manager.partner_id.phone}")
             block = "\n".join(lines)
             if block not in blocks:
                 blocks.append(block)
@@ -529,8 +529,8 @@ class GgandyLineBotLog(models.Model):
     def _build_contact_message(self, partner):
         blocks = [
             "🙋 聯絡房間管家",
-            "🤖 這裡是自動回覆小幫手\n沒有真人客服喔！",
-            "房間有任何狀況\n（報修、退租、續約…）\n請直接聯絡管家 👇",
+            "這裡是自動回覆小幫手\n沒有真人客服喔！",
+            "房間有任何狀況\n（報修、退租、續約…）\n請直接聯絡管家：",
         ]
         managers = self._get_manager_lines(partner)
         if managers:
@@ -538,7 +538,7 @@ class GgandyLineBotLog(models.Model):
         else:
             company = self._get_partner_company(partner)
             blocks.append(
-                f"{DIVIDER}\n📞 {company.phone}" if company.phone else f"{DIVIDER}\n請聯絡您的房間管家 🙏"
+                f"{DIVIDER}\n電話：{company.phone}" if company.phone else f"{DIVIDER}\n請聯絡您的房間管家"
             )
         return "\n\n".join(blocks)
 
@@ -555,26 +555,26 @@ class GgandyLineBotLog(models.Model):
     def _build_unknown_message(self, partner):
         lines = [
             "🤖 我是自動回覆小幫手",
-            "看不懂這則訊息 😅",
+            "看不懂這則訊息",
             "",
-            "👇 請點下方選單查詢",
+            "請點下方選單查詢",
         ]
         if partner:
-            lines += ["", "🏠 房間的事請聯絡管家", "（按「聯絡管理員」）"]
+            lines += ["", "房間的事請聯絡管家", "（按「聯絡管理員」）"]
         else:
-            lines += ["", "🔑 第一次使用請先傳", "綁定 123456"]
+            lines += ["", "第一次使用請先傳：", "綁定 123456"]
         return "\n".join(lines)
 
     @api.model
     def _build_help_message(self, partner):
         company = self._get_partner_company(partner)
         return (
-            f"🤖 {company.name}\n"
+            f"{company.name}\n"
             "房客小幫手可以幫您：\n\n"
             "📄 帳單｜本月與未繳帳單\n"
             "💳 繳費｜匯款帳戶\n"
             "📋 租約｜租期與押金\n"
             "✏️ 修改資料｜電話、Email\n"
             "🙋 聯絡管理員｜找管家\n\n"
-            "👇 點下方選單就能查詢"
+            "點下方選單就能查詢"
         )
