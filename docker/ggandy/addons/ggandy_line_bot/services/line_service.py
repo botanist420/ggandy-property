@@ -75,13 +75,16 @@ class LineAPIClient:
             raise LineAPIError(f"LINE API 錯誤（HTTP {response.status_code}）：無法下載內容")
         return response.content, response.headers.get("Content-Type", "image/jpeg")
 
-    def reply_message(self, reply_token, texts):
-        """用 Reply API 回覆（不計入訊息則數）。一次最多 5 則。"""
-        messages = []
-        for text in texts[:5]:
-            if len(text) > MAX_TEXT_LENGTH:
-                text = text[: MAX_TEXT_LENGTH - 30] + "\n…（內容太長，請洽管理員）"
-            messages.append({"type": "text", "text": text})
+    def reply_message(self, reply_token, messages):
+        """用 Reply API 回覆（不計入訊息則數）。一次最多 5 則；字串轉成文字訊息，dict（Flex、帶快速回覆）原樣送出。"""
+        payload_messages = []
+        for message in messages[:5]:
+            if isinstance(message, str):
+                message = {"type": "text", "text": message}
+            if message.get("type") == "text" and len(message["text"]) > MAX_TEXT_LENGTH:
+                message = dict(message, text=message["text"][: MAX_TEXT_LENGTH - 30] + "\n…（內容太長，請洽管理員）")
+            payload_messages.append(message)
+        messages = payload_messages
         return self._request(
             "POST",
             "/message/reply",

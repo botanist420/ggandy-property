@@ -356,6 +356,8 @@ LINE → POST /ggandy/line/webhook（controllers/main.py；type=http、auth=publ
 - **繳費**：重用 `report.ggandy_property_management.report_lease_contract._get_contract_parties(lease)` 的收款方銀行帳戶。
 - **租約**：主要承租人 `state in (active, expired)` 的租約（共同居住人不開放）。
 - **報修**：「報修 描述」→ `sudo()` 建 `ggandy.maintenance.request`（主旨 `[房客通報] 描述`、房客最新一份租約的物件／房間、`user_id` = 物件 `manager_id`，並 `activity_schedule` 待辦給管家）。照片用主旨前綴 + `tenant_id` + 30 分鐘內找回報修單，附件檔名 `LINE_` 開頭用來計數（上限 3 張）；`imageSet.index > 1` 不回覆。報修描述用房客原文（不做 NFKC）。
+- **帳單卡片**：`_get_bill_schedules` 挑本月＋更早未繳；`_build_bill_reply_messages` 回 Flex（每期 bubble／carousel，header 色依 `_get_bill_status_key`）＋文字總結（`quickReply`：電子帳單 URI、帳單歷史）；紀錄表存文字版 `_build_bill_message`（`_reply_and_log(log_text=…)`）。電子帳單 = `invoice._portal_ensure_token()` + `get_base_url() + get_portal_url()`（token 存取不檢查狀態，草稿也能開）。`reply_message` 接受字串或訊息 dict。
+- **報修進度**：`tenant_id = 房客` 且未完成或 7 天內完成，最多 5 張；選單指令優先於「報修 …」比對（「報修進度」不會建單）。
 - **帳單歷史**：`period_start < 下個月` 的有效收租明細取最新 3 期。
 - **紀錄** `ggandy.line.bot.log`：`status` = bound / replied / unbound / bind_failed / ignored / error；manager 唯讀＋多公司 rule。選單「LINE → 訊息紀錄／已綁定房客」。
 

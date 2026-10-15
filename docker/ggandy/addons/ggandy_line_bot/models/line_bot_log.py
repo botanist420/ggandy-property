@@ -30,6 +30,7 @@ MENU_COMMANDS = {
     "選單": "help",
     # 以下只能打字，不在圖文選單上。
     "帳單歷史": "bill_history",
+    "報修進度": "repair_status",
 }
 # 「綁定碼 123456」或直接傳 6 位數字。
 BIND_PATTERN = re.compile(r"^(?:綁定碼)?\s*(\d{6})$")
@@ -47,6 +48,17 @@ REPAIR_TITLE_PREFIX = "[房客通報] "
 # 報修後多久內傳的照片算同一張報修單、每張最多存幾張。
 REPAIR_PHOTO_WINDOW_MINUTES = 30
 REPAIR_PHOTO_LIMIT = 3
+# 報修進度：列幾張、已完成的單保留幾天。
+REPAIR_STATUS_LIMIT = 5
+REPAIR_DONE_VISIBLE_DAYS = 7
+# 帳單卡片（Flex）header 底色，依房客看到的狀態。
+BILL_STATUS_COLORS = {
+    "paid": "#2E7D32",
+    "pending": "#546E7A",
+    "partial": "#EF6C00",
+    "overdue": "#C62828",
+}
+BILL_BUTTON_COLOR = "#3D7A5F"
 # 手機聊天泡泡一行約 16 個中文字，回覆內容每行盡量不超過這個長度。
 DIVIDER = "━━━━━━━━━━"
 
@@ -172,7 +184,8 @@ class GgandyLineBotLog(models.Model):
             command = "phone"
         elif email_match:
             command = "email"
-        elif repair_match:
+        elif repair_match and not command:
+            # 「報修進度」是選單指令，不能被當成「報修 進度」建單。
             command = "repair"
 
         if not command:
@@ -189,9 +202,20 @@ class GgandyLineBotLog(models.Model):
             self._handle_repair(event, partner, repair_match.group(1).strip(), text)
             return
         if command == "bill":
-            response = self._build_bill_message(partner)
-        elif command == "bill_history":
+            self._reply_and_log(
+                event,
+                self._build_bill_reply_messages(partner),
+                "replied",
+                command,
+                text,
+                partner,
+                log_text=self._build_bill_message(partner),
+            )
+            return
+        if command == "bill_history":
             response = self._build_bill_history_message(partner)
+        elif command == "repair_status":
+            response = self._build_repair_status_message(partner)
         elif command == "payment":
             response = self._build_payment_message(partner)
         elif command == "lease":
@@ -333,7 +357,8 @@ class GgandyLineBotLog(models.Model):
             f"有照片請直接傳上來\n（最多 {REPAIR_PHOTO_LIMIT} 張）\n"
             "管家會盡快與您聯絡"
         )
-        self._reply_and_log(event, [response], "replied", "repair", text, partner)
+        message = self._with_quick_reply(response, [self._quick_reply_text("🔧 報修進度", "報修進度")])
+        self._reply_and_log(event, [message], "replied", "repair", text, partner, log_text=response)
 
     @api.model
     def _handle_repair_photo(self, event, partner, message):
@@ -415,11 +440,15 @@ class GgandyLineBotLog(models.Model):
             self._create_log(event, "replied", "repair_photo", text, "（同一組照片，不另外回覆）", partner)
 
     @api.model
-    def _reply_and_log(self, event, texts, status, command, text, partner=None):
-        response = "\n\n".join(texts)
+    def _reply_and_log(self, event, messages, status, command, text, partner=None, log_text=None):
+        """messages 可以是字串或訊息 dict（Flex、帶快速回覆）；紀錄表存 log_text，沒給就存文字訊息內容。"""
+        response = log_text or "\n\n".join(
+            message if isinstance(message, str) else message.get("text", message.get("altText", ""))
+            for message in messages
+        )
         try:
             LineAPIClient(self._get_parameter("channel_access_token")).reply_message(
-                event.get("replyToken"), texts
+                event.get("replyToken"), messages
             )
         except LineAPIError as error:
             status = "error"
@@ -484,7 +513,8 @@ class GgandyLineBotLog(models.Model):
         return schedule.total_amount * paid / invoice.amount_total
 
     @api.model
-    def _build_bill_message(self, partner):
+    def _get_bill_schedules(self, partner):
+        """「帳單」要列的收租明細：本月的，加上更早還沒繳清的（最多 EARLIER_UNPAID_LIMIT 期）。"""
         Schedule = self.env["ggandy.rent.schedule"].sudo()
         today = fields.Date.context_today(partner)
         month_start = today.replace(day=1)
@@ -501,31 +531,261 @@ class GgandyLineBotLog(models.Model):
         ).filtered(
             lambda schedule: schedule.collection_state not in ("paid", "cancelled")
         )
+        shown = earlier[-EARLIER_UNPAID_LIMIT:] | current
+        paid = {schedule.id: self._get_paid_amount(schedule) for schedule in shown}
+        unpaid_total = sum(
+            max(schedule.total_amount - paid[schedule.id], 0.0)
+            for schedule in shown
+            if schedule.collection_state != "paid"
+        )
+        return {
+            "today": today,
+            "current": current,
+            "shown": shown,
+            "hidden_count": len(earlier) - len(earlier[-EARLIER_UNPAID_LIMIT:]),
+            "paid": paid,
+            "unpaid_total": unpaid_total,
+            "currency": (current | earlier)[:1].currency_id,
+        }
 
-        if not current and not earlier:
-            return "📄 我的帳單\n\n目前沒有本月或\n未繳清的帳單"
-
-        blocks = ["📄 我的帳單"]
-        unpaid_total = 0.0
-        shown_earlier = earlier[-EARLIER_UNPAID_LIMIT:]
-        if len(earlier) > len(shown_earlier):
-            blocks.append(
-                f"※ 另有 {len(earlier) - len(shown_earlier)} 期更早的帳單\n未繳清，請洽房間管家"
-            )
-        for schedule in shown_earlier | current:
-            paid = self._get_paid_amount(schedule)
-            if schedule.collection_state != "paid":
-                unpaid_total += max(schedule.total_amount - paid, 0.0)
-            blocks.append(self._format_schedule(schedule, today, paid))
-
-        currency = (current | earlier)[:1].currency_id
-        if unpaid_total:
-            blocks.append(
-                f"{DIVIDER}\n💵 尚未繳清：{self._format_money(unpaid_total, currency)}\n"
+    @api.model
+    def _get_bill_summary(self, bills):
+        lines = []
+        if bills["hidden_count"]:
+            lines.append(f"※ 另有 {bills['hidden_count']} 期更早的帳單\n未繳清，請洽房間管家\n")
+        if bills["unpaid_total"]:
+            lines.append(
+                f"💵 尚未繳清：{self._format_money(bills['unpaid_total'], bills['currency'])}\n"
                 "匯款帳戶請按「繳費方式」"
             )
         else:
-            blocks.append(f"{DIVIDER}\n🎉 帳單都繳清了，謝謝您！")
+            lines.append("🎉 帳單都繳清了，謝謝您！")
+        return "\n".join(lines)
+
+    @api.model
+    def _build_bill_message(self, partner):
+        """帳單的文字版：紀錄表用，也是沒有卡片時的內容。"""
+        bills = self._get_bill_schedules(partner)
+        if not bills["shown"]:
+            return "📄 我的帳單\n\n目前沒有本月或\n未繳清的帳單"
+        blocks = ["📄 我的帳單"]
+        for schedule in bills["shown"]:
+            blocks.append(self._format_schedule(schedule, bills["today"], bills["paid"][schedule.id]))
+        blocks.append(f"{DIVIDER}\n" + self._get_bill_summary(bills))
+        return "\n\n".join(blocks)
+
+    @api.model
+    def _build_bill_reply_messages(self, partner):
+        """帳單回覆：每期一張 Flex 卡片＋一則總結；總結下方有「電子帳單」「帳單歷史」快速回覆。"""
+        bills = self._get_bill_schedules(partner)
+        if not bills["shown"]:
+            return [self._with_quick_reply(
+                "📄 我的帳單\n\n目前沒有本月或\n未繳清的帳單",
+                [self._quick_reply_text("🧾 帳單歷史", "帳單歷史")],
+            )]
+
+        urls = {schedule.id: self._get_invoice_url(schedule) for schedule in bills["shown"]}
+        bubbles = [
+            self._build_bill_bubble(schedule, bills["today"], bills["paid"][schedule.id], urls[schedule.id])
+            for schedule in bills["shown"]
+        ]
+        summary = self._get_bill_summary(bills)
+        flex = {
+            "type": "flex",
+            "altText": (
+                f"📄 我的帳單：尚未繳清 {self._format_money(bills['unpaid_total'], bills['currency'])}"
+                if bills["unpaid_total"]
+                else "📄 我的帳單：都已繳清"
+            ),
+            "contents": bubbles[0] if len(bubbles) == 1 else {"type": "carousel", "contents": bubbles},
+        }
+        quick_items = []
+        current_url = next((urls[schedule.id] for schedule in bills["current"] if urls[schedule.id]), None)
+        if current_url:
+            quick_items.append(self._quick_reply_uri("📄 電子帳單", current_url))
+        quick_items.append(self._quick_reply_text("🧾 帳單歷史", "帳單歷史"))
+        return [flex, self._with_quick_reply(summary, quick_items)]
+
+    @api.model
+    def _get_invoice_url(self, schedule):
+        """Odoo 原生帳單網頁（含 access token），房客不用登入就能看、下載 PDF；草稿帳單會是預覽版。"""
+        invoice = schedule.invoice_id.sudo()
+        if not invoice or invoice.state == "cancel":
+            return None
+        invoice._portal_ensure_token()
+        return invoice.get_base_url() + invoice.get_portal_url()
+
+    @api.model
+    def _get_bill_status_key(self, schedule, today):
+        if schedule.collection_state == "paid":
+            return "paid"
+        if schedule.due_date and schedule.due_date < today:
+            return "overdue"
+        return "partial" if schedule.collection_state == "partial" else "pending"
+
+    @api.model
+    def _flex_row(self, label, value, size="sm", bold=False, margin=None):
+        row = {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+                {"type": "text", "text": label, "size": size, "color": "#666666", "flex": 0},
+                {
+                    "type": "text",
+                    "text": value,
+                    "size": size,
+                    "color": "#111111",
+                    "align": "end",
+                    "weight": "bold" if bold else "regular",
+                },
+            ],
+        }
+        if margin:
+            row["margin"] = margin
+        return row
+
+    @api.model
+    def _build_bill_bubble(self, schedule, today, paid, invoice_url):
+        currency = schedule.currency_id
+        money = lambda amount: self._format_money(amount, currency)  # noqa: E731
+        rows = [self._flex_row("租金", money(schedule.rent_amount), margin="md")]
+        if schedule.management_fee:
+            rows.append(self._flex_row("管理費", money(schedule.management_fee)))
+        if schedule.electricity_amount or schedule.electricity_billing_type == "metered":
+            label = "電費"
+            if schedule.electricity_billing_type == "metered":
+                label += f"（{schedule.electricity_usage:,.0f} 度）"
+            rows.append(self._flex_row(label, money(schedule.electricity_amount)))
+        if schedule.water_amount or schedule.water_billing_type == "metered":
+            label = "水費"
+            if schedule.water_billing_type == "metered":
+                label += f"（{schedule.water_usage:,.0f} 度）"
+            rows.append(self._flex_row(label, money(schedule.water_amount)))
+        rows += [
+            {"type": "separator", "margin": "md"},
+            self._flex_row("合計", money(schedule.total_amount), size="md", bold=True, margin="md"),
+        ]
+        if schedule.collection_state == "partial":
+            rows.append(self._flex_row("已繳", money(paid)))
+            rows.append(self._flex_row("尚欠", money(max(schedule.total_amount - paid, 0.0)), bold=True))
+        rows.append(self._flex_row("繳租日", f"{schedule.due_date:%m/%d}"))
+        if schedule.meter_reading_pending:
+            rows.append({
+                "type": "text",
+                "text": "※ 水電待抄表，金額可能調整",
+                "size": "xxs",
+                "color": "#888888",
+                "margin": "md",
+                "wrap": True,
+            })
+
+        bubble = {
+            "type": "bubble",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": BILL_STATUS_COLORS[self._get_bill_status_key(schedule, today)],
+                "paddingAll": "16px",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": f"🗓 {schedule.period_month or ''} 帳單",
+                        "color": "#FFFFFF",
+                        "weight": "bold",
+                        "size": "lg",
+                    },
+                    {
+                        "type": "text",
+                        "text": f"{schedule.period_start:%m/%d}～{schedule.period_end:%m/%d}",
+                        "color": "#FFFFFFCC",
+                        "size": "xs",
+                    },
+                    {
+                        "type": "text",
+                        "text": self._get_tenant_status(schedule, today),
+                        "color": "#FFFFFF",
+                        "weight": "bold",
+                        "size": "sm",
+                        "margin": "md",
+                    },
+                ],
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "sm",
+                "contents": [
+                    {"type": "text", "text": f"🏠 {schedule.property_id.name}", "weight": "bold", "size": "sm", "wrap": True},
+                    {"type": "text", "text": f"房間：{schedule.unit_id.name}", "size": "xs", "color": "#888888", "wrap": True},
+                    {"type": "separator", "margin": "md"},
+                    *rows,
+                ],
+            },
+        }
+        if invoice_url:
+            bubble["footer"] = {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "height": "sm",
+                        "color": BILL_BUTTON_COLOR,
+                        "action": {"type": "uri", "label": "查看電子帳單", "uri": invoice_url},
+                    }
+                ],
+            }
+        return bubble
+
+    @api.model
+    def _quick_reply_text(self, label, text):
+        return {"type": "action", "action": {"type": "message", "label": label, "text": text}}
+
+    @api.model
+    def _quick_reply_uri(self, label, uri):
+        return {"type": "action", "action": {"type": "uri", "label": label, "uri": uri}}
+
+    @api.model
+    def _with_quick_reply(self, text, items):
+        """文字訊息下方加快速回覆按鈕（只會顯示在最後一則訊息底下）。"""
+        return {"type": "text", "text": text, "quickReply": {"items": items}}
+
+    @api.model
+    def _build_repair_status_message(self, partner):
+        Request = self.env["ggandy.maintenance.request"].sudo()
+        done_since = fields.Datetime.now() - timedelta(days=REPAIR_DONE_VISIBLE_DAYS)
+        requests = Request.search(
+            [
+                ("tenant_id", "=", partner.id),
+                "|",
+                ("state", "not in", ("done", "cancelled")),
+                "&",
+                ("state", "=", "done"),
+                ("completed_date", ">=", done_since),
+            ],
+            order="request_date desc, id desc",
+            limit=REPAIR_STATUS_LIMIT,
+        )
+        if not requests:
+            return "🔧 報修進度\n\n目前沒有處理中的報修 👍\n\n要報修請傳：\n報修 問題描述"
+
+        state_labels = dict(Request._fields["state"].selection)
+        blocks = ["🔧 報修進度"]
+        for request in requests:
+            title = request.title
+            if title.startswith(REPAIR_TITLE_PREFIX):
+                title = title[len(REPAIR_TITLE_PREFIX):]
+            lines = [DIVIDER, request.name, title]
+            if request.state == "done":
+                completed = fields.Datetime.context_timestamp(partner, request.completed_date)
+                lines.append(f"✅ 已完成 {completed:%m/%d}")
+            else:
+                lines.append(f"狀態：{state_labels.get(request.state)}")
+                if request.scheduled_date:
+                    scheduled = fields.Datetime.context_timestamp(partner, request.scheduled_date)
+                    lines.append(f"預約處理：{scheduled:%m/%d %H:%M}")
+            blocks.append("\n".join(lines))
         return "\n\n".join(blocks)
 
     @api.model
@@ -764,6 +1024,7 @@ class GgandyLineBotLog(models.Model):
             "🙋 聯絡管理員｜找管家\n\n"
             "也可以直接打字：\n"
             "🧾 帳單歷史｜最近 3 期\n"
+            "🔧 報修進度｜看處理狀態\n"
             "🔧 報修 馬桶壞掉\n"
             f"　（再傳照片，最多 {REPAIR_PHOTO_LIMIT} 張）\n\n"
             "點下方選單就能查詢"
