@@ -13,7 +13,7 @@
                 <h1 class="o_ggandy_release_heading">版本資訊</h1>
                 <div class="o_ggandy_release_cadence">
                     <i class="fa fa-coffee" role="img" title="更新頻率"/>
-                    <span>更新頻率看心情：沒在 dating、手邊也沒在忙的時候，大概一週更新一次。</span>
+                    <span>更新頻率看心情：沒在 dating、手邊也沒在忙的時候，就把這裡當我的小日記；案子多的時候，也許大概一週更新一次吧（煙🚬</span>
                 </div>
 
                 <section class="o_ggandy_release_intro">
@@ -33,9 +33,28 @@
                 <ol class="o_ggandy_release_timeline">
                     <li class="o_ggandy_release o_ggandy_release_latest">
                         <div class="o_ggandy_release_meta">
+                            <span class="o_ggandy_release_version">v1.10</span>
+                            <span class="o_ggandy_release_date">2026-10-15</span>
+                            <span class="badge text-bg-success">最新</span>
+                        </div>
+                        <h2 class="o_ggandy_release_title">重大突破！LINE 房客功能測試通過</h2>
+                        <ul class="o_ggandy_release_items">
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>從一份草稿規劃開始，「LINE 房客小幫手」正式測試通過：房客綁定後，用圖文選單就能查帳單、繳費方式、租約，自己改電話與 Email。Bot 只回覆房客的操作、不主動推播，不花 LINE 訊息費。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>房客綁定：在房客聯絡人頁按「產生 LINE 綁定碼」，複製說明傳給房客；房客傳「綁定碼 123456」或直接傳 6 位數字就完成，綁定碼 1 天內有效。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>帳單變成卡片：每期一張、依狀態變色（已繳清綠、逾期紅），按「查看電子帳單」不用登入就能看、下載 PDF；下方還有「帳單歷史」快速按鈕。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>LINE 報修：房客傳「報修 馬桶壞掉」，就會建一張「[房客通報]」報修單並通知管家；接著傳的照片（最多 3 張）直接附在報修單上，打「報修進度」可以看處理狀態。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>LINE 回覆為手機重新排版：短句、適量 emoji、物件和房間分兩行；目前沒有真人客服，看不懂的訊息會引導房客用選單或聯絡房間管家。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>新增「LINE」選單（訊息紀錄、已綁定房客）；房客列表多了所屬物件、所屬房間、已綁定 LINE，依物件與房間排序，點進去直接開「包租代管」分頁。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_new">新功能</span><span>Lucas統計的水電觀察多了「用電突增」和「用電持續上升」，會扣掉夏天整棟一起變高的季節影響。</span></li>
+                            <li><span class="o_ggandy_release_tag o_ggandy_release_tag_improve">改善</span><span>報修單主旨欄加寬；上方選單調整順序，整合工具移到最後。</span></li>
+                        </ul>
+                        <p class="o_ggandy_release_mood">Lucas 碎碎念：一開始遲遲不做 LINE，是誤以為傳任何訊息都會扣免費額度，後來才發現房客自己按按鈕、傳文字都不算 haha。說是重大里程碑，其實也只是我自己測起來滿順的，離正式上線還有多遠呢？昨天吃飯請 dating 對象隨機綁一個房客試玩，她也覺得超實用！測試樣本數正式來到 n=2 lol</p>
+                    </li>
+
+                    <li class="o_ggandy_release">
+                        <div class="o_ggandy_release_meta">
                             <span class="o_ggandy_release_version">v1.9</span>
                             <span class="o_ggandy_release_date">2026-10-13</span>
-                            <span class="badge text-bg-success">最新</span>
                         </div>
                         <h2 class="o_ggandy_release_title">物件統計與卡片檢視</h2>
                         <ul class="o_ggandy_release_items">
