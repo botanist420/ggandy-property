@@ -13,7 +13,7 @@
 - PostgreSQL data volume：`ggandy_postgres17_data`
 - Network：`ggandy_erp19_network`
 
-- PostgreSQL：主機 `5555` 對應容器 `5432`（給 pgAdmin / DBeaver 等本機工具使用，帳密見 `config/ggandy.env`）
+- PostgreSQL：不對外開 port（對外只走 Cloudflare Tunnel 到 Odoo）；查資料用 `docker exec` 進 psql。真的需要 pgAdmin / DBeaver 時，暫時打開 `docker-compose.yml` 裡註解掉的 `ports`（`5555:5432`），用完再關，帳密見 `config/ggandy.env`
 
 ## 額外 Python 套件
 

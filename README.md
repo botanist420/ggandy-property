@@ -369,7 +369,7 @@ Bot 透過 Odoo 排程每分鐘向 Telegram `getUpdates` 拉訊息，不需要�
 | --- | --- |
 | Odoo Web | <http://localhost:1025> |
 | Odoo WebSocket / gevent | `localhost:1026` |
-| PostgreSQL | `localhost:5555`（容器內 `ggandy_db:5432`） |
+| PostgreSQL | 不對外開 port（容器內 `ggandy_db:5432`）；本機用 `docker exec` 進 psql，對外只走 Cloudflare Tunnel 到 Odoo |
 | Odoo container | `ggandy_odoo19_web` |
 | PostgreSQL container | `ggandy_postgres17_db` |
 | 開發資料庫 | `ggandy_dev` |

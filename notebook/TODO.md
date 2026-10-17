@@ -20,7 +20,7 @@
 
 ## 🟠 流程缺口
 
-- [ ] **55 / 59 個物件的房東是預設的系統 Bot（`base.partner_root`）**
+- [x] **55 / 59 個物件的房東是預設的系統 Bot（`base.partner_root`）**（2026-10-17 確認：本機已沒有房東是 `base.partner_root` 的物件；正式機上線前再查一次）
   Google Sheet 匯入精靈的預設房東是 `base.partner_root`，而且每次重新匯入都會**覆寫** `owner_id / manager_id / management_mode`，手動修正過的房東會被蓋回去。
   → ~~(1) 匯入時只在新建時寫入預設房東／管理人／經營模式；(2) 在 Sheet 加「房東」欄位~~（2026-10-06 已完成：Sheet 新增經營模式／房東／管理人員／出租單位欄位，留空不覆蓋，預設房東拿掉）；(3) 清理現有資料：Sheet 補上房東後重新匯入即可覆寫掉 `base.partner_root`。
 - [x] **從 Google Sheet 匯入聯絡人**：已搬進 wizard（2026-10-06），表頭沿用舊腳本的英文欄位。
@@ -105,7 +105,7 @@
 - [x] 綁定改「綁定碼 123456」或直接傳 6 位數、1 天有效、複製說明改「親愛的房客」開頭；打字指令「帳單歷史」（最近 3 期）、「報修 描述」（建 [客戶通報] 報修單＋最多 3 張照片進 chatter、待辦給管家）（2026-10-14）
 - [x] 帳單改 Flex 卡片（每期一張、依狀態變色、查看電子帳單）＋快速回覆「電子帳單」「帳單歷史」；打字「報修進度」（2026-10-15）
 - [ ] 繳費回報：房客轉帳後傳「已繳費 末五碼 12345」或傳截圖 → 記在那期收租明細的 chatter，並排待辦給管家。要用末五碼（存進房客銀行帳號，給中信對帳自動配對）還是只記備註，再決定
-- [ ] 之後：一鍵綁定 QR（`oaMessage` 預填文字）、帳單 Flex Message 卡片
+- [ ] 之後：一鍵綁定 QR（`oaMessage` 預填文字）（帳單 Flex 卡片已於 2026-10-15 完成）
 
 ## ⏸ 整備／庫存／採購（暫緩）
 
@@ -118,7 +118,7 @@
 
 - [ ] **自動化測試**：兩個模組都沒有 `tests/`。最值得先寫：`_generate_rent_schedule`（短月、月中起訖）、`_get_owner_settlement_lines`（包租／代管百分比／固定費／部分收款／代收轉付）、`_compute_amounts`（分攤比例）、重疊檢查 constraint。
 - [x] **帳務總表效能**：改成 `_auto = False` + `_table_query` 即時 SQL，`has_*` 篩選、分組加總都走 SQL；同時拿掉每日建列 cron 與「更新本月總表」（2026-10-11）
-- [ ] **Google Sheet URL 寫死在程式碼**（`DEFAULT_PROPERTY_SHEET_URL`、`DEFAULT_CONTACT_SHEET_URL`）：改成 `ir.config_parameter` 或設定頁欄位。
+- [x] **Google Sheet URL 寫死在程式碼**（`DEFAULT_PROPERTY_SHEET_URL`、`DEFAULT_CONTACT_SHEET_URL`）：改成 `ir.config_parameter` 或設定頁欄位。（2026-10-17 確認：包租代管設定頁已可修改，存在 `ir.config_parameter`，程式內的常數只當沒設定時的預設值）
 - [ ] **Telegram 正式環境**：目前只有 getUpdates 輪詢（每分鐘，和其他 cron 共用 `max_cron_threads = 1`）。正式站可加 webhook controller；`TelegramAPIClient.get_updates` 可用 long polling `timeout`。
 - [ ] Telegram 訊息改用 `parse_mode=HTML` 做粗體／連結，並加上 Odoo 記錄的深層連結。
 - [x] 物件的 `owner_payment_day` 改了同步到生效中的房東合約（2026-10-12）
@@ -128,5 +128,5 @@
 
 - [ ] **`odoo.conf` 的 `admin_passwd` 被 git 追蹤**：本機已改成真實密碼（未 commit）。建議改成 `odoo.conf.example` 進 git、`odoo.conf` 加進 `.gitignore`，或改用環境變數。
 - [x] ~~Notebook 無法在容器內執行~~ → 2026-10-04 決定不再使用 Jupyter：playground 改寫成 `notebook/scripts/orm_playground.py`，刪除 ipynb 與 `notebook/.vscode`，腳本用 stdin 餵 `odoo shell`，不需要 notebook mount。
-- [ ] `docker-compose.yml` 新增的 PostgreSQL `5555` port 尚未 commit；確認要保留後再 commit（文件已按 5555 撰寫）。
+- [x] ~~`docker-compose.yml` 新增的 PostgreSQL `5555` port~~（2026-10-17 決定不對外開資料庫 port：本機已走 Cloudflare Tunnel，compose 裡的 `ports` 保留註解，需要時再暫時打開；README 與 dev_workflow 已同步）
 - [ ] `scripts/__pycache__/` 出現在工作目錄（已被 gitignore 的 `__pycache__/` 涵蓋，不影響 git，可刪）。

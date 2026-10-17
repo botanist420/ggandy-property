@@ -37,6 +37,8 @@ services:
       - shared_buffers=512MB
       - -c
       - work_mem=32MB
+    # ports:
+    #   - "5555:5432" # postgresql port
     volumes:
       - ggandy_postgres17_data:/var/lib/postgresql/data
     networks:

@@ -8,7 +8,7 @@
 | PostgreSQL service / container | `ggandy_db` / `ggandy_postgres17_db`（`pgvector/pgvector:pg17-trixie`） |
 | Odoo Web | <http://localhost:1025>（容器 8069） |
 | WebSocket / gevent | `localhost:1026`（容器 8072） |
-| PostgreSQL | `localhost:5555`（容器 5432） |
+| PostgreSQL | 不對外開 port（容器 5432），用 `docker exec` 進 psql |
 | 資料庫 | `ggandy_dev` |
 | Volumes | `ggandy_odoo19_data`（filestore、session）、`ggandy_postgres17_data` |
 | Network | `ggandy_erp19_network` |
@@ -78,7 +78,8 @@ env.cr.commit()
 # psql（容器內）
 docker exec -it ggandy_postgres17_db sh -c 'psql -U "$POSTGRES_USER" -d ggandy_dev'
 
-# 主機上用 pgAdmin / DBeaver：localhost:5555，帳密見 ggandy.env
+# 資料庫預設不對外開 port；要用 pgAdmin / DBeaver 時，暫時打開 docker-compose.yml
+# 註解掉的 ports（5555:5432），用完再關，帳密見 ggandy.env
 ```
 
 常用查詢集：[`scripts/ggandy_common.sql`](../../scripts/ggandy_common.sql)（24 段，涵蓋聯絡人、物件、房間、租約、期次、逾期、帳單、報修、成本、總表、狀態一致性檢查）。
