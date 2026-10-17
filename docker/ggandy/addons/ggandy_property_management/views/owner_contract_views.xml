@@ -109,6 +109,10 @@
                         <group string="合約期間">
                             <field name="start_date" readonly="state != 'draft'"/>
                             <field name="end_date" readonly="state != 'draft'"/>
+                            <div colspan="2" class="text-end" invisible="state != 'active'">
+                                <button name="action_open_period_wizard" type="object" string="修改合約期間"
+                                        class="btn-link p-0" icon="fa-pencil" title="修改合約期間"/>
+                            </div>
                             <field name="owner_payment_day"/>
                             <field name="company_id" groups="base.group_multi_company" readonly="state != 'draft'"/>
                             <field name="currency_id" invisible="1"/>

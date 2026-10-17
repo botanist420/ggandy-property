@@ -62,6 +62,7 @@ docker exec ggandy_odoo19_web grep -n '<pattern>' /usr/lib/python3/dist-packages
 | `ggandy.lease.renew.wizard` | `models/lease_renew_wizard.py` | TransientModel；續約＝延長同一份租約，`_generate_rent_schedule(from_date=舊結束日+1)` 補收租明細 |
 | `ggandy.lease.terminate.wizard` | `models/lease_terminate_wizard.py` | TransientModel；提前終止填終止日，刪除終止日後未開單的收租明細 |
 | `ggandy.owner.bill.backfill.wizard` | `models/owner_bill_backfill_wizard.py` | TransientModel（＋ `.line`）；補開合約開始到這次結算日前缺的房東帳單（草稿，帳單日期＝各月結算日）；房東合約生效時自動跳出 |
+| `ggandy.owner.contract.period.wizard` | `models/owner_contract_period_wizard.py` | TransientModel；修改生效中房東合約的起訖（物件「修改管理期間」／合約「修改合約期間」），確認後同步物件，開始日前移有缺月就接補開精靈 |
 | `ggandy.rent.schedule` | `models/rent_schedule.py` | 收租明細（舊稱租金期次，2026-10-12 改名；程式識別字不變）；建客戶 Invoice；逾期活動；list header「登記收款」（草稿帳單收款時才過帳，接原生付款視窗） |
 | `ggandy.maintenance.request` | `models/maintenance_request.py` | 報修單 |
 | `ggandy.accounting.overview` | `models/accounting_overview.py` | 帳務總表，**每房間 × 每月一列**，`_auto = False` + `_table_query` 即時 SQL（可分組加總），唯讀 |
@@ -104,7 +105,8 @@ Cron 方法的慣例：逐筆 `try/except Exception` + `_logger.exception(...)`�
 - **水電設定以租約為準**：建立租約時從房間複製（`unit._get_utility_settings()`），收租明細與合約 PDF 都讀租約；改房間只同步到草稿租約，改租約只同步該租約未過帳的收租明細。
 - **已到期 (`expired`) 的租約仍參與收款與抄表**：逾期、開帳單、抄表、水電同步的 domain 都是 `active` + `expired`；新增類似查詢時別只寫 `state = 'active'`。
 - **房間狀態**只會在 `vacant`↔`occupied` 之間自動切換（`_refresh_from_active_leases`：今天落在 active 租約租期內才算 occupied；每日到期 cron 會全部重算一次），`reserved / maintenance / inactive` 尊重手動設定。
-- **房東合約生效**會回寫物件的 `management_mode`、`owner_id`、`acquisition_date`、`management_end_date`。
+- **房東合約生效**會回寫物件的 `management_mode`、`owner_id`。
+- **物件管理期間 ↔ 目前房東合約雙向連動**：`PROPERTY_SYNC_FIELDS`（`owner_contract.py`：`start_date↔acquisition_date`、`end_date↔management_end_date`、`owner_payment_day`）。目前合約＝`property.current_owner_contract_id`（active 優先，否則最新 draft）。兩邊 `write` 互相同步，context `ggandy_skip_period_sync` 防遞迴；active 合約的日期在畫面上走 `ggandy.owner.contract.period.wizard` 確認。
 - **重疊檢查**：同物件同期間只能一份 active 房東合約；同房間同期間只能一份 active 租約（`@api.constrains`）。
 - **帳單用的產品**以 xmlid 取得：`product_product_rent`、`product_product_management_fee`、`product_product_owner_settlement`（`data/product_data.xml`）。
 - **帳務總表**是 `_table_query` 的 SQL：沒有資料表、不用排程建列；新增金額欄位要改 SQL，並把來源欄位加進 `_depends`。`init()` 只會 drop 改版前留下的實體表。

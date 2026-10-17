@@ -40,8 +40,8 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | `management_mode` | master_lease（包租）/ agency（代管）（2026-10 取消 mixed） |
 | `owner_id` | 房東，domain `is_ggandy_owner = True`，`ondelete=restrict`（2026-10 取消共同屋主 `co_owner_ids`，舊 rel table `ggandy_property_co_owner_rel` 留在 DB 但不再使用） |
 | `manager_id` | 內部管理人員，逾期活動優先指派給他 |
-| `owner_payment_day` | 匯款給房東的日期（1–31，0 = 未設定），房東合約 create / onchange 時預設帶入 |
-| `acquisition_date` / `management_end_date` | 房東合約生效時回寫 |
+| `acquisition_date` / `management_end_date` / `owner_payment_day` | 跟目前房東合約的 `start_date` / `end_date` / `owner_payment_day` 雙向連動（見房東合約「管理期間連動」）；匯款日 0 = 未設定 |
+| `current_owner_contract_id` / `has_active_owner_contract` | 非 stored compute：目前房東合約＝active 優先（多份取期間涵蓋今天的，否則開始日最晚），沒有就最新 draft；`has_active_owner_contract` 給 view 鎖日期、顯示「修改管理期間」（`action_open_owner_period_wizard`） |
 | `has_open_owner_contract` | 非 stored compute：有 draft / active 房東合約即 True；False 時表單 header 顯示「新增房東合約」（`action_create_owner_contract`，與 `action_view_owner_contracts` 共用 `_get_owner_contract_default_context()`） |
 | `occupied_unit_count` / `occupancy_rate` | 非 stored compute（`_compute_occupancy`）：房間 `state == occupied` 的數量，出租率＝已出租 ÷ 非停用房間（整數 %），給物件 kanban 卡片與列表用 |
 | `analysis_html` | `models/property_analysis.py`：非 stored compute、`sanitize=False`，`_get_analysis_data()` 蒐集後用 QWeb `property_analysis`（`views/property_analysis_templates.xml`）渲染。期間 = 今天往前 365 天；租約只算 `EFFECTIVE_LEASE_STATES`；統計用標準庫 `statistics`（樣本標準差、`quantiles(method="inclusive")`、IQR 1.5 倍離群、|z| ≥ 1.5 標色）。付款延遲 = 應收分錄 `matched_credit_ids.max_date` − `due_date`；準時率 = 準時付清 ÷（已付清＋目前逾期）；時間加權出租率 = 各房間有效租約覆蓋天數（合併重疊、提前終止用 `termination_date`）÷（非停用房間數 × 365）；月度趨勢 `_read_group` 帳務總表；包租價差用 `_get_month_owner_contract()` 的 `guaranteed_rent` 。水電觀察的「用電突增／持續上升」（`_analysis_electricity_patterns`）：每間房每個電表月份的度數（排除 0 度與待抄表），相對用電 = 度數 ÷ 同月整棟中位數（同月 ≥ 3 間才算），用來排除夏天整棟一起變高；突增 = 最近一個月 ≥ 自己前 6 個月中位數 × 1.8、多 ≥ 100 度、相對用電 ≥ 1.3 且 ≥ 基準相對用電 × 1.5；持續上升 = 連續 4 個月相對用電遞增且末月 ≥ 首月 × 1.3（門檻都是檔案開頭常數）。分頁標題暫名「Lucas統計」；名詞說明在 `GLOSSARY`（表頭 `title` 提示＋頁尾 `<details>` 名詞解釋） |
@@ -81,7 +81,7 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 | --- | --- |
 | `owner_id` | 簽約房東，domain `is_ggandy_owner = True`（view context `default_is_ggandy_owner`，就地新建的聯絡人會勾好） |
 | `contract_type` | master_lease（包租）/ agency（代管） |
-| `owner_payment_day` | 房東匯款日＝每月結算日（1–31，預設 10，或從物件帶入） |
+| `owner_payment_day` | 房東匯款日＝每月結算日（1–31，預設 10，或從物件帶入；tracking） |
 | `guaranteed_rent` | 包租保底租金（生效前必填 > 0） |
 | `fee_type` / `fee_rate` / `fixed_fee` | 代管費：百分比（填 10 = 10%）或每月固定金額 |
 | `owner_deposit` | 公司付給房東的押金（僅記錄，不進結算） |
@@ -110,7 +110,11 @@ ggandy.accounting.overview（unit_id × period_start）── 讀取以上所有
 **帳單調整** `ggandy.owner.adjustment`（`models/owner_adjustment.py`）：`contract_id`（cascade）、`period_start`（create/write 一律存成該月 1 號）、`period_month`（stored compute＋inverse，畫面上輸入「2026-09」「2026/9」，create/write 先換成 `period_start` 再由 compute 統一格式）、`name`、`amount`（可負）、`note`；`property_id` / `company_id` / `currency_id` related stored，有多公司 rule。合約 form「帳單調整」分頁（editable list）。`_get_owner_settlement_lines()` 最後加上 `period_start` 相同的調整，每筆一行「YYYY-MM 調整：{name}」。
 調整和帳單明細行用 `account.move.line.ggandy_owner_adjustment_id`（set null）連起來：`_get_owner_settlement_line_specs()` 回傳 `(說明, 金額, 調整項)`，`_prepare_settlement_line_commands()` 建行時寫入連結，所以建帳單、重新計算（草稿整批換明細）都會自動連上。調整的 `is_applied` / `bill_id` 是 stored compute（依 `bill_line_ids.parent_state`，取消的帳單不算）。合約「插入帳單」→ `action_apply_adjustments_to_bills()`：對 `_get_pending_adjustments()`（未加入且該月已有未取消帳單）逐筆 `_add_to_bill()`，草稿帳單加一行（帳單上已有同說明同金額、沒連結的舊行就直接連上），已過帳略過並 sticky 提醒。已加入的調整 `write` 鎖定 period/name/amount、`unlink` 擋下；view 以 `decoration-muted` + `readonly="is_applied"` 呈現。
 
-**匯款日同步**：`property.write()` 改 `owner_payment_day`（非空）→ `_sync_owner_payment_day_to_contracts()` 更新該物件 active 房東合約的 `owner_payment_day` 並 `message_post`。
+**管理期間連動**：`PROPERTY_SYNC_FIELDS`（合約欄位 → 物件欄位：`start_date→acquisition_date`、`end_date→management_end_date`、`owner_payment_day→owner_payment_day`）。
+- `property.write()` 改到這些欄位 → `_sync_period_to_owner_contract()` 寫到 `current_owner_contract_id`（draft / active 都寫；物件值為空不同步，因合約必填）。
+- `owner_contract.create()` / `write()` 改到這些欄位 → `_sync_period_to_property()`，只在自己是物件的目前合約時回寫；`write` 有改 `state` 時連同物件新的目前合約一起同步（例如 active 到期 → 續約草稿接手）。`action_activate()` 只靠 state 變更同步，不再直接寫日期。
+- 兩邊都用 context `ggandy_skip_period_sync` 防遞迴，值相同不寫。
+- active 合約的日期：物件 form 鎖 `acquisition_date` / `management_end_date`，改用「修改管理期間」；合約 form 用「修改合約期間」（`action_open_period_wizard`）。精靈 `ggandy.owner.contract.period.wizard`（`models/owner_contract_period_wizard.py`）：`new_start_date` / `new_end_date`（compute＋readonly=False 預帶目前值）、`outside_bill_count`（未取消 in_invoice 的 `ggandy_settlement_period_start` 不在新期間內）；`action_confirm()` 寫合約（重疊／先後由 constrains 擋），active 且 `_get_missing_bill_periods()` 有缺月就回傳補開精靈。
 
 `_onchange_property_id()`：帶 owner、company、owner_payment_day、contract_type，以及 start_date ← `acquisition_date`、end_date ← `management_end_date`（只在空白時）；物件的房東合約 smart button context 也帶 `default_start_date` / `default_end_date`。
 

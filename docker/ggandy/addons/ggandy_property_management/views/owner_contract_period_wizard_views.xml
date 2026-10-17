@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ggandy_owner_contract_period_wizard_form" model="ir.ui.view">
+        <field name="name">ggandy.owner.contract.period.wizard.form</field>
+        <field name="model">ggandy.owner.contract.period.wizard</field>
+        <field name="arch" type="xml">
+            <form string="修改合約期間">
+                <div class="alert alert-warning py-2 mb-3" role="alert">
+                    這會更改生效中房東合約的合約期間，物件的開始管理日／管理截止日也會一起改。
+                    已開的房東帳單不會自動調整，確定要修改嗎？
+                </div>
+                <group>
+                    <group>
+                        <field name="contract_id"/>
+                        <field name="property_id"/>
+                        <field name="start_date"/>
+                        <field name="end_date"/>
+                    </group>
+                    <group>
+                        <field name="new_start_date" required="1"/>
+                        <field name="new_end_date" required="1"/>
+                        <field name="outside_bill_count" decoration-warning="outside_bill_count"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="確認修改" class="btn-primary" data-hotkey="q"/>
+                    <button string="取消" special="cancel" class="btn-secondary" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

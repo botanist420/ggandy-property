@@ -9,6 +9,13 @@ from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
+# 房東合約欄位 → 物件欄位：目前房東合約和物件管理資訊雙向連動
+PROPERTY_SYNC_FIELDS = {
+    "start_date": "acquisition_date",
+    "end_date": "management_end_date",
+    "owner_payment_day": "owner_payment_day",
+}
+
 
 class GgandyOwnerContract(models.Model):
     _name = "ggandy.owner.contract"
@@ -73,19 +80,23 @@ class GgandyOwnerContract(models.Model):
         string="合約開始",
         required=True,
         tracking=True,
-        help="合約從哪天開始。只有落在合約期間內的月份才會自動開房東帳單。",
+        help="合約從哪天開始。只有落在合約期間內的月份才會自動開房東帳單。"
+        "會同步到物件的「開始管理日」；生效後要改請按「修改合約期間」。",
     )
     end_date = fields.Date(
         string="合約結束",
         required=True,
         tracking=True,
-        help="房東合約最後一天。若結束日早於本月起始，系統不會再建立該合約的結算單。",
+        help="房東合約最後一天。若結束日早於本月起始，系統不會再建立該合約的結算單。"
+        "會同步到物件的「管理截止日」；生效後要改請按「修改合約期間」。",
     )
     owner_payment_day = fields.Integer(
         string="房東匯款日",
         default=10,
         required=True,
-        help="每月幾號匯款給房東（1–31，小月遇到 29–31 號就用月底）。系統會在這天自動開當月房東帳單；補開過去月份時，帳單日期也用這天。",
+        tracking=True,
+        help="每月幾號匯款給房東（1–31，小月遇到 29–31 號就用月底）。系統會在這天自動開當月房東帳單；補開過去月份時，帳單日期也用這天。"
+        "跟物件的「房東匯款日」連動。",
     )
 
     guaranteed_rent = fields.Monetary(
@@ -185,13 +196,33 @@ class GgandyOwnerContract(models.Model):
                 ) or "New"
         records = super().create(vals_list)
         records.mapped("owner_id").write({"is_ggandy_owner": True})
+        records._sync_period_to_property()
         return records
 
     def write(self, values):
         result = super().write(values)
         if "owner_id" in values:
             self.mapped("owner_id").write({"is_ggandy_owner": True})
+        if not self.env.context.get("ggandy_skip_period_sync"):
+            if "state" in values:
+                # 狀態變了，物件的目前房東合約可能換成另一份（例如生效中的到期、改由草稿接手）
+                (self | self.property_id.current_owner_contract_id)._sync_period_to_property()
+            elif any(field in values for field in PROPERTY_SYNC_FIELDS):
+                self._sync_period_to_property()
         return result
+
+    def _sync_period_to_property(self):
+        """這份合約是物件的目前房東合約時，合約期間與匯款日回寫到物件的管理資訊。"""
+        for record in self:
+            if record.property_id.current_owner_contract_id != record:
+                continue
+            values = {
+                property_field: record[contract_field]
+                for contract_field, property_field in PROPERTY_SYNC_FIELDS.items()
+                if record.property_id[property_field] != record[contract_field]
+            }
+            if values:
+                record.property_id.with_context(ggandy_skip_period_sync=True).write(values)
 
     @api.onchange("property_id")
     def _onchange_property_id(self):
@@ -255,13 +286,12 @@ class GgandyOwnerContract(models.Model):
                 if record.fee_type == "fixed" and record.fixed_fee <= 0:
                     raise UserError("代管合約生效前，請填寫每月固定代管費。")
 
+            # 生效後成為物件的目前房東合約，write 會把合約期間與匯款日同步到物件
             record.write({"state": "active"})
             record.property_id.write(
                 {
                     "management_mode": record.contract_type,
                     "owner_id": record.owner_id.id,
-                    "acquisition_date": record.start_date,
-                    "management_end_date": record.end_date,
                 }
             )
         # 合約從過去的月份起算時，生效後直接跳出補開歷史房東帳單
@@ -386,6 +416,17 @@ class GgandyOwnerContract(models.Model):
             "type": "ir.actions.act_window",
             "name": "補開歷史房東帳單",
             "res_model": "ggandy.owner.bill.backfill.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_contract_id": self.id},
+        }
+
+    def action_open_period_wizard(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "修改合約期間",
+            "res_model": "ggandy.owner.contract.period.wizard",
             "view_mode": "form",
             "target": "new",
             "context": {"default_contract_id": self.id},

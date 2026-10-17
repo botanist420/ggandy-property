@@ -3,6 +3,7 @@ from dateutil.relativedelta import relativedelta
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
+from .owner_contract import PROPERTY_SYNC_FIELDS
 from .rent_schedule import EFFECTIVE_LEASE_STATES
 
 
@@ -58,7 +59,7 @@ class GgandyProperty(models.Model):
     owner_payment_day = fields.Integer(
         string="房東匯款日",
         tracking=True,
-        help="每月幾號匯款給房東（1–31）。新增房東合約會帶入，之後改這裡也會同步到生效中的房東合約。",
+        help="每月幾號匯款給房東（1–31）。跟目前的房東合約連動：改這裡合約會跟著改，改合約這裡也會跟著改。",
     )
 
     owner_id = fields.Many2one(
@@ -106,12 +107,14 @@ class GgandyProperty(models.Model):
     acquisition_date = fields.Date(
         string="開始管理日",
         tracking=True,
-        help="公司開始管理這個物件的日期。房東合約生效時會同步更新；若手動改，記得確認合約也說得通。",
+        help="公司開始管理這個物件的日期，跟目前房東合約的「合約開始」連動。"
+        "合約生效後要改，請按「修改管理期間」，確認後合約會一起改。",
     )
     management_end_date = fields.Date(
         string="管理截止日",
         tracking=True,
-        help="預計管理到哪一天。可用來篩選即將到期的管理案件。",
+        help="預計管理到哪一天，跟目前房東合約的「合約結束」連動。"
+        "合約生效後要改，請按「修改管理期間」，確認後合約會一起改。",
     )
     note = fields.Html(string="內部備註")
 
@@ -203,6 +206,18 @@ class GgandyProperty(models.Model):
         compute="_compute_occupancy",
         help="今天已出租的房間 ÷ 房間數（不含停用房間）。",
     )
+    current_owner_contract_id = fields.Many2one(
+        "ggandy.owner.contract",
+        string="目前房東合約",
+        compute="_compute_current_owner_contract",
+        help="跟物件管理資訊連動的那份房東合約：有生效中的就用生效中的，沒有就用最新的草稿。"
+        "已到期、提前終止、已取消的合約不連動。",
+    )
+    has_active_owner_contract = fields.Boolean(
+        string="管理期間由生效中合約決定",
+        compute="_compute_current_owner_contract",
+        help="目前房東合約已生效時勾起來：開始管理日／管理截止日要透過「修改管理期間」改。",
+    )
     has_open_owner_contract = fields.Boolean(
         string="有進行中的房東合約",
         compute="_compute_has_open_owner_contract",
@@ -224,23 +239,47 @@ class GgandyProperty(models.Model):
         result = super().write(values)
         if "owner_id" in values:
             self.mapped("owner_id").write({"is_ggandy_owner": True})
-        if values.get("owner_payment_day"):
-            self._sync_owner_payment_day_to_contracts()
+        if not self.env.context.get("ggandy_skip_period_sync") and any(
+            field in values for field in PROPERTY_SYNC_FIELDS.values()
+        ):
+            self._sync_period_to_owner_contract()
         return result
 
-    def _sync_owner_payment_day_to_contracts(self):
-        """匯款日改了，生效中房東合約的結算日跟著改；草稿、已到期的合約不動。"""
+    def _sync_period_to_owner_contract(self):
+        """管理期間、匯款日改了，目前房東合約（生效中或草稿）跟著改。
+
+        匯款日清空時不同步（合約的匯款日必填）。生效中合約的日期在畫面上要經過「修改管理期間」確認。
+        """
         for record in self:
-            contracts = record.owner_contract_ids.filtered(
-                lambda contract: contract.state == "active"
-                and contract.owner_payment_day != record.owner_payment_day
-            )
-            for contract in contracts:
-                old_day = contract.owner_payment_day
-                contract.owner_payment_day = record.owner_payment_day
-                contract.message_post(
-                    body=f"房東匯款日由每月 {old_day} 號同步為 {record.owner_payment_day} 號。"
+            contract = record.current_owner_contract_id
+            if not contract:
+                continue
+            values = {
+                contract_field: record[property_field]
+                for contract_field, property_field in PROPERTY_SYNC_FIELDS.items()
+                if record[property_field] and contract[contract_field] != record[property_field]
+            }
+            if values:
+                contract.with_context(ggandy_skip_period_sync=True).write(values)
+
+    @api.depends("owner_contract_ids.state", "owner_contract_ids.start_date", "owner_contract_ids.end_date")
+    def _compute_current_owner_contract(self):
+        today = fields.Date.context_today(self)
+        for record in self:
+            contracts = record.owner_contract_ids.filtered(lambda contract: contract.state == "active")
+            if contracts:
+                covering = contracts.filtered(
+                    lambda contract: contract.start_date <= today <= contract.end_date
                 )
+                contract = (covering or contracts).sorted(
+                    lambda contract: (contract.start_date, contract.id), reverse=True
+                )[:1]
+            else:
+                contract = record.owner_contract_ids.filtered(
+                    lambda contract: contract.state == "draft"
+                ).sorted("id", reverse=True)[:1]
+            record.current_owner_contract_id = contract
+            record.has_active_owner_contract = contract.state == "active"
 
     @api.model
     def _get_current_schedule_domain(self):
@@ -431,6 +470,10 @@ class GgandyProperty(models.Model):
             # 從物件新增：物件、房東、合約類型照物件帶入並鎖定
             "context": {**self._get_owner_contract_default_context(), "ggandy_from_property": True},
         }
+
+    def action_open_owner_period_wizard(self):
+        self.ensure_one()
+        return self.current_owner_contract_id.action_open_period_wizard()
 
     def action_view_leases(self):
         self.ensure_one()

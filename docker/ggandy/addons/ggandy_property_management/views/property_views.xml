@@ -106,9 +106,16 @@
                     <group>
                         <group string="管理資訊">
                             <field name="manager_id" widget="many2one_avatar_user"/>
+                            <!-- 跟目前房東合約雙向連動，順序同房東合約「合約期間」；生效中合約的日期要經過確認精靈改 -->
+                            <field name="current_owner_contract_id" invisible="1"/>
+                            <field name="has_active_owner_contract" invisible="1"/>
+                            <field name="acquisition_date" readonly="has_active_owner_contract"/>
+                            <field name="management_end_date" readonly="has_active_owner_contract"/>
+                            <div colspan="2" class="text-end" invisible="not has_active_owner_contract">
+                                <button name="action_open_owner_period_wizard" type="object" string="修改管理期間"
+                                        class="btn-link p-0" icon="fa-pencil" title="修改管理期間"/>
+                            </div>
                             <field name="owner_payment_day"/>
-                            <field name="acquisition_date"/>
-                            <field name="management_end_date"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
